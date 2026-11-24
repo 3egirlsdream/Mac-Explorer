@@ -1,0 +1,226 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MacExplorer.Controls">
+    <!-- Gallery stage: symmetrically inset rounded mat matching floating sidebar geometry -->
+    <Style Selector="Border.gallery-stage">
+        <Setter Property="Background" Value="{DynamicResource GalleryStageBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GalleryCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="Margin" Value="10,8,10,0"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+
+    <!-- Floating liquid-glass control & metadata pill (concentric 38px pill around 30px circular buttons) -->
+    <Style Selector="Border.gallery-floating-bar">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Padding" Value="10,4,5,4"/>
+        <Setter Property="ClipToBounds" Value="False"/>
+        <Setter Property="controls:PopupGlass.IsEnabled" Value="True"/>
+        <Setter Property="controls:PopupGlass.IsFloating" Value="True"/>
+    </Style>
+    <Style Selector="Border.gallery-counter-pill">
+        <Setter Property="Background" Value="{DynamicResource GalleryCounterPillBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.gallery-counter-text">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeMeta}"/>
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeightMedium}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.gallery-bar-name">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeightMedium}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.gallery-bar-meta">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeMeta}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.gallery-bar-divider">
+        <Setter Property="Width" Value="1"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="Margin" Value="4,0"/>
+        <Setter Property="Background" Value="{DynamicResource WorkspaceDividerBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.gallery-tag-dot">
+        <Setter Property="Width" Value="7"/>
+        <Setter Property="Height" Value="7"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Gallery image canvas styling -->
+    <Style Selector="controls|GalleryImageCanvas">
+        <Setter Property="CheckerLightBrush" Value="{DynamicResource GalleryCheckerLightBrush}"/>
+        <Setter Property="CheckerDarkBrush" Value="{DynamicResource GalleryCheckerDarkBrush}"/>
+        <Setter Property="FrameBorderBrush" Value="{DynamicResource GalleryFrameBorderBrush}"/>
+        <Setter Property="StageShadow" Value="{DynamicResource GalleryStageShadow}"/>
+    </Style>
+
+    <!-- Folder collage & non-previewable file cards -->
+    <Style Selector="Border.gallery-folder-card">
+        <Setter Property="Background" Value="{DynamicResource GalleryCardSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GalleryCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusXl}"/>
+        <Setter Property="Padding" Value="20,18"/>
+        <Setter Property="MaxWidth" Value="420"/>
+        <Setter Property="MinWidth" Value="300"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource GalleryStageShadow}"/>
+    </Style>
+    <Style Selector="Border.gallery-folder-collage">
+        <Setter Property="Background" Value="{DynamicResource GalleryTileSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GalleryTileBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="Padding" Value="8"/>
+        <Setter Property="Width" Value="240"/>
+        <Setter Property="Height" Value="164"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+    <Style Selector="Border.gallery-collage-tile">
+        <Setter Property="Background" Value="{DynamicResource GalleryCardSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GalleryTileBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+    <Style Selector="Border.gallery-placeholder-card">
+        <Setter Property="Background" Value="{DynamicResource GalleryCardSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GalleryCardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusXl}"/>
+        <Setter Property="Padding" Value="26,22"/>
+        <Setter Property="MinWidth" Value="260"/>
+        <Setter Property="MaxWidth" Value="420"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource GalleryStageShadow}"/>
+    </Style>
+
+    <!-- Resizable splitter between rounded stage and filmstrip -->
+    <Style Selector="Border.gallery-splitter">
+        <Setter Property="Height" Value="12"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="SizeNorthSouth"/>
+    </Style>
+    <Style Selector="Border.gallery-splitter-pill">
+        <Setter Property="Width" Value="36"/>
+        <Setter Property="Height" Value="3"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Background" Value="{DynamicResource GallerySplitterHandleBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.gallery-splitter:pointerover Border.gallery-splitter-pill">
+        <Setter Property="Background" Value="{DynamicResource GallerySplitterHandleHoverBrush}"/>
+    </Style>
+
+    <!-- Filmstrip container & edge fades -->
+    <Style Selector="Border.gallery-strip-host">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Border.gallery-edge-fade-left">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Background" Value="{DynamicResource GalleryEdgeFadeLeftBrush}"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+    <Style Selector="Border.gallery-edge-fade-right">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Background" Value="{DynamicResource GalleryEdgeFadeRightBrush}"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+    </Style>
+
+    <!-- Filmstrip list & refined tile states -->
+    <Style Selector="ListBox.gallery-strip">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="12,4,12,6"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem">
+        <Setter Property="Padding" Value="2,4,2,2"/>
+        <Setter Property="Margin" Value="3,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style Selector="Border.gallery-thumb-frame">
+        <Setter Property="Background" Value="{DynamicResource GalleryTileSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GalleryTileBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+        <Setter Property="Padding" Value="5"/>
+        <Setter Property="RenderTransform" Value="translateY(0px) scale(1)"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:pointerover Border.gallery-thumb-frame">
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderStrong}"/>
+        <Setter Property="RenderTransform" Value="translateY(-1px) scale(1.02)"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:selected Border.gallery-thumb-frame">
+        <Setter Property="BorderBrush" Value="{DynamicResource GallerySelectedRingBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource GallerySelectedShadow}"/>
+        <Setter Property="RenderTransform" Value="translateY(-2px) scale(1.04)"/>
+    </Style>
+
+    <Style Selector="Border.gallery-label-pill">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        <Setter Property="Padding" Value="4,1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:selected Border.gallery-label-pill">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
+    <Style Selector="ListBox.gallery-strip ListBoxItem:selected TextBlock.gallery-item-name">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeightMedium}"/>
+    </Style>
+
+    <Style Selector="Border.gallery-media-badge">
+        <Setter Property="Background" Value="{DynamicResource GalleryMediaBadgeBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Margin" Value="0,1,1,0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="controls|HomeFileImage.gallery-thumbnail">
+        <Setter Property="ThumbnailShadow" Value="{DynamicResource ThumbnailShadow}"/>
+    </Style>
+</Styles>

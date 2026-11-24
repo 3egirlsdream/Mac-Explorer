@@ -185,7 +185,7 @@ feat: 优化文件夹恢复
 
 - 普通文件夹与照片封面统一通过 `SvgIconCache.RenderFolderPng` 使用 macOS 系统蓝色文件夹底图；照片封面仅叠加预览，不另画文件夹或口袋遮挡。原生图标不可用时共用蓝色 Fluent 文件夹回退，不恢复旧黄色图标。
 
-- 图标视图通过状态栏右下角的 Fluent Resize 按钮打开缩略图大小弹层，也可用 Ctrl＋滚轮切换 32／56／96／128pt 与画廊档；网格复用 `FastFileList` 几何、屏幕倍率分档和位图缓存。画廊底部复用 `HomeFileImage` 与横向虚拟化列表，上方复用 `SuperPreviewView` 单文件内容和原生文档预览，随选择取消过期任务，页签隐藏时释放预览资源。
+- 图标视图通过状态栏右下角的 Fluent Resize 按钮打开缩略图大小弹层，也可用 Ctrl＋滚轮切换 32／56／96／128pt 与画廊档；网格复用 `FastFileList` 几何、屏幕倍率分档和位图缓存。画廊样式集中在 `Assets/GalleryStyles.axaml`，采用对称圆角展台 `gallery-stage`、可拖拽调高胶片条（`84–168px`）、文件夹 2×2 拼贴卡及边缘渐隐；画廊与空格超级预览共用 `GalleryImageCanvas`（柔和投影、90° 旋转、透明图自动棋盘格）和统一悬浮玻璃操作栏 `PreviewActionBar`（含 `FluentIcon` 24×24 等比图标、`gallery-bar-btn`、快捷标签与更多弹层），信息面板展开时自动收起重复名称并平衡右边距；视频在画廊默认显示静态缩略图并支持按需就地播放，随选择取消过期任务，页签隐藏时释放预览资源。
 - 缩略图大小弹层复用 `context-submenu-surface` 与全局 `Slider.compact-slider`，使用 24pt 胶囊轨道、蓝色进度、灰色底轨、五个圆点和 28pt 白色圆形滑块；蓝色进度绘制到滑块中心下方。刻度上方显示对应尺寸或画廊名称；拖动时滑块与进度连续跟随指针，松手时吸附到最近的刻度并应用，点击刻度和方向键也可切换，点外部或 Escape 收起。
 - 缩略图刻度和状态栏文字共用 `FontFamilyUi`、`FontSizeCaption` 与 `LineHeightCaption`，统一中英文排版；状态栏的文字、状态圆点和按钮沿同一中心线垂直居中。
 

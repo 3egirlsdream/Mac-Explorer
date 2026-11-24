@@ -1,28 +1,121 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls"
+             xmlns:local="using:MacExplorer.Views"
              xmlns:loc="using:MacExplorer.Controls"
+             xmlns:icons="using:MacExplorer.Assets"
              x:Class="MacExplorer.Views.FileGalleryView">
-    <Grid RowDefinitions="*,Auto">
-        <ContentControl x:Name="GalleryPreviewHost" Margin="12" HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch"/>
-        <StackPanel x:Name="GalleryPlaceholder" Margin="12" Spacing="8"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
-            <Viewbox Width="144" Height="144" Stretch="Uniform">
-                <ContentControl x:Name="GalleryPlaceholderImage"/>
-            </Viewbox>
-            <TextBlock x:Name="GalleryPlaceholderName" FontSize="{DynamicResource FontSizeTitle}"
-                       TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="400"/>
-            <TextBlock x:Name="GalleryPlaceholderKind" FontSize="{DynamicResource FontSizeLabel}"
-                       Foreground="{DynamicResource TextMutedBrush}" TextAlignment="Center"/>
-        </StackPanel>
-        <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource WorkspaceDividerBrush}">
-            <ListBox x:Name="GalleryStrip" Classes="gallery-strip" Height="96" SelectionMode="Single" Focusable="True"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                     AutomationProperties.Name="{loc:Loc file_gallery.filmstrip}">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate><VirtualizingStackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-            </ListBox>
+    <Grid RowDefinitions="*,Auto,Auto">
+        <!-- Main Symmetrical Rounded Gallery Stage -->
+        <Border Grid.Row="0" x:Name="GalleryStage" Classes="gallery-stage">
+            <Grid>
+                <!-- Main Preview Host (leaves bottom breathing room for floating glass bar + shadow) -->
+                <ContentControl x:Name="GalleryPreviewHost" Margin="16,14,16,68"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+
+                <!-- Folder Collage Preview Card -->
+                <Border x:Name="GalleryFolderCard" Classes="gallery-folder-card" IsVisible="False"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,14,16,68">
+                    <StackPanel Spacing="12" HorizontalAlignment="Center">
+                        <Border Classes="gallery-folder-collage" HorizontalAlignment="Center">
+                            <Grid>
+                                <UniformGrid x:Name="GalleryFolderCollageGrid" Rows="2" Columns="2"/>
+                                <Viewbox x:Name="GalleryFolderEmptyIcon" Width="96" Height="96"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False">
+                                    <ContentControl x:Name="GalleryFolderIconHost"/>
+                                </Viewbox>
+                            </Grid>
+                        </Border>
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <controls:FileNameText x:Name="GalleryFolderName" FontSize="{DynamicResource FontSizeTitle}"
+                                                   FontWeight="{StaticResource FontWeightSemibold}"
+                                                   TextAlignment="Center" MaxWidth="360"/>
+                            <TextBlock x:Name="GalleryFolderMeta" FontSize="{DynamicResource FontSizeLabel}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                        </StackPanel>
+                        <controls:AppButton x:Name="GalleryFolderOpenButton" Classes="secondary compact"
+                                            HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <PathIcon Data="{x:Static icons:Icons.Open}" Width="14" Height="14"/>
+                                <TextBlock Text="{loc:Loc file_gallery.open_folder}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </controls:AppButton>
+                    </StackPanel>
+                </Border>
+
+                <!-- Fallback File Summary Card -->
+                <Border x:Name="GalleryPlaceholder" Classes="gallery-placeholder-card" IsVisible="False"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,14,16,68">
+                    <StackPanel Spacing="10" HorizontalAlignment="Center">
+                        <Viewbox Width="112" Height="112" Stretch="Uniform" HorizontalAlignment="Center">
+                            <ContentControl x:Name="GalleryPlaceholderImage"/>
+                        </Viewbox>
+                        <StackPanel Spacing="3" HorizontalAlignment="Center">
+                            <controls:FileNameText x:Name="GalleryPlaceholderName" FontSize="{DynamicResource FontSizeTitle}"
+                                                   FontWeight="{StaticResource FontWeightSemibold}"
+                                                   TextAlignment="Center" MaxWidth="360"/>
+                            <TextBlock x:Name="GalleryPlaceholderKind" FontSize="{DynamicResource FontSizeLabel}"
+                                       Foreground="{DynamicResource TextMutedBrush}" TextAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Hover Glass Previous / Next Step Arrows -->
+                <Border x:Name="GalleryPreviousSlot" Classes="preview-step-slot" HorizontalAlignment="Left"
+                        Margin="8,0,0,42" IsVisible="False">
+                    <Border Classes="preview-step-zone">
+                        <controls:AppButton x:Name="GalleryPreviousButton" Classes="ghost preview-step-button"
+                                            AutomationProperties.Name="{loc:Loc preview.previous-file}"
+                                            ToolTip.Tip="{loc:Loc preview.previous-file}">
+                            <Border Classes="preview-step-glass">
+                                <PathIcon Width="24" Height="24" FlowDirection="LeftToRight"
+                                          Data="{x:Static icons:Icons.ChevronRightGeometry}" RenderTransform="scale(-1,1)"/>
+                            </Border>
+                        </controls:AppButton>
+                    </Border>
+                </Border>
+                <Border x:Name="GalleryNextSlot" Classes="preview-step-slot" HorizontalAlignment="Right"
+                        Margin="0,0,8,42" IsVisible="False">
+                    <Border Classes="preview-step-zone">
+                        <controls:AppButton x:Name="GalleryNextButton" Classes="ghost preview-step-button"
+                                            AutomationProperties.Name="{loc:Loc preview.next-file}"
+                                            ToolTip.Tip="{loc:Loc preview.next-file}">
+                            <Border Classes="preview-step-glass">
+                                <PathIcon Width="24" Height="24" FlowDirection="LeftToRight"
+                                          Data="{x:Static icons:Icons.ChevronRightGeometry}"/>
+                            </Border>
+                        </controls:AppButton>
+                    </Border>
+                </Border>
+
+                <!-- Unified Floating Liquid-Glass Action Bar (shared with SuperPreviewView) -->
+                <local:PreviewActionBar x:Name="GalleryActionBar"
+                                        HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                        Margin="14,0,14,14" IsVisible="False"/>
+            </Grid>
+        </Border>
+
+        <!-- Resizable Splitter Between Stage and Filmstrip -->
+        <Border Grid.Row="1" x:Name="GalleryStripSplitter" Classes="gallery-splitter"
+                ToolTip.Tip="{loc:Loc file_gallery.resize_strip_tip}">
+            <Border Classes="gallery-splitter-pill"/>
+        </Border>
+
+        <!-- Filmstrip Container with Edge Fade Overlays -->
+        <Border Grid.Row="2" Classes="gallery-strip-host">
+            <Grid>
+                <ListBox x:Name="GalleryStrip" Classes="gallery-strip" Height="108" SelectionMode="Single" Focusable="True"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         AutomationProperties.Name="{loc:Loc file_gallery.filmstrip}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate><VirtualizingStackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                </ListBox>
+                <Border x:Name="GalleryEdgeFadeLeft" Classes="gallery-edge-fade-left" IsVisible="False"/>
+                <Border x:Name="GalleryEdgeFadeRight" Classes="gallery-edge-fade-right" IsVisible="False"/>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

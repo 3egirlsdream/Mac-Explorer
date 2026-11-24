@@ -22,4 +22,7 @@ internal static class AppToast
 
     internal static void ShowError(Window window, string message) => For(window).Show(
         new Notification(LocalizationText.Get("操作失败"), message, NotificationType.Error, TimeSpan.FromSeconds(8)));
+
+    internal static void ShowSuccess(Window window, string message) => For(window).Show(
+        new Notification(message, string.Empty, NotificationType.Success, TimeSpan.FromSeconds(2.5)));
 }

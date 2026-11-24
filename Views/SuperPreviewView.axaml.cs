@@ -39,11 +39,42 @@ public partial class SuperPreviewView : UserControl
     private bool _ignoreSelection;
     private Control? _previousFocus;
     private int _operationVersion;
+    private static readonly HashSet<string> TransparentImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".ico", ".svg", ".svgz", ".webp", ".gif", ".icns", ".tif", ".tiff"
+    };
+
     private readonly bool _isCompactPreview;
     private readonly bool _isGalleryPreview;
+    private int _galleryRotationDegrees;
+    private bool _galleryShowCheckerboard;
+    private bool? _checkerboardOverride;
+    private ViewModels.FileListViewModel? _fileListContext;
+    private CancellationTokenSource? _overlayTagCts;
     private readonly MemoryDiagnosticLifetime? _memoryLifetime;
+    private bool UseEnhancedImageCanvas => !_isCompactPreview || _isGalleryPreview;
     internal long DiagnosticId => _memoryLifetime?.Id ?? 0;
     internal void ReleaseDiagnosticLifetime() => _memoryLifetime?.SetState(DiagnosticObjectState.Released);
+    internal bool HasGalleryImage => UseEnhancedImageCanvas && _previewBitmap != null && (GalleryImageCanvas.IsVisible || ZoomedImageScroll.IsVisible);
+    internal PixelSize? GalleryImagePixelSize => _previewBitmap?.PixelSize;
+    internal bool IsGalleryImageZoomed => ZoomedImageScroll.IsVisible;
+    internal int GalleryImageRotation => _galleryRotationDegrees;
+    internal bool CanCopyPreviewText => _loadedPreviewText != null;
+    internal bool CanJumpToFirstPage => _documentPreview != null;
+    internal bool GalleryShowCheckerboard
+    {
+        get => _galleryShowCheckerboard;
+        set
+        {
+            if (_galleryShowCheckerboard == value) return;
+            _galleryShowCheckerboard = value;
+            SyncGalleryImageCanvas();
+            GalleryImageStateChanged?.Invoke();
+        }
+    }
+    internal event Action? GalleryImageStateChanged;
+
+    internal void AttachFileListContext(ViewModels.FileListViewModel? fileList) => _fileListContext = fileList;
 
     public event EventHandler? RequestClose;
 
@@ -61,6 +92,19 @@ public partial class SuperPreviewView : UserControl
         _isGalleryPreview = isGalleryPreview;
         if (isCompactPreview)
             ConfigureCompactLayout();
+        if (UseEnhancedImageCanvas)
+        {
+            GalleryImageCanvas.DoubleTapped += (_, e) =>
+            {
+                ToggleGalleryZoom();
+                e.Handled = true;
+            };
+            GalleryZoomedCanvas.DoubleTapped += (_, e) =>
+            {
+                ToggleGalleryZoom();
+                e.Handled = true;
+            };
+        }
         ItemsList.ItemsSource = _entries;
         PreviewContentGrid.SizeChanged += (_, _) => UpdatePreviewColumns();
         if (!isCompactPreview)
@@ -89,11 +133,15 @@ public partial class SuperPreviewView : UserControl
     private void ConfigureCompactLayout()
     {
         Focusable = false;
+        PreviewBackdrop.Classes.Remove("preview-backdrop");
         PreviewBackdrop.Background = Brushes.Transparent;
         PreviewBackdrop.Padding = new Thickness(0);
+        Shell.Classes.Remove("super-preview-shell");
+        Shell.ClearValue(Border.BackgroundProperty);
         Shell.Background = Brushes.Transparent;
         Shell.BorderThickness = new Thickness(0);
         Shell.BoxShadow = new BoxShadows();
+        Shell.CornerRadius = new CornerRadius(0);
         PreviewHeader.IsVisible = false;
         BackButton.IsVisible = false;
         ClosePreviewButton.IsVisible = false;
@@ -481,12 +529,20 @@ public partial class SuperPreviewView : UserControl
                 if (version != _operationVersion || token.IsCancellationRequested || !IsVisible) { bitmap?.Dispose(); return; }
                 if (bitmap == null) { ShowPlaceholder(LocalizationText.Get("preview.unavailable")); return; }
                 SetPreviewBitmap(bitmap);
-                PreviewImage.IsVisible = true;
+                if (UseEnhancedImageCanvas && !_isGalleryPreview)
+                {
+                    var ext = Path.GetExtension(entry.Name);
+                    _galleryShowCheckerboard = _checkerboardOverride ?? TransparentImageExtensions.Contains(ext);
+                    SyncGalleryImageCanvas();
+                }
+                PreviewImage.IsVisible = !UseEnhancedImageCanvas;
+                GalleryImageCanvas.IsVisible = UseEnhancedImageCanvas;
                 PreviewPlaceholder.IsVisible = false;
                 PreviewTextScroll.IsVisible = false;
                 FolderSummary.IsVisible = false;
                 UpdatePreviewToolbar();
                 AnimatePreviewContentTransition();
+                if (_isGalleryPreview) GalleryImageStateChanged?.Invoke();
                 return;
             }
 
@@ -704,6 +760,18 @@ public partial class SuperPreviewView : UserControl
         if (_isGalleryPreview) return;
         if (e.Key == Key.Escape)
         {
+            if (PreviewToolbar.IsAnyPopupOpen)
+            {
+                PreviewToolbar.CloseTagPopup();
+                e.Handled = true;
+                return;
+            }
+            if (IsGalleryImageZoomed)
+            {
+                ResetGalleryZoom();
+                e.Handled = true;
+                return;
+            }
             Close();
             e.Handled = true;
             return;
@@ -714,6 +782,38 @@ public partial class SuperPreviewView : UserControl
             Close();
             e.Handled = true;
             return;
+        }
+
+        if (e.Key == Key.R && HasGalleryImage && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift)
+        {
+            RotateGalleryImage(e.KeyModifiers == KeyModifiers.Shift ? -90 : 90);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Key == Key.Z && HasGalleryImage)
+            {
+                ToggleGalleryZoom();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.C && HasGalleryImage)
+            {
+                var next = !GalleryShowCheckerboard;
+                _checkerboardOverride = next;
+                GalleryShowCheckerboard = next;
+                UpdatePreviewToolbar();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.T && _fileListContext?.FileTagService != null && _selectedEntry is { IsVirtual: false } tagTarget)
+            {
+                PreviewToolbar.ToggleTagPopup(_fileListContext, tagTarget.FullPath);
+                e.Handled = true;
+                return;
+            }
         }
 
         if (e.Key == Key.Back && (_history.Count > 0 || _selectedNode?.Parent != null))
@@ -734,6 +834,77 @@ public partial class SuperPreviewView : UserControl
     private static bool IsVideoFile(FileSystemEntry entry)
         => MacExplorer.Services.Impl.FileIconResolver.ResolveIconKey(Path.GetExtension(entry.Name), entry.Name) == "file-video";
 
+    internal void ToggleGalleryZoom()
+    {
+        if (!HasGalleryImage) return;
+        ToggleImageZoom();
+        if (_isGalleryPreview) GalleryImageStateChanged?.Invoke();
+    }
+
+    internal void ResetGalleryZoom()
+    {
+        if (!ZoomedImageScroll.IsVisible) return;
+        ToggleImageZoom();
+        if (_isGalleryPreview) GalleryImageStateChanged?.Invoke();
+    }
+
+    internal void RotateGalleryImage(int deltaDegrees)
+    {
+        if (!HasGalleryImage) return;
+        _galleryRotationDegrees = GalleryImageCanvas.NormalizeRotation(_galleryRotationDegrees + deltaDegrees);
+        SyncGalleryImageCanvas();
+        if (ZoomedImageScroll.IsVisible) SizeZoomedImage();
+        UpdatePreviewToolbar();
+        if (_isGalleryPreview) GalleryImageStateChanged?.Invoke();
+    }
+
+    internal void NavigateDocumentFirstPage() => _documentPreview?.NavigateTo(1, string.Empty);
+
+    internal Task CopyLoadedTextAsync() => CopyPreviewTextAsync(_loadedPreviewText);
+
+    internal async Task CopyCurrentImageAsync()
+    {
+        if (_previewBitmap is not { } bitmap || App.Services?.GetService<IClipboardService>() is not { } clipboard) return;
+        byte[] bytes;
+        using (var ms = new MemoryStream())
+        {
+            bitmap.Save(ms);
+            bytes = ms.ToArray();
+        }
+        if (_galleryRotationDegrees != 0)
+            bytes = RotatePngBytes(bytes, _galleryRotationDegrees);
+        await clipboard.CopyImageAsync(bytes);
+        if (TopLevel.GetTopLevel(this) is Window window)
+            AppToast.ShowSuccess(window, LocalizationText.Get("file_gallery.copied_image"));
+    }
+
+    private static byte[] RotatePngBytes(byte[] pngBytes, int degrees)
+    {
+        using var src = SkiaSharp.SKBitmap.Decode(pngBytes);
+        if (src == null) return pngBytes;
+        var swapped = degrees is 90 or 270;
+        var w = swapped ? src.Height : src.Width;
+        var h = swapped ? src.Width : src.Height;
+        using var dst = new SkiaSharp.SKBitmap(w, h, src.ColorType, src.AlphaType);
+        using var canvas = new SkiaSharp.SKCanvas(dst);
+        canvas.Clear(SkiaSharp.SKColors.Transparent);
+        canvas.Translate(w / 2f, h / 2f);
+        canvas.RotateDegrees(degrees);
+        canvas.Translate(-src.Width / 2f, -src.Height / 2f);
+        canvas.DrawBitmap(src, 0, 0);
+        using var img = SkiaSharp.SKImage.FromBitmap(dst);
+        using var encoded = img.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        return encoded.ToArray();
+    }
+
+    private void SyncGalleryImageCanvas()
+    {
+        GalleryImageCanvas.RotationDegrees = _galleryRotationDegrees;
+        GalleryImageCanvas.ShowCheckerboard = _galleryShowCheckerboard;
+        GalleryZoomedCanvas.RotationDegrees = _galleryRotationDegrees;
+        GalleryZoomedCanvas.ShowCheckerboard = _galleryShowCheckerboard;
+    }
+
     private void SetPreviewBitmap(Bitmap? bitmap)
     {
         ClearDiffPreview();
@@ -741,11 +912,17 @@ public partial class SuperPreviewView : UserControl
         ClearDocumentPreview();
         ClearMarkdownPreview();
         _loadedPreviewText = null;
+        _galleryRotationDegrees = 0;
         ZoomedImage.Source = null;
+        GalleryZoomedCanvas.Source = null;
+        GalleryZoomedCanvas.IsVisible = false;
         ZoomedImageScroll.IsVisible = false;
         var previous = _previewBitmap;
         _previewBitmap = bitmap;
-        PreviewImage.Source = bitmap;
+        PreviewImage.Source = UseEnhancedImageCanvas ? null : bitmap;
+        GalleryImageCanvas.Source = UseEnhancedImageCanvas ? bitmap : null;
+        if (bitmap == null) GalleryImageCanvas.IsVisible = false;
+        else if (UseEnhancedImageCanvas) SyncGalleryImageCanvas();
         previous?.Dispose();
     }
 
@@ -759,6 +936,9 @@ public partial class SuperPreviewView : UserControl
     private void CloseResources()
     {
         CancelLoad();
+        CancelOverlayTags();
+        _checkerboardOverride = null;
+        if (!_isCompactPreview) PreviewToolbar.CloseTagPopup();
         ResetEntryPreview();
         if (!_isCompactPreview)
         {
@@ -777,9 +957,18 @@ public partial class SuperPreviewView : UserControl
         _previewCts?.Cancel();
         _previewCts?.Dispose();
         _previewCts = null;
+        _galleryVideoPath = null;
+        _galleryVideoEntry = null;
         SetPreviewBitmap(null);
         DeleteSelectedTemporaryFile();
         PreviewText.Text = string.Empty;
+    }
+
+    private void CancelOverlayTags()
+    {
+        _overlayTagCts?.Cancel();
+        _overlayTagCts?.Dispose();
+        _overlayTagCts = null;
     }
 
     private void DeleteSelectedTemporaryFile()

@@ -1,0 +1,137 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls"
+             xmlns:loc="using:MacExplorer.Controls"
+             xmlns:icons="using:MacExplorer.Assets"
+             ClipToBounds="False"
+             x:Class="MacExplorer.Views.PreviewActionBar">
+    <Grid ClipToBounds="False">
+        <Border x:Name="BarSurface" Classes="gallery-floating-bar" ClipToBounds="False">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <StackPanel x:Name="ContextCluster" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Border x:Name="CounterPill" Classes="gallery-counter-pill" IsVisible="False">
+                        <TextBlock x:Name="CounterText" Classes="gallery-counter-text"/>
+                    </Border>
+                    <StackPanel x:Name="IdentityStack" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <controls:FileNameText x:Name="NameText" Classes="gallery-bar-name" MaxWidth="190"/>
+                        <TextBlock x:Name="MetaText" Classes="gallery-bar-meta" MaxWidth="220"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel x:Name="TagDotsPanel" Orientation="Horizontal" Spacing="4"
+                                VerticalAlignment="Center" IsVisible="False"/>
+                </StackPanel>
+
+                <Border x:Name="ContextDivider" Classes="gallery-bar-divider" IsVisible="False"/>
+
+                <StackPanel x:Name="ActionButtons" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <controls:AppButton x:Name="BranchButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc preview.action.expand}"
+                                        ToolTip.Tip="{loc:Loc preview.action.expand}">
+                        <controls:FluentIcon x:Name="BranchIcon" Data="{x:Static icons:Icons.ChevronDown}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="PlayVideoButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.play_video}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.play_video_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Play}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppToggleButton x:Name="ZoomButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                              AutomationProperties.Name="{loc:Loc file_gallery.action.zoom}"
+                                              ToolTip.Tip="{loc:Loc file_gallery.action.zoom_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Resize}" Width="16" Height="16"/>
+                    </controls:AppToggleButton>
+                    <controls:AppButton x:Name="RotateButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.rotate}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.rotate_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.RotateClockwise}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppToggleButton x:Name="CheckerButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                              AutomationProperties.Name="{loc:Loc file_gallery.action.checkerboard}"
+                                              ToolTip.Tip="{loc:Loc file_gallery.action.checkerboard_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Checkerboard}" Width="16" Height="16"/>
+                    </controls:AppToggleButton>
+                    <controls:AppButton x:Name="CopyImageButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.copy_image}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.copy_image_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Copy}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="CopyTextButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc preview.action.copy-text}"
+                                        ToolTip.Tip="{loc:Loc preview.action.copy-text.tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Copy}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="FirstPageButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc preview.action.first-page}"
+                                        ToolTip.Tip="{loc:Loc preview.action.first-page}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.FilePdf}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="ExtractButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc preview.action.extract}"
+                                        ToolTip.Tip="{loc:Loc preview.action.extract.tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Extract}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="TagButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.tag}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.tag_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Tag}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="OpenButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.open}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.open_tip}">
+                        <controls:FluentIcon x:Name="OpenIcon" Data="{x:Static icons:Icons.Open}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="QuickLookButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.quick_look}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.quick_look_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.ExpandPreview}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppToggleButton x:Name="InfoButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                              AutomationProperties.Name="{loc:Loc file_gallery.action.info}"
+                                              ToolTip.Tip="{loc:Loc file_gallery.action.info_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Info}" Width="16" Height="16"/>
+                    </controls:AppToggleButton>
+                    <controls:AppButton x:Name="DeleteButton" Classes="ghost gallery-bar-btn danger-action" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.delete}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.delete_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.Delete}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="MoreButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc file_gallery.action.more}"
+                                        ToolTip.Tip="{loc:Loc file_gallery.action.more_tip}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.MoreHorizontal}" Width="16" Height="16"/>
+                    </controls:AppButton>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Popup x:Name="TagPopup" Placement="Top" PlacementTarget="TagButton"
+               VerticalOffset="-4" IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True"
+               WindowManagerAddShadowHint="False">
+            <Border Classes="context-submenu-surface">
+                <ContentControl x:Name="TagHost"/>
+            </Border>
+        </Popup>
+
+        <Popup x:Name="MorePopup" Placement="TopEdgeAlignedRight" PlacementTarget="MoreButton"
+               VerticalOffset="4" IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True"
+               WindowManagerAddShadowHint="False">
+            <Border Classes="toolbar-popup" MinWidth="172">
+                <StackPanel Spacing="2">
+                    <controls:AppButton x:Name="RevealMenuItem" Classes="toolbar-popup-item"
+                                        AutomationProperties.Name="{loc:Loc preview.action.reveal}">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <controls:FluentIcon Data="{x:Static icons:Icons.Location}" Width="16" Height="16"/>
+                            <TextBlock Text="{loc:Loc preview.action.reveal}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="CopyPathMenuItem" Classes="toolbar-popup-item"
+                                        AutomationProperties.Name="{loc:Loc ui.355}">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <controls:FluentIcon Data="{x:Static icons:Icons.CopyPath}" Width="16" Height="16"/>
+                            <TextBlock Text="{loc:Loc ui.355}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </controls:AppButton>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

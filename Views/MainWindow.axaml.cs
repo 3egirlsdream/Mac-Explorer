@@ -889,6 +889,7 @@ public partial class MainWindow : AppWindow
         {
             SuperPreviewControl.PasswordPrompt = fileList.RequestArchivePasswordAsync;
             SuperPreviewControl.ExtractToNamedFolder = fileList.ExtractToNamedFolder;
+            SuperPreviewControl.AttachFileListContext(fileList);
         }
         await SuperPreviewControl.OpenAsync(entry, fileList?.GetSelectableEntries());
     }
@@ -899,6 +900,7 @@ public partial class MainWindow : AppWindow
             return;
         SuperPreviewControl.PasswordPrompt = null;
         SuperPreviewControl.ExtractToNamedFolder = null;
+        SuperPreviewControl.AttachFileListContext(null);
     }
 
     private async Task SyncDialogsAsync()

@@ -45,8 +45,17 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
                 if (gallery) Assert.True(await preview.OpenGalleryFileAsync(entry, TestContext.Current.CancellationToken));
                 else await preview.OpenAsync(entry);
                 Assert.Equal(1, thumbnails.CallCount);
-                Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
-                Assert.NotNull(preview.FindControl<Image>("PreviewImage")!.Source);
+                if (gallery)
+                {
+                    var canvas = preview.FindControl<GalleryImageCanvas>("GalleryImageCanvas")!;
+                    Assert.True(canvas.IsVisible);
+                    Assert.NotNull(canvas.Source);
+                }
+                else
+                {
+                    Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                    Assert.NotNull(preview.FindControl<Image>("PreviewImage")!.Source);
+                }
                 Assert.Empty(preview.FindControl<Grid>("PreviewHost")!.Children.OfType<MacExplorer.Controls.VideoPreviewHost>());
             }
             finally { preview.Close(); window.Close(); }
@@ -82,8 +91,17 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
             {
                 window.Show();
                 await preview.OpenAsync(entry);
-                Assert.IsType<global::Avalonia.Media.Imaging.Bitmap>(preview.FindControl<Image>("PreviewImage")!.Source);
-                Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                if (compact)
+                {
+                    Assert.IsType<global::Avalonia.Media.Imaging.Bitmap>(preview.FindControl<Image>("PreviewImage")!.Source);
+                    Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                }
+                else
+                {
+                    var canvas = preview.FindControl<GalleryImageCanvas>("GalleryImageCanvas")!;
+                    Assert.IsType<global::Avalonia.Media.Imaging.Bitmap>(canvas.Source);
+                    Assert.True(canvas.IsVisible);
+                }
                 // Headless drawing substitutes a dummy Avalonia bitmap; inspect the service's actual PNG.
                 var cached = Assert.Single(Directory.GetFiles(Path.Combine(root.FullName, "cache"), "*.png"));
                 using var image = SkiaSharp.SKBitmap.Decode(cached);
@@ -117,7 +135,8 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
                 window.Show();
                 await preview.OpenAsync(entry);
                 RenderIssue11(window);
-                Assert.True(preview.FindControl<Image>("PreviewImage")!.IsVisible);
+                Assert.True(preview.FindControl<GalleryImageCanvas>("GalleryImageCanvas")!.IsVisible);
+                Assert.True(preview.GalleryShowCheckerboard);
                 Assert.False(preview.FindControl<Border>("PreviewListCard")!.IsVisible);
                 Assert.Equal(1, thumbnails.CallCount);
                 Assert.Equal(1800, thumbnails.PixelSize);
@@ -163,27 +182,22 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
             Assert.Equal(entry.Name, preview.FindControl<TextBlock>("TitleText")!.Text);
             Assert.False(preview.FindControl<TextBlock>("BreadcrumbText")!.IsVisible);
             Assert.Equal(0, preview.FindControl<Grid>("PreviewContentGrid")!.ColumnDefinitions[0].Width.Value);
-            var glassToolbar = preview.FindControl<Border>("PreviewToolbar")!;
+            var actionBar = preview.FindControl<PreviewActionBar>("PreviewToolbar")!;
+            var glassToolbar = actionBar.BarSurface;
             var previewHost = preview.FindControl<Grid>("PreviewHost")!;
-            Assert.True(glassToolbar.IsVisible);
+            Assert.True(actionBar.IsVisible);
             Assert.True(PopupGlass.GetIsEnabled(glassToolbar));
             var toolbarMaterial = glassToolbar.GetVisualDescendants().OfType<LiquidGlassSurface>().Single();
             Assert.InRange(toolbarMaterial.SurfaceColor.A, 153, 178);
             Assert.Equal(0.30, toolbarMaterial.BackdropOpacity);
             Assert.Equal(preview.FindControl<Border>("PreviewCard")!.Bounds.Size, previewHost.Bounds.Size);
-            var toolbarOffset = glassToolbar.TranslatePoint(default, previewHost)!.Value;
-            Assert.InRange(toolbarOffset.Y + glassToolbar.Bounds.Height, previewHost.Bounds.Height - 13, previewHost.Bounds.Height - 11);
+            var toolbarOffset = actionBar.TranslatePoint(default, previewHost)!.Value;
+            Assert.InRange(toolbarOffset.Y + actionBar.Bounds.Height, previewHost.Bounds.Height - 15, previewHost.Bounds.Height - 13);
             Assert.Null(preview.FindControl<Control>("PreviewMetadata"));
             Assert.True(double.IsPositiveInfinity(preview.FindControl<Image>("PreviewImage")!.MaxHeight));
-            var copyLabel = LocalizationText.Get("ui.355");
-            var copyPath = preview.FindControl<StackPanel>("PreviewToolbarButtons")!.Children.OfType<AppButton>()
-                .Single(button => AutomationProperties.GetName(button) == copyLabel);
-            Assert.True(copyPath.IsVisible);
-            Assert.Equal(copyLabel, ToolTip.GetTip(copyPath));
-            Assert.True(((StackPanel)copyPath.Content!).Children[1].IsVisible);
-            var copyPoint = copyPath.TranslatePoint(new Point(copyPath.Bounds.Width / 2, copyPath.Bounds.Height / 2), fixture.Window)!.Value;
-            fixture.Window.MouseDown(copyPoint, MouseButton.Left);
-            fixture.Window.MouseUp(copyPoint, MouseButton.Left);
+            Assert.True(actionBar.MoreButton.IsVisible);
+            Assert.True(actionBar.CopyPathMenuItem.IsVisible);
+            actionBar.CopyPathMenuItem.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(entry.FullPath, clipboard.CopiedText);
 
             await preview.OpenAsync(new FileSystemEntry { FullPath = root.FullName, Name = root.Name, IsDirectory = true });
@@ -213,11 +227,9 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
             RenderIssue11(fixture.Window);
             Assert.InRange(grid.ColumnDefinitions[0].ActualWidth, 335, 343);
             Assert.True(card.Bounds.Width >= 320);
-            Assert.True(copyPath.IsVisible);
-            var toolbar = preview.FindControl<StackPanel>("PreviewToolbarButtons")!;
-            Assert.All(toolbar.Children.OfType<Button>().Where(button => button.IsVisible), button =>
+            Assert.True(actionBar.MoreButton.IsVisible);
+            Assert.All(actionBar.ActionButtons.Children.OfType<Button>().Where(button => button.IsVisible), button =>
             {
-                Assert.False(((StackPanel)button.Content!).Children[1].IsVisible);
                 Assert.NotEmpty(AutomationProperties.GetName(button)!);
             });
             preview.Width = double.NaN;
@@ -301,13 +313,13 @@ public sealed class SuperPreviewLayoutViewModelTests : FileListViewModelTestBase
             Assert.True(preview.FindControl<StackPanel>("FolderSummary")!.IsVisible);
             Assert.Contains("0", preview.FindControl<TextBlock>("FolderSummaryDetails")!.Text!);
             Press(Key.Down);
-            await WaitForPreviewAsync(() => preview.FindControl<Image>("PreviewImage")!.IsVisible);
+            await WaitForPreviewAsync(() => preview.FindControl<GalleryImageCanvas>("GalleryImageCanvas")!.IsVisible);
             Assert.Equal(imagePath, tree.SelectedPath);
             Assert.Equal(1, thumbnails.CallCount);
 
-            var zoom = preview.FindControl<StackPanel>("PreviewToolbarButtons")!.Children.OfType<Button>()
-                .First(button => button.IsVisible);
-            zoom.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            var bar = preview.FindControl<PreviewActionBar>("PreviewToolbar")!;
+            Assert.True(bar.ZoomButton.IsVisible);
+            bar.ZoomButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Assert.True(preview.FindControl<ScrollViewer>("ZoomedImageScroll")!.IsVisible);
             Assert.Equal(1, thumbnails.CallCount);
 

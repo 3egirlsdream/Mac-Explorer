@@ -5,6 +5,7 @@
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI">
     <StyleInclude Source="avares://MacExplorer/Assets/ButtonStyles.axaml"/>
+    <StyleInclude Source="avares://MacExplorer/Assets/GalleryStyles.axaml"/>
 
     <Style Selector="Border.dialog-divider">
         <Setter Property="Height" Value="1"/>
@@ -974,24 +975,5 @@
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="FontWeight" Value="{DynamicResource FontWeightSemibold}"/>
         </Style>
-    </Style>
-    <Style Selector="ListBox.gallery-strip">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="6,4"/>
-    </Style>
-    <Style Selector="ListBox.gallery-strip ListBoxItem">
-        <Setter Property="Padding" Value="4"/>
-        <Setter Property="Margin" Value="2,0"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
-    </Style>
-    <Style Selector="ListBox.gallery-strip ListBoxItem:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-    </Style>
-    <Style Selector="ListBox.gallery-strip ListBoxItem:selected">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-    </Style>
-    <Style Selector="controls|HomeFileImage.gallery-thumbnail">
-        <Setter Property="ThumbnailShadow" Value="{DynamicResource ThumbnailShadow}"/>
     </Style>
 </Styles>

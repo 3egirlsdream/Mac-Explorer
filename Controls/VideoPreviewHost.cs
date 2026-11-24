@@ -50,6 +50,15 @@ internal sealed class VideoPreviewHost : NativeControlHost, IDisposable
         me_video_preview_load(_view, path);
     }
 
+    internal void Play()
+    {
+        if (_disposed || _view == IntPtr.Zero || !OperatingSystem.IsMacOS()) return;
+        var video = objc_msgSend(_view, sel_registerName("video"));
+        if (video == IntPtr.Zero) return;
+        var player = objc_msgSend(video, sel_registerName("player"));
+        if (player != IntPtr.Zero) objc_msgSend_void(player, sel_registerName("play"));
+    }
+
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         _attached = true;
@@ -137,4 +146,7 @@ internal sealed class VideoPreviewHost : NativeControlHost, IDisposable
     [DllImport(Library)] private static extern void me_video_preview_restore_focus(IntPtr view, IntPtr root);
     [DllImport(Library)] private static extern void me_video_preview_clear(IntPtr view);
     [DllImport(Library)] private static extern void me_video_preview_destroy(IntPtr view);
+    [DllImport("/usr/lib/libobjc.A.dylib")] private static extern IntPtr sel_registerName(string name);
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")] private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")] private static extern void objc_msgSend_void(IntPtr receiver, IntPtr selector);
 }

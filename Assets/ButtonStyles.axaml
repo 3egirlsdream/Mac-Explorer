@@ -1672,10 +1672,35 @@
         <Setter Property="MinWidth" Value="32"/>
         <Setter Property="Padding" Value="8,0"/>
     </Style>
+    <Style Selector="Button.gallery-bar-btn, ToggleButton.gallery-bar-btn">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="MinWidth" Value="30"/>
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="UseLayoutRounding" Value="True"/>
+        <Setter Property="ClipToBounds" Value="False"/>
+        <Setter Property="RenderTransform" Value="none"/>
+        <Setter Property="Transitions" Value="{x:Null}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.gallery-bar-btn:pressed, ToggleButton.gallery-bar-btn:pressed">
+        <Setter Property="RenderTransform" Value="none"/>
+    </Style>
+    <Style Selector="ToggleButton.gallery-bar-btn:checked, Button.gallery-bar-btn.dropdown-open">
+        <Setter Property="Background" Value="{DynamicResource WorkspaceControlSelectedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.gallery-bar-btn.danger-action:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+    </Style>
     <Style Selector="Border.preview-step-slot, Border.preview-step-zone">
         <Setter Property="Width" Value="76"/>
         <Setter Property="Height" Value="144"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="ClipToBounds" Value="False"/>
     </Style>
     <Style Selector="Border.preview-step-zone">
         <Setter Property="Background" Value="Transparent"/>
@@ -1689,16 +1714,22 @@
         <Setter Property="Height" Value="64"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="ClipToBounds" Value="False"/>
+        <Setter Property="RenderTransform" Value="none"/>
+        <Setter Property="Transitions" Value="{x:Null}"/>
     </Style>
     <Style Selector="Button.preview-step-button:pointerover, Button.preview-step-button:pressed">
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="RenderTransform" Value="none"/>
     </Style>
     <Style Selector="Button.preview-step-button /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="ClipToBounds" Value="False"/>
     </Style>
     <Style Selector="Border.preview-step-glass">
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        <Setter Property="ClipToBounds" Value="False"/>
         <Setter Property="controls:PopupGlass.IsEnabled" Value="True"/>
         <Setter Property="controls:PopupGlass.IsFloating" Value="True"/>
         <Setter Property="Opacity" Value="0"/>

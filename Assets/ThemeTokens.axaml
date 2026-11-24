@@ -225,6 +225,31 @@
                     <SolidColorBrush x:Key="ViewModeToggleBg" Color="#EFEFF1"/>
                     <SolidColorBrush x:Key="ViewModeToggleHoverBg" Color="#E5E5E9"/>
                     <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#FFFFFF"/>
+                    <!-- Gallery preview stage and filmstrip tokens -->
+                    <SolidColorBrush x:Key="GalleryStageBrush" Color="#F5F6F8"/>
+                    <SolidColorBrush x:Key="GalleryFilmstripBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="GalleryTileSurfaceBrush" Color="#F1F2F6"/>
+                    <SolidColorBrush x:Key="GalleryTileBorderBrush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="GallerySelectedRingBrush" Color="#2463D4"/>
+                    <BoxShadows x:Key="GallerySelectedShadow">0 4 12 -3 #382463D4, 0 1 3 0 #18000000</BoxShadows>
+                    <BoxShadows x:Key="GalleryStageShadow">0 14 34 -12 #260F172A, 0 3 10 -3 #140F172A</BoxShadows>
+                    <SolidColorBrush x:Key="GalleryFrameBorderBrush" Color="#180F172A"/>
+                    <SolidColorBrush x:Key="GalleryCheckerLightBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="GalleryCheckerDarkBrush" Color="#E9EBEF"/>
+                    <SolidColorBrush x:Key="GalleryMediaBadgeBrush" Color="#CC14161A"/>
+                    <SolidColorBrush x:Key="GalleryCardSurfaceBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="GalleryCardBorderBrush" Color="#160F172A"/>
+                    <SolidColorBrush x:Key="GalleryCounterPillBrush" Color="#100F172A"/>
+                    <SolidColorBrush x:Key="GallerySplitterHandleBrush" Color="#220F172A"/>
+                    <SolidColorBrush x:Key="GallerySplitterHandleHoverBrush" Color="#500F172A"/>
+                    <LinearGradientBrush x:Key="GalleryEdgeFadeLeftBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                        <GradientStop Color="#00FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="GalleryEdgeFadeRightBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#00FFFFFF" Offset="0"/>
+                        <GradientStop Color="#FFFFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SliderRailBrush" Color="#454B56"/>
@@ -412,6 +437,31 @@
                     <SolidColorBrush x:Key="ViewModeToggleBg" Color="#24272D"/>
                     <SolidColorBrush x:Key="ViewModeToggleHoverBg" Color="#2B3038"/>
                     <SolidColorBrush x:Key="ViewModeToggleSelectedBg" Color="#484C54"/>
+                    <!-- Gallery preview stage and filmstrip tokens -->
+                    <SolidColorBrush x:Key="GalleryStageBrush" Color="#14161A"/>
+                    <SolidColorBrush x:Key="GalleryFilmstripBrush" Color="#1B1D21"/>
+                    <SolidColorBrush x:Key="GalleryTileSurfaceBrush" Color="#242830"/>
+                    <SolidColorBrush x:Key="GalleryTileBorderBrush" Color="#1CFFFFFF"/>
+                    <SolidColorBrush x:Key="GallerySelectedRingBrush" Color="#74A8FF"/>
+                    <BoxShadows x:Key="GallerySelectedShadow">0 4 14 -2 #66000000, 0 0 0 1 #4474A8FF</BoxShadows>
+                    <BoxShadows x:Key="GalleryStageShadow">0 16 38 -10 #88000000, 0 3 10 -2 #55000000</BoxShadows>
+                    <SolidColorBrush x:Key="GalleryFrameBorderBrush" Color="#22FFFFFF"/>
+                    <SolidColorBrush x:Key="GalleryCheckerLightBrush" Color="#23272E"/>
+                    <SolidColorBrush x:Key="GalleryCheckerDarkBrush" Color="#2D323B"/>
+                    <SolidColorBrush x:Key="GalleryMediaBadgeBrush" Color="#D4101216"/>
+                    <SolidColorBrush x:Key="GalleryCardSurfaceBrush" Color="#21252C"/>
+                    <SolidColorBrush x:Key="GalleryCardBorderBrush" Color="#1CFFFFFF"/>
+                    <SolidColorBrush x:Key="GalleryCounterPillBrush" Color="#1AFFFFFF"/>
+                    <SolidColorBrush x:Key="GallerySplitterHandleBrush" Color="#26FFFFFF"/>
+                    <SolidColorBrush x:Key="GallerySplitterHandleHoverBrush" Color="#58FFFFFF"/>
+                    <LinearGradientBrush x:Key="GalleryEdgeFadeLeftBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#FF1B1D21" Offset="0"/>
+                        <GradientStop Color="#001B1D21" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="GalleryEdgeFadeRightBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#001B1D21" Offset="0"/>
+                        <GradientStop Color="#FF1B1D21" Offset="1"/>
+                    </LinearGradientBrush>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

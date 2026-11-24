@@ -53,6 +53,40 @@ public class MacClipboardService : IClipboardService
         await CopyTextWithPbcopyAsync(text).ConfigureAwait(false);
     }
 
+    public async Task CopyImageAsync(byte[] pngBytes)
+    {
+        if (pngBytes == null || pngBytes.Length == 0 || !OperatingSystem.IsMacOS()) return;
+        await Dispatcher.UIThread.InvokeAsync(() => TryWriteImageToPasteboard(pngBytes));
+    }
+
+    private bool TryWriteImageToPasteboard(byte[] pngBytes)
+    {
+        var pool = objc_autoreleasePoolPush();
+        var pinned = default(GCHandle);
+        try
+        {
+            if (!EnsureAppKitLoaded()) return false;
+            var pasteboard = GeneralPasteboard();
+            var nsDataClass = objc_getClass("NSData");
+            if (pasteboard == IntPtr.Zero || nsDataClass == IntPtr.Zero) return false;
+
+            pinned = GCHandle.Alloc(pngBytes, GCHandleType.Pinned);
+            var data = objc_msgSend_intptr_intptr_long(
+                nsDataClass, sel_registerName("dataWithBytes:length:"),
+                pinned.AddrOfPinnedObject(), pngBytes.Length);
+            if (data == IntPtr.Zero) return false;
+
+            Send(pasteboard, "clearContents");
+            return SendBool(pasteboard, "setData:forType:", data, CreateString(PasteboardPng));
+        }
+        catch { return false; }
+        finally
+        {
+            if (pinned.IsAllocated) pinned.Free();
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+
     private bool TryWriteTextToPasteboard(string text)
     {
         try
@@ -476,6 +510,13 @@ public class MacClipboardService : IClipboardService
         IntPtr selector,
         long first,
         IntPtr second);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_intptr_intptr_long(
+        IntPtr receiver,
+        IntPtr selector,
+        IntPtr first,
+        long second);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern byte objc_msgSend_bool_intptr(IntPtr receiver, IntPtr selector, IntPtr value);

@@ -7,6 +7,7 @@ public interface IClipboardService
     void CopyFiles(string[] paths);
     void CutFiles(string[] paths, FileTag? sourceTag = null);
     Task CopyTextAsync(string text);
+    Task CopyImageAsync(byte[] pngBytes) => Task.CompletedTask;
     Task PasteFilesAsync(string targetDirectory);
     bool HasClipboardFiles { get; }
 

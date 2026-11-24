@@ -17,12 +17,42 @@ public partial class SuperPreviewView
     private DialogHost? _videoDialog;
     private SubscriptionService? _videoSubscription;
     private bool _videoReady;
+    private string? _galleryVideoPath;
+    private FileSystemEntry? _galleryVideoEntry;
+
+    internal bool CanPlayGalleryVideo => _isGalleryPreview && _galleryVideoPath != null && _videoPreview == null
+        && OperatingSystem.IsMacOS()
+        && TopLevel.GetTopLevel(this)?.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle;
+
+    internal void StartGalleryVideoPlayback()
+    {
+        if (!CanPlayGalleryVideo || _galleryVideoPath is not { } path || _galleryVideoEntry is not { } entry) return;
+        SetPreviewBitmap(null);
+        PreviewImage.IsVisible = false;
+        GalleryImageCanvas.IsVisible = false;
+        PreviewPlaceholder.IsVisible = false;
+        if (MountVideoPreviewHost(path, autoPlay: true, CancellationToken.None, _operationVersion))
+            GalleryImageStateChanged?.Invoke();
+    }
 
     private bool TryShowVideoPreview(string path, FileSystemEntry entry, CancellationToken token, int version)
     {
-        if (_isCompactPreview || !IsVideoFile(entry) || !OperatingSystem.IsMacOS()
+        if (!IsVideoFile(entry)) return false;
+        if (_isGalleryPreview)
+        {
+            _galleryVideoPath = path;
+            _galleryVideoEntry = entry;
+            // Stay fast with static thumbnail until the user explicitly clicks Play.
+            return false;
+        }
+        if (_isCompactPreview || !OperatingSystem.IsMacOS()
             || TopLevel.GetTopLevel(this)?.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle) return false;
 
+        return MountVideoPreviewHost(path, autoPlay: false, token, version);
+    }
+
+    private bool MountVideoPreviewHost(string path, bool autoPlay, CancellationToken token, int version)
+    {
         var host = new VideoPreviewHost(
             key => RaiseEvent(new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = key }),
             loaded =>
@@ -32,6 +62,8 @@ public partial class SuperPreviewView
                 _videoReady = true;
                 PreviewPlaceholder.IsVisible = false;
                 UpdateVideoVisibility();
+                if (autoPlay) _videoPreview.Play();
+                if (_isGalleryPreview) GalleryImageStateChanged?.Invoke();
             }, squareCorners: true) { IsVisible = false };
         try
         {

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
         xmlns:controls="using:MacExplorer.Controls"
+             xmlns:local="using:MacExplorer.Views"
              xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              xmlns:loc="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="using:MacExplorer.Models"
@@ -12,6 +13,10 @@
         <converters:FileEntryToIconConverter x:Key="FileIconConverter"/>
     </UserControl.Resources>
     <UserControl.Styles>
+        <Style Selector="Border.preview-backdrop">
+            <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
+            <Setter Property="Padding" Value="18"/>
+        </Style>
         <Style Selector="Border.super-preview-shell">
             <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderSubtle}"/>
@@ -37,7 +42,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Border x:Name="PreviewBackdrop" Background="{DynamicResource OverlayBrush}" Padding="18">
+    <Border x:Name="PreviewBackdrop" Classes="preview-backdrop">
         <Border x:Name="Shell" Classes="super-preview-shell" CornerRadius="16" MaxWidth="1400" MaxHeight="900"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="False">
             <Border CornerRadius="{Binding CornerRadius, ElementName=Shell}" ClipToBounds="True">
@@ -117,9 +122,15 @@
                                        TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
                             <Image x:Name="PreviewImage" IsVisible="False" Stretch="Uniform"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <controls:GalleryImageCanvas x:Name="GalleryImageCanvas" IsVisible="False"
+                                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                             <ScrollViewer x:Name="ZoomedImageScroll" IsVisible="False"
                                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                                <Image x:Name="ZoomedImage" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Image x:Name="ZoomedImage" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <controls:GalleryImageCanvas x:Name="GalleryZoomedCanvas" IsVisible="False" InnerMargin="10"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
                             </ScrollViewer>
                             <ScrollViewer x:Name="PreviewTextScroll" IsVisible="False"
                                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -174,13 +185,9 @@
                             <Border x:Name="NativePreviewNextSlot"/>
                         </Popup>
                         <Border x:Name="PreviewToolbarSlot" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                                Margin="12,0,12,12">
-                            <Border x:Name="PreviewToolbar" IsVisible="False" Padding="4"
-                                    CornerRadius="{DynamicResource RadiusFull}" controls:PopupGlass.IsEnabled="True"
-                                    controls:PopupGlass.IsFloating="True"
-                                    KeyDown="OnSuperPreviewKeyDown">
-                                <StackPanel x:Name="PreviewToolbarButtons" Orientation="Horizontal" Spacing="2"/>
-                            </Border>
+                                Margin="14,0,14,14" ClipToBounds="False">
+                            <local:PreviewActionBar x:Name="PreviewToolbar" IsVisible="False"
+                                                    KeyDown="OnSuperPreviewKeyDown"/>
                         </Border>
                         <Border x:Name="NativePreviewToolbarAnchor" VerticalAlignment="Bottom" Height="1" IsHitTestVisible="False"/>
                         <Popup x:Name="NativePreviewToolbarPopup" Placement="Top" PlacementTarget="NativePreviewToolbarAnchor"
