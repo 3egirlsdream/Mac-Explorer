@@ -1,9 +1,10 @@
 {
   "name": "Français",
   "title": "Mac Explorer — Gestionnaire de fichiers Mac libre pour macOS",
-  "description": "Mac Explorer est un gestionnaire de fichiers Mac libre : onglets, volets multiples, collections, renommage par lots, recherche PDF et OCR, aperçu, SFTP et LocalSend. Pour Apple Silicon et Intel, dès macOS 14.",
+  "description": "Mac Explorer est un gestionnaire de fichiers Mac libre : volets multiples, onglets verticaux, groupes d’onglets, galerie et aperçu rapide, recherche PDF/OCR, renommage par lots, Git, SFTP et LocalSend.",
   "skip": "Aller au contenu",
   "features": "Fonctions",
+  "guidesNav": "Guides",
   "download": "Télécharger",
   "appStoreDownload": "Obtenir sur l’App Store",
   "otherInstallMethods": "Autres modes d’installation",
@@ -12,11 +13,21 @@
   "language": "Langue",
   "eyebrow": "POUR macOS · GRATUIT ET LIBRE",
   "platform": "macOS 14+ · Apple Silicon et Intel",
+  "showcaseControls": "Thèmes de fond et apparence",
+  "themeLight": "Clair",
+  "themeDark": "Sombre",
+  "themeNames": [
+    "Feuillage d’été",
+    "Cœur irisé",
+    "Rubans printaniers",
+    "Dragon flamboyant",
+    "Lapins espiègles"
+  ],
   "faqTitle": "Quelques réponses avant de commencer",
   "faqs": [
     [
       "Qu’est-ce que Mac Explorer ?",
-      "Mac Explorer est un gestionnaire de fichiers Mac libre pour macOS. Il réunit onglets, volets multiples, étiquettes, collections, aperçus et recherche dans une seule fenêtre."
+      "Mac Explorer est un gestionnaire de fichiers Mac libre pour macOS. Il réunit volets multiples, onglets verticaux, groupes d’onglets, aperçus rapides, recherche et transferts dans une seule fenêtre."
     ],
     [
       "Quels Mac sont compatibles ?",
@@ -33,6 +44,8 @@
   ],
   "endTitle": "Contribuer à Mac Explorer",
   "endText": "Un bug ou une idée de fonction ? Ouvrez une issue sur GitHub. Pour créer votre propre extension, commencez par le SDK.",
+  "guideCtaTitle": "Essayer Mac Explorer sur Mac",
+  "guideCtaText": "Volets scindés, renommage par lots et recherche de texte dans une seule fenêtre.",
   "privacy": "Confidentialité",
   "feedback": "Signaler un problème",
   "source": "Code source",
@@ -49,23 +62,23 @@
       "items": [
         [
           "panel-left",
-          "Onglets et volets multiples",
-          "Ouvrez plusieurs dossiers dans des dispositions horizontales, verticales, à trois ou quatre volets. Chaque onglet garde son emplacement et sa vue."
+          "Volets multiples, onglets verticaux et groupes",
+          "Ouvrez deux à quatre volets côte à côte ou passez à la barre d’onglets verticaux dépliable au survol. Enregistrez vos groupes d’onglets en préréglages pour restaurer tout un espace en un clic."
         ],
         [
           "grid",
-          "Trois façons de parcourir",
-          "Passez de la liste aux icônes ou à l’arborescence. Affinez vos fichiers avec le regroupement, le tri et les filtres de colonnes."
+          "Quatre vues au choix",
+          "Passez de la liste aux icônes, à l’arborescence ou à la galerie. Ajustez les vignettes au curseur, sautez par initiale et affinez avec regroupement, tri et filtres."
         ],
         [
           "tag",
-          "Étiquettes, collections et notes",
-          "Classez avec des étiquettes imbriquées et des étoiles. Redimensionnez et déployez les collections sans déplacer les fichiers originaux."
+          "Espace d’accueil, étiquettes et collections",
+          "Retrouvez disques, groupes, dossiers fréquents et fichiers récents dans l’espace d’accueil ; classez par étiquettes imbriquées et notes sans déplacer les fichiers originaux."
         ],
         [
           "info",
-          "Les détails en un regard",
-          "Consultez tailles, dates, dimensions, appareil photo et métadonnées. Calculez et copiez les empreintes SHA-256 des fichiers locaux."
+          "Détails et gestion des disques",
+          "Consultez tailles, dates, métadonnées photo et empreintes SHA-256 locales. Ouvrez la gestion des disques depuis la barre latérale pour vérifier volumes, formats et éjecter en sécurité."
         ]
       ]
     },
@@ -77,7 +90,7 @@
         [
           "search",
           "Recherche globale et de contenu",
-          "Appuyez sur ⌘ K pour rechercher noms, texte PDF indexé et texte OCR des images. Prévisualisez un résultat ou ouvrez son dossier."
+          "Appuyez sur ⌘ K pour rechercher noms, texte PDF indexé et texte OCR des images. Prévisualisez le résultat directement dans le panneau ou ouvrez son dossier."
         ],
         [
           "scan",
@@ -86,8 +99,8 @@
         ],
         [
           "eye",
-          "Aperçus et édition Markdown",
-          "Appuyez sur Espace pour voir images, PDF, documents, médias et archives. Modifiez le Markdown et consultez le résultat mis en forme."
+          "Super aperçu, vidéo et différences",
+          "Appuyez sur Espace pour images, PDF, documents, archives et lecture vidéo native. Éditez le Markdown en direct et comparez des fichiers Diff / Patch côte à côte."
         ],
         [
           "text-edit",
@@ -103,13 +116,13 @@
       "items": [
         [
           "archive",
-          "Archives et conversion",
-          "Parcourez et extrayez ZIP, TAR, 7Z et les formats pris en charge. Créez des archives, convertissez des documents en Word ou PDF et redimensionnez des images."
+          "Archives, chiffrement et conversion",
+          "Double-cliquez sur ZIP, TAR ou 7Z pour parcourir et extraire un seul fichier, ou créez des archives ZIP chiffrées. Convertissez des documents en Word/PDF et redimensionnez les images."
         ],
         [
           "list",
-          "File de tâches",
-          "Copiez, déplacez, transférez et extrayez en arrière-plan. Suivez la progression ; suspendez, reprenez, annulez ou relancez les tâches compatibles."
+          "File de tâches et conflits",
+          "Suivez copies, transferts et extractions en arrière-plan ou dans la fenêtre de progression avec pause et reprise. Comparez les fichiers en conflit côte à côte avant de remplacer ou conserver les deux."
         ],
         [
           "server",
@@ -140,13 +153,13 @@
         ],
         [
           "code",
-          "Extensions et commandes Shell",
-          "L’édition du site propose un catalogue d’extensions, des paquets locaux et des scripts d’accueil avec icône, Shell et dossier de travail personnalisés."
+          "Git, extensions et commandes Shell",
+          "Consultez différences Git, historique de commits et indexation depuis le menu contextuel. L’édition du site propose aussi catalogue d’extensions, paquets locaux et scripts personnalisés."
         ],
         [
           "settings",
-          "Apparence et raccourcis",
-          "Choisissez le thème clair ou sombre, le verre et la densité. Personnalisez les raccourcis, maintenez ⌘ pour l’aide et utilisez l’une des quatre langues."
+          "Thèmes, dossiers et raccourcis",
+          "Choisissez parmi les thèmes de fond intégrés, verre clair ou sombre et couvertures de dossiers. Redimensionnez et regroupez la barre latérale, personnalisez les raccourcis et les quatre langues."
         ]
       ]
     }
@@ -175,5 +188,11 @@
       "Orange",
       "Jaune"
     ]
-  }
+  },
+  "spotlightAlts": [
+    "Espace de travail scindé de Mac Explorer avec groupes d’onglets colorés affichant deux dossiers côte à côte",
+    "Aperçu instantané d’image dans Mac Explorer avec barre d’actions flottante en verre pour zoomer, ouvrir ou localiser",
+    "Fenêtre de conflit de fichiers de Mac Explorer comparant taille et date des fichiers entrant et existant",
+    "Zone de dépôt et fichiers dans la barre des menus de Mac Explorer regroupant Téléchargements, Bureau et éléments prêts"
+  ]
 }

@@ -115,6 +115,35 @@ public sealed class DialogSettingsAppearanceTests
     }
 
     [AvaloniaFact(Explicit = true)]
+    public void SettingsGroupKeepsRoundedCornersWhenCombinedWithRowClasses()
+    {
+        var group = new Border { Classes = { "settings-group" } };
+        var groupRow = new Border { Classes = { "settings-group", "settings-row" } };
+        var groupCompactRow = new Border { Classes = { "settings-group", "settings-compact-row" } };
+        var plainRow = new Border { Classes = { "settings-row" } };
+        var plainCompactRow = new Border { Classes = { "settings-compact-row" } };
+        var dialog = new DialogWindow
+        {
+            Content = new StackPanel { Children = { group, groupRow, groupCompactRow, plainRow, plainCompactRow } }
+        };
+        dialog.Styles.Add((Styles)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml")));
+        dialog.Show();
+        try
+        {
+            dialog.UpdateLayout();
+            Assert.True(dialog.TryFindResource("RadiusLg", dialog.ActualThemeVariant, out var expected));
+            var radiusLg = Assert.IsType<CornerRadius>(expected);
+            Assert.Equal(radiusLg, group.CornerRadius);
+            Assert.Equal(radiusLg, groupRow.CornerRadius);
+            Assert.Equal(radiusLg, groupCompactRow.CornerRadius);
+            Assert.Equal(new CornerRadius(0), plainRow.CornerRadius);
+            Assert.Equal(new CornerRadius(0), plainCompactRow.CornerRadius);
+        }
+        finally { dialog.Close(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public void SmallDialogReservesButtonsAndMainWindowKeepsTitleBar()
     {
         var body = new Border();

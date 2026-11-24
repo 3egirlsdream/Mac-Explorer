@@ -1,9 +1,10 @@
 {
   "name": "English",
   "title": "Mac Explorer — Open-source Mac File Manager for macOS",
-  "description": "Mac Explorer is an open-source Mac file manager with tabs, split panes, collections, batch rename, PDF and image text search, previews, SFTP and LocalSend. Download for Apple Silicon and Intel on macOS 14 or later.",
+  "description": "Mac Explorer is an open-source Mac file manager with split panes, vertical tabs, tab groups, gallery and quick previews, PDF & OCR search, batch rename, Git actions, SFTP and LocalSend for Apple Silicon and Intel.",
   "skip": "Skip to content",
   "features": "Features",
+  "guidesNav": "Guides",
   "download": "Download",
   "appStoreDownload": "Get it on the App Store",
   "otherInstallMethods": "Other ways to install",
@@ -12,11 +13,21 @@
   "language": "Language",
   "eyebrow": "MADE FOR macOS · FREE & OPEN SOURCE",
   "platform": "macOS 14+ · Apple Silicon & Intel",
+  "showcaseControls": "Background themes and appearance",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeNames": [
+    "Summer Canopy",
+    "Prismatic Core",
+    "Spring Ribbons",
+    "Radiant Dragon",
+    "Playful Rabbits"
+  ],
   "faqTitle": "A few things before you start",
   "faqs": [
     [
       "What is Mac Explorer?",
-      "Mac Explorer is an open-source Mac file manager for macOS. It brings tabs, split panes, tags, collections, file previews and search into one window."
+      "Mac Explorer is an open-source Mac file manager for macOS. It brings split panes, vertical tabs, workspace groups, instant previews, content search and transfers into one window."
     ],
     [
       "Which Macs are supported?",
@@ -33,6 +44,8 @@
   ],
   "endTitle": "Help improve Mac Explorer",
   "endText": "Found a bug or have a feature in mind? Open an issue on GitHub. To build your own plugin, start with the SDK.",
+  "guideCtaTitle": "Try Mac Explorer on your Mac",
+  "guideCtaText": "Split panes, batch rename previews and content search, all in one window.",
   "privacy": "Privacy policy",
   "feedback": "Feedback",
   "source": "Source code",
@@ -49,23 +62,23 @@
       "items": [
         [
           "panel-left",
-          "Tabs and split panes",
-          "Open folders side by side in horizontal, vertical, three-pane or four-pane layouts. Each tab keeps its own location and view."
+          "Split panes, vertical tabs and groups",
+          "Work side by side in horizontal, vertical, three-pane or four-pane layouts, or switch to a hover-expanding vertical tab bar. Organize tabs into groups and save workspace presets to reopen layouts in one click."
         ],
         [
           "grid",
-          "Three ways to browse",
-          "Switch between list, icon and tree views. Narrow your files with grouping, sorting and column filters."
+          "Four ways to browse",
+          "Switch between list, icon, tree and gallery views. Resize thumbnails with the status bar slider, jump by typing initials, and narrow results with grouping, sorting and column filters."
         ],
         [
           "tag",
-          "Tags, collections and ratings",
-          "Organize with nested tags and star ratings. Resize and expand home collections without moving the original files."
+          "Workbench, tags and collections",
+          "See mounted drives, workspace groups, frequent folders and recent files on the Workbench. Organize with nested tags, ratings and tag filters without moving the original files."
         ],
         [
           "info",
-          "Details at a glance",
-          "Inspect sizes, dates, image dimensions, camera information and photo metadata. Calculate and copy local SHA-256 hashes."
+          "File details and disk management",
+          "Inspect sizes, dates, camera and photo metadata, and copy local SHA-256 hashes. Open Disk Management from the sidebar to check mounted volumes, formats and eject safely."
         ]
       ]
     },
@@ -77,7 +90,7 @@
         [
           "search",
           "Global and content search",
-          "Press ⌘ K to find filenames, indexed PDF content and image OCR text. Preview a result or jump straight to its folder."
+          "Press ⌘ K to find filenames, indexed PDF content and image OCR text. Preview the selected match right inside the panel or jump straight to its folder."
         ],
         [
           "scan",
@@ -86,13 +99,13 @@
         ],
         [
           "eye",
-          "Quick previews and Markdown",
-          "Press Space to preview images, PDFs, documents, media and archives. Edit Markdown and see the formatted result."
+          "Super preview, video and diffs",
+          "Press Space for images, PDFs, Office docs, archives and native video playback. Edit Markdown with live formatting, and inspect side-by-side Diff / Patch previews with line numbers."
         ],
         [
           "text-edit",
           "Batch rename workspace",
-          "Combine replacements, numbering, dates, templates and regular expressions. Preview names, check conflicts, save presets and undo a completed batch."
+          "Combine replacements, numbering, dates, templates and regular expressions. Preview every name, check conflicts, save presets and undo a completed batch."
         ]
       ]
     },
@@ -103,13 +116,13 @@
       "items": [
         [
           "archive",
-          "Archives and format conversion",
-          "Browse and extract ZIP, TAR, 7Z and other supported archives. Create archives, convert supported documents to Word or PDF, and convert or resize images."
+          "Archives, encryption and conversion",
+          "Double-click ZIP, TAR, 7Z and other archives to browse inside and extract single items, or create encrypted ZIPs with custom compression levels. Convert documents to Word or PDF and resize images."
         ],
         [
           "list",
-          "A queue for file tasks",
-          "Copy, move, transfer and extract in the background. Track progress, and pause, resume, cancel or retry supported tasks."
+          "Task queue and conflict resolution",
+          "Track copy, move, transfer and extract jobs in the background queue or dedicated progress window with pause, resume and retry. Compare incoming and existing files side by side before skipping, replacing or keeping both."
         ],
         [
           "server",
@@ -140,13 +153,13 @@
         ],
         [
           "code",
-          "Plugins and shell commands",
-          "The website edition supports a plugin market, local plugin packages and home scripts, with custom icons, shells and working directories."
+          "Git integration, plugins and scripts",
+          "Inspect Git diffs, commit history and stage changes right from the context menu. The website edition also supports a plugin market, local plugin packages and Workbench shell commands."
         ],
         [
           "settings",
-          "Appearance and shortcuts",
-          "Choose light or dark, glass surfaces and layout density. Customize shortcuts, hold ⌘ for hints, and switch between four interface languages."
+          "Themes, folder covers and shortcuts",
+          "Pick built-in background themes, light or dark glass, and frosted or skeuomorphic folder covers. Resize and group sidebar items, customize shortcuts, and switch across four languages."
         ]
       ]
     }
@@ -175,5 +188,11 @@
       "Orange",
       "Yellow"
     ]
-  }
+  },
+  "spotlightAlts": [
+    "Mac Explorer split workspace with color-coded tab groups showing two project folders side by side",
+    "Mac Explorer instant image preview with a floating glass action bar to zoom, open, or reveal in folder",
+    "Mac Explorer file conflict dialog comparing incoming and existing file sizes and timestamps side by side",
+    "Mac Explorer menu bar file delivery and staging popover listing Downloads, Desktop, and staged items"
+  ]
 }

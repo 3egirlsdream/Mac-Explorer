@@ -28,7 +28,7 @@ try {
     copy.append(summary);
     const tags = document.createElement("div");
     tags.className = "social-tags";
-    for (const label of ["多窗格", "标签收藏", "文字搜索", "文件速递"]) {
+    for (const label of ["多栏分屏", "标签收藏", "文字搜索", "文件速递"]) {
       const item = document.createElement("span");
       item.textContent = label;
       tags.append(item);
@@ -45,7 +45,8 @@ try {
     caption.className = "social-caption";
     caption.textContent = "MAC EXPLORER  /  Mac 文件资源管理器";
     card.append(copy, stage, caption);
-    document.body.replaceChildren(card);
+    const defs = document.querySelector(".icon-defs");
+    document.body.replaceChildren(...(defs ? [defs, card] : [card]));
   });
   await page.addStyleTag({
     content: `

@@ -146,7 +146,6 @@
     <Style Selector="Border.settings-row">
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsRowMinHeight}"/>
-        <Setter Property="CornerRadius" Value="0"/>
     </Style>
 
     <Style Selector="Border.settings-row.settings-divider">
@@ -157,7 +156,6 @@
     <Style Selector="Border.settings-compact-row">
         <Setter Property="Padding" Value="12,2"/>
         <Setter Property="MinHeight" Value="{DynamicResource TypographySettingsCompactRowMinHeight}"/>
-        <Setter Property="CornerRadius" Value="0"/>
     </Style>
 
     <Style Selector="Border.settings-compact-row.settings-divider">
