@@ -42,16 +42,27 @@ public sealed class FileListColumnLayoutServiceTests
         Assert.Equal(preferred.Type, wide.Type);
     }
 
-    [Fact]
-    public void MetadataColumnCanGrowByBorrowingSpaceFromName()
+    [Theory]
+    [InlineData((int)FileListColumn.Name, 440, 620)]
+    [InlineData((int)FileListColumn.Modified, 145, 220)]
+    [InlineData((int)FileListColumn.Size, 90, 145)]
+    [InlineData((int)FileListColumn.Type, 190, 280)]
+    public void ManualResizeMovesItsDividerInBothDirections(int columnIndex, double narrow, double wide)
     {
-        var filled = FileListColumnLayoutService.CalculateEffective(FileListColumnLayoutService.Defaults, 1000);
-        var width = FileListColumnLayoutService.ClampInteractiveWidth(FileListColumn.Modified, 220, filled, 1000);
+        var column = (FileListColumn)columnIndex;
+        var service = new FileListColumnLayoutService();
+        const double available = 1050;
+        var initial = FileListColumnLayoutService.CalculateEffective(service.PreferredWidths, available);
+        Assert.True(narrow < initial[column]);
+        Assert.True(wide > initial[column]);
 
-        Assert.Equal(220, width);
-        var resized = FileListColumnLayoutService.CalculateEffective(FileListColumnLayoutService.Defaults.With(FileListColumn.Modified, width), 1000);
-        Assert.Equal(440, resized.Name);
-        Assert.Equal(1000, resized.Total);
+        foreach (var width in new[] { narrow, wide })
+        {
+            service.Preview(column, width);
+            var effective = FileListColumnLayoutService.CalculateEffective(service.PreferredWidths, available,
+                service.HiddenColumns, service.ResizedColumns);
+            Assert.Equal(initial.With(column, width), effective);
+        }
     }
 
     [Fact]
@@ -77,26 +88,53 @@ public sealed class FileListColumnLayoutServiceTests
     }
 
     [Fact]
-    public void InteractiveResizeUsesOnlyAvailableTrailingSpace()
+    public void HiddenColumnsDoNotUseSpaceAndRestoreTheirPreferredWidths()
     {
-        var width = FileListColumnLayoutService.ClampInteractiveWidth(
-            FileListColumn.Name,
-            700,
-            FileListColumnLayoutService.Defaults,
-            850);
+        var service = new FileListColumnLayoutService();
+        service.Preview(FileListColumn.Type, 270);
+        service.SetVisible(FileListColumn.Modified, false);
+        service.SetVisible(FileListColumn.Type, false);
+        service.SetVisible(FileListColumn.Name, false);
 
-        Assert.Equal(340, width);
+        Assert.Equal(FileListColumns.Modified | FileListColumns.Type, service.HiddenColumns);
+        var effective = FileListColumnLayoutService.CalculateEffective(service.PreferredWidths, 900,
+            service.HiddenColumns, service.ResizedColumns);
+        Assert.Equal(new FileListColumnWidths(790, 0, 110, 0), effective);
+
+        service.SetVisible(FileListColumn.Type, true);
+        var restored = FileListColumnLayoutService.CalculateEffective(service.PreferredWidths, 900,
+            service.HiddenColumns, service.ResizedColumns);
+        Assert.Equal(270, restored.Type);
+        Assert.Equal(0, restored.Modified);
+    }
+
+    [Fact]
+    public void ResizeHonorsMinimumAndDefaultWidthCanBeExplicit()
+    {
+        var service = new FileListColumnLayoutService();
+        service.Preview(FileListColumn.Size, 4);
+        Assert.Equal(FileListColumnLayoutService.Minimums.Size, service.PreferredWidths.Size);
+        service.Reset(FileListColumn.Size);
+
+        service.Preview(FileListColumn.Name, FileListColumnLayoutService.Defaults.Name);
+        var restored = new FileListColumnLayoutService();
+        restored.Restore([420, 170, 110, 230], FileListColumns.None, service.ResizedColumnsOverride);
+        Assert.Equal(420, FileListColumnLayoutService.CalculateEffective(restored.PreferredWidths, 1200,
+            restored.HiddenColumns, restored.ResizedColumns).Name);
+        restored.Reset(FileListColumn.Name);
+        Assert.Equal(690, FileListColumnLayoutService.CalculateEffective(restored.PreferredWidths, 1200,
+            restored.HiddenColumns, restored.ResizedColumns).Name);
     }
 
     [Fact]
     public void SavedWidthsAreRestoredClampedAndResetPersistsDefault()
     {
         var settings = new MemorySettingsService();
-        settings.Set(FileListColumnLayoutService.NameWidthKey, 900d);
+        settings.Set(FileListColumnLayoutService.NameWidthKey, 9000d);
         settings.Set(FileListColumnLayoutService.ModifiedWidthKey, 200d);
 
         var service = new FileListColumnLayoutService(settings);
-        Assert.Equal(720, service.PreferredWidths.Name);
+        Assert.Equal(8192, service.PreferredWidths.Name);
         Assert.Equal(200, service.PreferredWidths.Modified);
 
         service.Preview(FileListColumn.Modified, 230);
@@ -113,7 +151,7 @@ public sealed class FileListColumnLayoutServiceTests
     {
         var service = new FileListColumnLayoutService();
         var observed = FileListColumnLayoutService.Defaults;
-        service.PreferredWidthsChanged += (_, _) => observed = service.PreferredWidths;
+        service.LayoutChanged += (_, _) => observed = service.PreferredWidths;
 
         service.Preview(FileListColumn.Size, 145);
 

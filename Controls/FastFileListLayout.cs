@@ -1,8 +1,31 @@
 using Avalonia;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Controls;
 
 internal readonly record struct FastFileListGroup(string Name, int Count, int? DisplayCount = null);
+
+internal readonly record struct FastFileListDetailColumn(FileListColumn Column, double Left, double Width)
+{
+    public double TextWidth => Width - (Column == FileListColumn.Size ? 12 : 8);
+
+    public double TextX(double textWidth) => Column == FileListColumn.Size
+        ? Left + Width - 12 - Math.Ceiling(textWidth)
+        : Left;
+
+    public static FastFileListDetailColumn[] Build(FileListColumnWidths widths, double firstColumnX)
+    {
+        var details = new List<FastFileListDetailColumn>(3);
+        var x = firstColumnX + widths.Name;
+        foreach (var column in FileListColumnLayoutService.Columns)
+        {
+            if (column == FileListColumn.Name || widths[column] <= 0) continue;
+            details.Add(new(column, x, widths[column]));
+            x += widths[column];
+        }
+        return details.ToArray();
+    }
+}
 
 /// <summary>One section per group; file positions are calculated without per-file layout objects.</summary>
 internal sealed class FastFileListLayout

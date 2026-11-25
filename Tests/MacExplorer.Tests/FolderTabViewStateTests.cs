@@ -57,6 +57,7 @@ public sealed class FolderTabViewStateTests : FileListViewModelTestBase
         vm.FileNameFilter = "alpha";
         vm.ColumnLayoutService.Preview(FileListColumn.Name, 360);
         vm.ColumnLayoutService.Commit(FileListColumn.Name);
+        vm.ColumnLayoutService.SetVisible(FileListColumn.Type, false);
         vm.IsInfoPanelVisible = !vm.IsInfoPanelVisible;
         var expected = vm.CaptureDirectoryPreferences();
         Assert.NotEmpty(directories.Saves);
@@ -150,6 +151,7 @@ public sealed class FolderTabViewStateTests : FileListViewModelTestBase
             vm.IsMetadataPanelVisible = i == 1;
             vm.IsInfoPanelVisible = i == 2;
             vm.ColumnLayoutService.Preview(FileListColumn.Name, 300 + i * 20);
+            vm.ColumnLayoutService.SetVisible((FileListColumn)(i + 1), false);
         }
         var captured = fixture.Window.CaptureFolderTabs();
         var preset = TabGroupPreset.Capture("Work", captured.Paths, Assert.Single(captured.Groups), viewStates: captured.ViewStates)!;
@@ -191,8 +193,10 @@ public sealed class FolderTabViewStateTests : FileListViewModelTestBase
         await fixture.Model.FileList.NavigateToAsync(root.Path);
         Assert.NotEmpty(fixture.Model.FileList.Entries);
         var preferences = fixture.Model.FileList.CaptureDirectoryPreferences();
-        var first = new FolderTabViewState(ViewMode.Tree, GroupField.Size, preferences with { Sort = SortField.Size });
-        var second = new FolderTabViewState(ViewMode.Grid, GroupField.Type, preferences with { Ascending = false });
+        var first = new FolderTabViewState(ViewMode.Tree, GroupField.Size,
+            preferences with { Sort = SortField.Size, HiddenColumns = FileListColumns.Type, ResizedColumns = FileListColumns.Name });
+        var second = new FolderTabViewState(ViewMode.Grid, GroupField.Type,
+            preferences with { Ascending = false, HiddenColumns = FileListColumns.Size });
         var settings = new StartupSettings();
         settings.Set(FolderTabSession.EnabledKey, true);
         FolderWindowSession.Capture([FolderTabSession.Capture([root.Path, root.Path], 1,

@@ -135,6 +135,10 @@ public partial class FileListView : UserControl
     private FileListColumn? _resizingColumn;
     private double _resizeStartX;
     private double _resizeStartWidth;
+    private double _resizeWidth;
+    private readonly TranslateTransform _headerScrollTransform = new();
+    private readonly Grid[] _columnHeaders;
+    private readonly Border[] _columnResizeHandles;
     private FileListColumnLayoutService? _columnLayoutService;
     private FileListColumnWidths _effectiveColumnWidths = FileListColumnLayoutService.Defaults;
     private bool _columnLayoutSubscribed;
@@ -163,6 +167,11 @@ public partial class FileListView : UserControl
     public FileListView()
     {
         InitializeComponent();
+        _columnHeaders = [NameHeaderCell, ModifiedHeaderCell, SizeHeaderCell, TypeHeaderCell];
+        _columnResizeHandles = [NameResizeHandle, ModifiedResizeHandle, SizeResizeHandle, TypeResizeHandle];
+        ListHeaderGrid.RenderTransform = _headerScrollTransform;
+        FastList.ViewportChanged += () => _headerScrollTransform.X = -FastList.Offset.X;
+        ListHeaderViewport.SizeChanged += (_, _) => ApplyListColumnWidths();
         InitializeSnapshotAnchoring();
         InitializeFastFileList();
         InitializeGallery();
@@ -200,6 +209,7 @@ public partial class FileListView : UserControl
         CancelActiveRename();
         ResetDragState();
         ColumnFilterPopup.IsOpen = false;
+        ListColumnsButton.Flyout?.Hide();
         UnsubscribeColumnLayoutService();
         if (_subscribedViewModel != null)
         {
@@ -257,6 +267,7 @@ public partial class FileListView : UserControl
         CancelSlowRename();
         ResetDragState();
         ColumnFilterPopup.IsOpen = false;
+        ListColumnsButton.Flyout?.Hide();
         UnsubscribeColumnLayoutService();
         base.OnDetachedFromVisualTree(e);
     }
@@ -266,20 +277,21 @@ public partial class FileListView : UserControl
         if (_columnLayoutSubscribed || _columnLayoutService == null)
             return;
 
-        _columnLayoutService.PreferredWidthsChanged += OnPreferredColumnWidthsChanged;
+        _columnLayoutService.LayoutChanged += OnColumnLayoutChanged;
         _columnLayoutSubscribed = true;
     }
 
     private void UnsubscribeColumnLayoutService()
     {
         if (_columnLayoutSubscribed && _columnLayoutService != null)
-            _columnLayoutService.PreferredWidthsChanged -= OnPreferredColumnWidthsChanged;
+            _columnLayoutService.LayoutChanged -= OnColumnLayoutChanged;
 
         _columnLayoutSubscribed = false;
         _columnLayoutService = null;
+        _resizingColumn = null;
     }
 
-    private void OnPreferredColumnWidthsChanged(object? sender, EventArgs e)
+    private void OnColumnLayoutChanged(object? sender, EventArgs e)
     {
         if (Dispatcher.UIThread.CheckAccess())
             ApplyListColumnWidths();
@@ -290,7 +302,15 @@ public partial class FileListView : UserControl
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(FileListViewModel.CurrentPath) or nameof(FileListViewModel.ViewMode))
+        {
             _typeAhead.Reset();
+            ListColumnsButton.Flyout?.Hide();
+            if (_resizingColumn != null)
+            {
+                _resizingColumn = null;
+                ApplyListColumnWidths();
+            }
+        }
         if (e.PropertyName == nameof(FileListViewModel.ThumbnailZoomLevel)) ApplyThumbnailZoom();
         if (e.PropertyName == nameof(FileListViewModel.IsContextMenuVisible) && ViewModel?.IsContextMenuVisible == false)
             DismissContextMenu();
@@ -485,102 +505,110 @@ public partial class FileListView : UserControl
 
     private void OnColumnResizePressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Border { Tag: string tag } handle
-            || !TryGetFileListColumn(tag, out var column)
-            || _columnLayoutService == null)
+        if (sender is not Border handle || _columnLayoutService == null
+            || !e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
             return;
-        if (!e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed) return;
 
+        var column = (FileListColumn)(Grid.GetColumn(handle) - 1);
         _resizingColumn = column;
         _resizeStartX = e.GetPosition(InteractionSurface).X;
-        _resizeStartWidth = _effectiveColumnWidths[column];
+        _resizeWidth = _resizeStartWidth = _effectiveColumnWidths[column];
         e.Pointer.Capture(handle);
         e.Handled = true;
     }
 
     private void OnColumnResizeMoved(object? sender, PointerEventArgs e)
     {
-        if (_resizingColumn is not { } column
-            || _columnLayoutService == null
-            || sender is not Control handle
-            || e.Pointer.Captured != handle)
+        if (_resizingColumn is not { } column || e.Pointer.Captured != sender)
             return;
 
         var delta = e.GetPosition(InteractionSurface).X - _resizeStartX;
-        var requested = _resizeStartWidth + delta;
-        var width = FileListColumnLayoutService.ClampInteractiveWidth(
-            column,
-            requested,
-            _effectiveColumnWidths,
-            GetAvailableDataWidth());
-        _columnLayoutService.Preview(column, width);
+        var width = FileListColumnLayoutService.ClampWidth(column, _resizeStartWidth + delta);
+        if (width != _resizeWidth)
+        {
+            _resizeWidth = width;
+            ApplyListColumnWidths();
+        }
         e.Handled = true;
     }
 
     private void OnColumnResizeReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_resizingColumn is not { } column) return;
+        if (_resizingColumn is not { } column || e.Pointer.Captured != sender)
+            return;
         _resizingColumn = null;
         e.Pointer.Capture(null);
-        _columnLayoutService?.Commit(column);
+        if (_resizeWidth != _resizeStartWidth && _columnLayoutService is { } service)
+        {
+            service.Preview(column, _resizeWidth);
+            service.Commit(column);
+        }
         e.Handled = true;
+    }
+
+    private void OnColumnResizeCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_resizingColumn == null) return;
+        _resizingColumn = null;
+        ApplyListColumnWidths();
     }
 
     private void OnColumnResizeDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is not Border { Tag: string tag }
-            || !TryGetFileListColumn(tag, out var column))
-            return;
-
+        if (sender is not Border handle) return;
         _resizingColumn = null;
-        _columnLayoutService?.Reset(column);
+        _columnLayoutService?.Reset((FileListColumn)(Grid.GetColumn(handle) - 1));
         e.Handled = true;
+    }
+
+    private void OnListColumnsOpening(object? sender, EventArgs e)
+    {
+        var hidden = _columnLayoutService?.HiddenColumns ?? FileListColumns.None;
+        ShowModifiedColumn.IsChecked = (hidden & FileListColumns.Modified) == 0;
+        ShowSizeColumn.IsChecked = (hidden & FileListColumns.Size) == 0;
+        ShowTypeColumn.IsChecked = (hidden & FileListColumns.Type) == 0;
+    }
+
+    private void OnListColumnToggled(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string tag } item && Enum.TryParse<FileListColumn>(tag, out var column))
+            _columnLayoutService?.SetVisible(column, item.IsChecked);
     }
 
     private void ApplyListColumnWidths()
     {
-        var preferred = _columnLayoutService?.PreferredWidths ?? FileListColumnLayoutService.Defaults;
-        var effective = FileListColumnLayoutService.CalculateEffective(
-            preferred,
-            GetAvailableDataWidth());
-        FastList.ColumnWidths = effective;
+        var service = _columnLayoutService;
+        var preferred = service?.PreferredWidths ?? FileListColumnLayoutService.Defaults;
+        var resized = service?.ResizedColumns ?? FileListColumns.None;
+        if (_resizingColumn is { } resizedColumn && _resizeWidth != _resizeStartWidth)
+        {
+            preferred = preferred.With(resizedColumn, _resizeWidth);
+            resized |= FileListColumnLayoutService.Mask(resizedColumn);
+        }
+
+        var headerWidth = ListHeaderViewport.Bounds.Width;
+        if (headerWidth <= 0)
+            headerWidth = Bounds.Width - ListColumnsButton.Bounds.Width - FastFileList.Inset * 2;
+        var available = headerWidth - FastFileList.IconSlot;
+        var effective = FileListColumnLayoutService.CalculateEffective(preferred, available,
+            service?.HiddenColumns ?? FileListColumns.None, resized);
+        var overflow = available > 0 ? Math.Max(0, effective.Total - available) : 0;
+        FastList.SetFileColumns(effective, overflow);
         PositionFastRenameEditor();
 
-        // Re-runs on every batched load and resize; when the widths are unchanged skip
-        // the header assignments.
         if (_lastAppliedColumnWidths == effective)
             return;
         _lastAppliedColumnWidths = effective;
         _effectiveColumnWidths = effective;
-
-        for (var column = 1; column <= 4 && column < ListHeaderGrid.ColumnDefinitions.Count; column++)
-            ListHeaderGrid.ColumnDefinitions[column].Width = new GridLength(
-                effective[(FileListColumn)(column - 1)]);
-
-    }
-
-    private double GetAvailableDataWidth()
-    {
-        const double iconColumnWidth = 22;
-        var headerWidth = ListHeaderPanel.IsVisible && ListHeaderGrid.Bounds.Width > 0
-            ? ListHeaderGrid.Bounds.Width
-            : Math.Max(0, Bounds.Width - 24);
-
-        return headerWidth > iconColumnWidth
-            ? headerWidth - iconColumnWidth
-            : FileListColumnLayoutService.Defaults.Total;
-    }
-
-    private static bool TryGetFileListColumn(string tag, out FileListColumn column)
-    {
-        if (int.TryParse(tag, out var gridColumn) && gridColumn is >= 1 and <= 4)
+        ListHeaderGrid.Width = FastFileList.IconSlot + effective.Total;
+        foreach (var column in FileListColumnLayoutService.Columns)
         {
-            column = (FileListColumn)(gridColumn - 1);
-            return true;
+            var index = (int)column;
+            var width = effective[column];
+            ListHeaderGrid.ColumnDefinitions[index + 1].Width = new GridLength(width);
+            _columnHeaders[index].IsVisible = width > 0;
+            _columnResizeHandles[index].IsVisible = width > 0;
         }
-
-        column = default;
-        return false;
     }
 
     private void ApplyScrollBehavior(FileListViewModel.ScrollMode mode, Vector preservedOffset)
@@ -591,7 +619,7 @@ public partial class FileListView : UserControl
         {
             case FileListViewModel.ScrollMode.PreservePosition:
                 var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-                scroll.Offset = new Vector(0, Math.Min(preservedOffset.Y, maxOffset));
+                scroll.Offset = new Vector(preservedOffset.X, Math.Min(preservedOffset.Y, maxOffset));
                 break;
             case FileListViewModel.ScrollMode.RestoreNavigation:
             case FileListViewModel.ScrollMode.ScrollToSelected:

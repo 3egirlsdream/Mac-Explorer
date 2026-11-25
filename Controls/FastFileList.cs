@@ -23,8 +23,8 @@ namespace MacExplorer.Controls;
 public sealed class FastFileList : Control, ILogicalScrollable
 {
     public const double RowHeight = 30;
-    private const double Inset = 13;
-    private const double IconSlot = 22;
+    internal const double Inset = 13;
+    internal const double IconSlot = 22;
     internal const double TreeStep = 16;
     internal const double TreeDisclosureWidth = 16;
     private const int TextCacheLimit = 1024;
@@ -123,6 +123,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private readonly Geometry _chevronRight = Geometry.Parse(Icons.ChevronRight);
     private readonly Geometry _chevronDown = Geometry.Parse(Icons.ChevronDown);
     private FileListColumnWidths _columns = FileListColumnLayoutService.Defaults;
+    private FastFileListDetailColumn[] _detailColumns =
+        FastFileListDetailColumn.Build(FileListColumnLayoutService.Defaults, Inset + IconSlot);
+    private double _columnOverflow;
+    private double _horizontalOffset;
     private double _offset;
     private bool _visibleUpdateQueued;
     private bool _attached;
@@ -249,14 +253,30 @@ public sealed class FastFileList : Control, ILogicalScrollable
     internal FileListColumnWidths ColumnWidths
     {
         get => _columns;
-        set
+        set => SetFileColumns(value, _columnOverflow);
+    }
+
+    internal void SetFileColumns(FileListColumnWidths widths, double overflow)
+    {
+        if (_columns == widths && _columnOverflow == overflow) return;
+        if (_columns != widths)
         {
-            if (_columns == value) return;
-            _columns = value;
-            if (IsLayoutMorphActive) _morphDeferredClearListTexts = true;
-            else ClearListTexts();
-            InvalidateVisual();
+            var details = FastFileListDetailColumn.Build(widths, Inset + IconSlot);
+            if (IsLayoutMorphActive
+                && (_columns.Modified == 0) == (widths.Modified == 0)
+                && (_columns.Size == 0) == (widths.Size == 0)
+                && (_columns.Type == 0) == (widths.Type == 0))
+                _morphDeferredClearListTexts = true;
+            else
+                ClearListTexts();
+            _columns = widths;
+            _detailColumns = details;
         }
+        _columnOverflow = overflow;
+        UpdateScrollGeometry();
+        if (_pointerPosition is { } position) ToolTip.SetTip(this, GetPointerTip(position));
+        InvalidateVisual();
+        ViewportChanged?.Invoke();
     }
 
     public FastFileList()
@@ -331,18 +351,25 @@ public sealed class FastFileList : Control, ILogicalScrollable
         ClearHeaderTexts();
     }
 
-    public Size Extent => new(Viewport.Width, _layout.Height);
+    private bool HasHorizontalFileScroll => CanHorizontallyScroll && !IsGrid && !NameOnly && DetailTextProvider == null;
+    public Size Extent => new(HasHorizontalFileScroll
+        ? Viewport.Width + _columnOverflow : Viewport.Width, _layout.Height);
     public Size Viewport => Bounds.Size;
     public Vector Offset
     {
-        get => new(0, _offset);
+        get => new(_horizontalOffset, _offset);
         set
         {
-            var next = ClampOffset(value.Y);
-            if (_offset == next) return;
+            var x = ClampHorizontalOffset(value.X);
+            var y = ClampOffset(value.Y);
+            if (_horizontalOffset == x && _offset == y) return;
             if (_morphTicked) CancelLayoutMorph();
-            _offset = next;
-            ScheduleVisibleUpdate();
+            var movedHorizontally = _horizontalOffset != x;
+            var movedVertically = _offset != y;
+            _horizontalOffset = x;
+            _offset = y;
+            if (movedVertically) ScheduleVisibleUpdate();
+            if (movedHorizontally && _pointerPosition is { } position) ToolTip.SetTip(this, GetPointerTip(position));
             InvalidateVisual();
             ViewportChanged?.Invoke();
         }
@@ -350,8 +377,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public bool CanHorizontallyScroll { get; set; }
     public bool CanVerticallyScroll { get; set; }
     public bool IsLogicalScrollEnabled => true;
-    public Size ScrollSize => new(0, _layout.ItemHeight);
-    public Size PageScrollSize => new(0, Math.Max(_layout.ItemHeight, Viewport.Height - _layout.ItemHeight));
+    public Size ScrollSize => new(HasHorizontalFileScroll ? 32 : 0, _layout.ItemHeight);
+    public Size PageScrollSize => new(HasHorizontalFileScroll ? Viewport.Width : 0, Math.Max(_layout.ItemHeight, Viewport.Height - _layout.ItemHeight));
     public event EventHandler? ScrollInvalidated;
     public event Action? ViewportChanged;
     public void RaiseScrollInvalidated(EventArgs e) => ScrollInvalidated?.Invoke(this, e);
@@ -359,6 +386,15 @@ public sealed class FastFileList : Control, ILogicalScrollable
     public Control? GetControlInDirection(NavigationDirection direction, Control? from) => null;
     private double ClampOffset(double value) => double.IsFinite(value)
         ? Math.Clamp(value, 0, Math.Max(0, Extent.Height - Viewport.Height)) : 0;
+
+    private double ClampHorizontalOffset(double value) => double.IsFinite(value)
+        ? Math.Clamp(value, 0, Math.Max(0, Extent.Width - Viewport.Width)) : 0;
+
+    private void UpdateScrollGeometry()
+    {
+        _horizontalOffset = ClampHorizontalOffset(_horizontalOffset);
+        RaiseScrollInvalidated(EventArgs.Empty);
+    }
 
     protected override Size MeasureOverride(Size availableSize) => new(
         double.IsFinite(availableSize.Width) ? availableSize.Width : Inset * 2 + IconSlot + _columns.Total,
@@ -408,7 +444,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             if (heightOnlyBoundsChange)
             {
                 _offset = ClampOffset(_offset);
-                RaiseScrollInvalidated(EventArgs.Empty);
+                UpdateScrollGeometry();
                 if (!IsLayoutMorphActive)
                     ScheduleVisibleUpdate();
                 ViewportChanged?.Invoke();
@@ -422,7 +458,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 BuildLayout();
                 if (anchor < _rows.Count) _offset = _layout.Bounds(anchor).Y - y;
                 _offset = ClampOffset(_offset);
-                RaiseScrollInvalidated(EventArgs.Empty);
+                UpdateScrollGeometry();
                 if (willMorph)
                 {
                     _morphDeferredVisibleUpdate = true;
@@ -489,7 +525,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     public int IndexOf(FileSystemEntry entry) => _indices.GetValueOrDefault(entry.FullPath, -1);
     public int IndexOfPath(string path) => _indices.GetValueOrDefault(path, -1);
-    internal double ListRowRight => NameOnly ? Bounds.Width : Inset + IconSlot + (DetailColumnWidths?.Sum() ?? _columns.Total);
+    private double ContentRight => NameOnly ? Bounds.Width : Inset + IconSlot + (DetailColumnWidths?.Sum() ?? _columns.Total);
+    internal double ListRowRight => ContentRight - _horizontalOffset;
+    private bool DrawFileDetails => !NameOnly && DetailTextProvider == null && _detailColumns.Length != 0;
+    private double ListInset => Inset - _horizontalOffset;
     private double NameColumnWidth => NameOnly ? Math.Max(0, Bounds.Width - Inset - IconSlot) : _columns.Name;
 
     public int RowIndexAt(Point point)
@@ -565,24 +604,22 @@ public sealed class FastFileList : Control, ILogicalScrollable
         }
         var y = row.Y;
         if (IsTree && _treeRows[index].CanExpand) yield return TreeDisclosureBounds(index);
-        yield return new Rect(Inset + TreeIndent(index), y + 4, IconSlot, IconSlot);
+        yield return new Rect(ListInset + TreeIndent(index), y + 4, IconSlot, IconSlot);
         yield return NameBounds(index);
-        if (NameOnly) yield break;
-        var modifiedX = Inset + IconSlot + _columns.Name;
-        yield return new Rect(modifiedX, y + 4, text.Modified.Width, 22);
-        var sizeRight = modifiedX + _columns.Modified + _columns.Size - 12;
-        yield return new Rect(sizeRight - text.Size.Width, y + 4, text.Size.Width, 22);
-        yield return new Rect(modifiedX + _columns.Modified + _columns.Size, y + 4, text.Kind.Width, 22);
+        if (!DrawFileDetails) yield break;
+        foreach (var column in _detailColumns)
+            if (text.Cell(column.Column) is { } cell)
+                yield return new Rect(column.TextX(cell.Width) - _horizontalOffset, y + 4, cell.Width, 22);
     }
 
     public IEnumerable<FileSystemEntry> RowsWithCentersIn(double top, double bottom)
-        => EntriesInRectangle(new Rect(0, top, Bounds.Width, Math.Max(0, bottom - top)));
+        => EntriesInRectangle(new Rect(_horizontalOffset, top, Bounds.Width, Math.Max(0, bottom - top)));
 
     internal IEnumerable<FileSystemEntry> EntriesInRectangle(Rect rectangle)
     {
         if (IsLoading) yield break;
         // A drag wholly inside the right-hand canvas must not select invisible row area.
-        if (!IsGrid && (rectangle.Left >= Math.Min(Bounds.Width, ListRowRight) || rectangle.Right <= 0))
+        if (!IsGrid && (rectangle.Left >= Math.Min(_horizontalOffset + Bounds.Width, ContentRight) || rectangle.Right <= 0))
             yield break;
         var (first, end) = _layout.VisibleRange(rectangle.Top, rectangle.Bottom + 0.0001);
         for (var i = first; i < end; i++)
@@ -626,12 +663,12 @@ public sealed class FastFileList : Control, ILogicalScrollable
             Math.Max(TreeDisclosureWidth, NameColumnWidth - 96));
     }
 
-    private double NameX(int index) => Inset + IconSlot + 8 + TreeIndent(index);
+    private double NameX(int index) => ListInset + IconSlot + 8 + TreeIndent(index);
 
     private Rect TreeDisclosureBounds(int index)
     {
         var row = RowBounds(index);
-        return new Rect(Inset + TreeIndent(index) - TreeDisclosureWidth, row.Y + 4,
+        return new Rect(ListInset + TreeIndent(index) - TreeDisclosureWidth, row.Y + 4,
             TreeDisclosureWidth, IconSlot);
     }
 
@@ -640,8 +677,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
         // Publish geometry before asking the presenter to coerce the desired offset.
         RaiseScrollInvalidated(EventArgs.Empty);
         if (this.FindAncestorOfType<ScrollViewer>() is { } owner)
-            owner.SetCurrentValue(ScrollViewer.OffsetProperty, new Vector(0, ClampOffset(y)));
-        else Offset = new Vector(0, y);
+            owner.SetCurrentValue(ScrollViewer.OffsetProperty, new Vector(_horizontalOffset, ClampOffset(y)));
+        else Offset = new Vector(_horizontalOffset, y);
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -662,7 +699,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             return LocalizationText.Get("正在读取文件夹");
 
         var entry = EntryAt(position);
-        return !NameOnly && !IsGrid && DetailTextProvider == null && position.X >= ListRowRight - _columns.Type
+        return !IsGrid && DrawFileDetails && _columns.Type > 0 && position.X >= ListRowRight - _columns.Type
             ? entry?.KindText
             : entry?.DisplayName;
     }
@@ -746,14 +783,20 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 }
                 continue;
             }
-            Bar(Inset + 2, y + 6, 18, 18);
-            var nameX = Inset + IconSlot + 8;
-            Bar(nameX, y + 10, Math.Max(0, _columns.Name - 24) * (0.40 + i % 4 * 0.12), 10);
-            var modifiedX = Inset + IconSlot + _columns.Name;
-            Bar(modifiedX, y + 10, Math.Max(0, _columns.Modified - 16) * 0.70, 10);
-            var sizeWidth = Math.Max(0, _columns.Size - 24) * 0.60;
-            Bar(modifiedX + _columns.Modified + _columns.Size - 12 - sizeWidth, y + 10, sizeWidth, 10);
-            Bar(modifiedX + _columns.Modified + _columns.Size, y + 10, Math.Max(0, _columns.Type - 16) * 0.55, 10);
+            Bar(ListInset + 2, y + 6, 18, 18);
+            var nameX = ListInset + IconSlot + 8;
+            Bar(nameX, y + 10, Math.Max(0, NameColumnWidth - 24) * (0.40 + i % 4 * 0.12), 10);
+            if (!DrawFileDetails) continue;
+            foreach (var column in _detailColumns)
+            {
+                var width = column.Column switch
+                {
+                    FileListColumn.Modified => (column.Width - 16) * 0.70,
+                    FileListColumn.Size => (column.Width - 24) * 0.60,
+                    _ => (column.Width - 16) * 0.55
+                };
+                Bar(column.TextX(width) - _horizontalOffset, y + 10, width, 10);
+            }
         }
         LastRenderedSkeletonRowCount = rows;
 
@@ -826,7 +869,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 foreach (var content in ContentBounds(index)) context.DrawRectangle(DropBrush, null, content);
             if (IsTree && _treeRows[index].CanExpand)
                 DrawTreeDisclosure(context, index);
-            var iconRect = new Rect(Inset + TreeIndent(index) + 2, row.Y + 6, 18, 18);
+            var iconRect = new Rect(ListInset + TreeIndent(index) + 2, row.Y + 6, 18, 18);
             DrawIcon(context, entry, iconRect);
             if (DetailTextProvider != null && DetailColumnWidths is { } widths)
             {
@@ -844,14 +887,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
                 continue;
             }
             var text = Texts(entry, index);
-            if (entry.FullPath != EditingPath) DrawText(text.Name, NameX(index));
-            if (NameOnly) continue;
-            var modifiedX = Inset + IconSlot + _columns.Name;
-            DrawText(text.Modified, modifiedX);
-            DrawText(text.Size, modifiedX + _columns.Modified + _columns.Size - 12 - Math.Ceiling(text.Size.Width));
-            DrawText(text.Kind, modifiedX + _columns.Modified + _columns.Size);
-            void DrawText(CachedText value, double x) => value.Draw(context,
-                new Point(Math.Round(x), row.Y + Math.Round((RowHeight - Math.Ceiling(value.Height)) / 2)));
+            if (entry.FullPath != EditingPath) DrawRowCell(context, text.Name, NameX(index), row.Y);
+            if (DrawFileDetails) DrawDetailCells(context, text, row.Y);
         }
         LastRenderedRowCount = end - first;
         LastRenderMilliseconds = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
@@ -877,8 +914,8 @@ public sealed class FastFileList : Control, ILogicalScrollable
         DrawIcon(context, entry, GridImageBounds(row.Center.X, row.Y));
         var text = Texts(entry, index);
         if (entry.FullPath != EditingPath) text.Name.Draw(context, name.Position);
-        if (entry.IsVirtual)
-            text.Size.Draw(context, new Point(Math.Round(row.Center.X - Math.Ceiling(text.Size.Width) / 2), name.Bottom + 3));
+        if (entry.IsVirtual && text.Size is { } count)
+            count.Draw(context, new Point(Math.Round(row.Center.X - Math.Ceiling(count.Width) / 2), name.Bottom + 3));
 
         void DrawTarget(Rect target, CornerRadius radius)
         {
@@ -942,7 +979,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
             else
             {
-                icon = new Rect(Inset + TreeIndent(i) + 2, row.Y + 6, 18, 18);
+                icon = new Rect(ListInset + TreeIndent(i) + 2, row.Y + 6, 18, 18);
                 double nameWidth = Math.Max(1, NameColumnWidth - 16 - TreeIndent(i));
                 double nameHeight = 16;
                 if (_texts.TryGetValue(entry.FullPath, out var cached) && !cached.Value.IsGrid)
@@ -1106,7 +1143,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         var targetNameAlpha = modeSwitched ? Math.Clamp((t - 0.12) / 0.68, 0, 1) : 0;
         var detailAlpha = Math.Clamp((t - 0.25) / 0.60, 0, 1);
         var warmBudget = warmTextBudgetPerFrame;
-        var drawListColumns = !IsGrid && !NameOnly && DetailTextProvider == null;
+        var drawListColumns = !IsGrid && DrawFileDetails;
 
         _morphItems.Clear();
         _morphAppearItems.Clear();
@@ -1123,7 +1160,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             var targetRow = RowBounds(index);
             var targetIcon = IsGrid
                 ? GridImageBounds(targetRow.Center.X, targetRow.Y)
-                : new Rect(Inset + TreeIndent(index) + 2, targetRow.Y + 6, 18, 18);
+                : new Rect(ListInset + TreeIndent(index) + 2, targetRow.Y + 6, 18, 18);
             var targetText = modeSwitched && DetailTextProvider == null
                 ? TryGetOrWarmTargetText(entry, index, ref warmBudget)
                 : null;
@@ -1251,18 +1288,14 @@ public sealed class FastFileList : Control, ILogicalScrollable
         // Pass 2: Tree disclosures & List detail columns (1 shared opacity layer; 0 SaveLayer once settled).
         if ((hasDisclosures || hasListDetailColumns) && detailAlpha > 0.001)
         {
-            var modifiedX = Inset + IconSlot + _columns.Name;
-            var sizeRight = modifiedX + _columns.Modified + _columns.Size - 12;
-            var kindX = modifiedX + _columns.Modified + _columns.Size;
-
             using (detailAlpha < 0.999 ? context.PushOpacity(detailAlpha) : default)
             {
-                DrawListDetailsAndDisclosures(cutOnly: false, modifiedX, sizeRight, kindX);
+                DrawListDetailsAndDisclosures(cutOnly: false);
             }
             if (hasCutItems)
             {
                 using var cutDetailOpacity = context.PushOpacity(detailAlpha * 0.45);
-                DrawListDetailsAndDisclosures(cutOnly: true, modifiedX, sizeRight, kindX);
+                DrawListDetailsAndDisclosures(cutOnly: true);
             }
         }
 
@@ -1333,10 +1366,6 @@ public sealed class FastFileList : Control, ILogicalScrollable
         {
             var scale = 0.92 + 0.08 * t;
             var radius = Math.Max(0, RowCornerRadius.TopLeft - 0.5);
-            var modifiedX = Inset + IconSlot + _columns.Name;
-            var sizeRight = modifiedX + _columns.Modified + _columns.Size - 12;
-            var kindX = modifiedX + _columns.Modified + _columns.Size;
-
             using (t < 0.999 ? context.PushOpacity(t) : default)
             {
                 for (var i = 0; i < _morphAppearItems.Count; i++)
@@ -1368,37 +1397,24 @@ public sealed class FastFileList : Control, ILogicalScrollable
                         }
                         else
                         {
-                            DrawRowCell(appearText.Name, NameX(item.Index), item.Row.Y);
-                            if (drawListColumns)
-                            {
-                                DrawRowCell(appearText.Modified, modifiedX, item.Row.Y);
-                                DrawRowCell(appearText.Size, sizeRight - Math.Ceiling(appearText.Size.Width), item.Row.Y);
-                                DrawRowCell(appearText.Kind, kindX, item.Row.Y);
-                            }
+                            DrawRowCell(context, appearText.Name, NameX(item.Index), item.Row.Y);
+                            if (drawListColumns) DrawDetailCells(context, appearText, item.Row.Y);
                         }
                     }
                 }
             }
         }
 
-        void DrawListDetailsAndDisclosures(bool cutOnly, double modifiedX, double sizeRight, double kindX)
+        void DrawListDetailsAndDisclosures(bool cutOnly)
         {
             for (var i = 0; i < _morphItems.Count; i++)
             {
                 var item = _morphItems[i];
                 if (item.IsCut != cutOnly) continue;
                 if (item.DrawDisclosure) DrawTreeDisclosure(context, item.Index);
-                if (drawListColumns && item.TargetText is { } text)
-                {
-                    DrawRowCell(text.Modified, modifiedX, item.Row.Y);
-                    DrawRowCell(text.Size, sizeRight - Math.Ceiling(text.Size.Width), item.Row.Y);
-                    DrawRowCell(text.Kind, kindX, item.Row.Y);
-                }
+                if (drawListColumns && item.TargetText is { } text) DrawDetailCells(context, text, item.Row.Y);
             }
         }
-
-        void DrawRowCell(CachedText value, double x, double rowY) => value.Draw(context,
-            new Point(Math.Round(x), rowY + Math.Round((RowHeight - Math.Ceiling(value.Height)) / 2)));
 
         void DrawGridIconHighlights(bool cutOnly)
         {
@@ -1501,6 +1517,16 @@ public sealed class FastFileList : Control, ILogicalScrollable
         context.DrawGeometry(Secondary, null, state.IsExpanded ? _chevronDown : _chevronRight);
     }
 
+    private void DrawDetailCells(DrawingContext context, RowText text, double rowY)
+    {
+        foreach (var column in _detailColumns)
+            if (text.Cell(column.Column) is { } cell)
+                DrawRowCell(context, cell, column.TextX(cell.Width) - _horizontalOffset, rowY);
+    }
+
+    private static void DrawRowCell(DrawingContext context, CachedText value, double x, double rowY)
+        => value.Draw(context, new Point(Math.Round(x), rowY + Math.Round((RowHeight - Math.Ceiling(value.Height)) / 2)));
+
     private RowText Texts(FileSystemEntry entry, int index)
     {
         var nameWidth = IsGrid ? GridNameWidth : Math.Max(1, NameColumnWidth - 16 - TreeIndent(index));
@@ -1516,11 +1542,32 @@ public sealed class FastFileList : Control, ILogicalScrollable
             _textLru.Remove(node);
             node.Value.Release();
         }
+        CachedText? modified = null, size = null, kind = null;
+        if (IsGrid)
+        {
+            if (entry.IsVirtual) size = Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8);
+        }
+        else if (DrawFileDetails)
+        {
+            foreach (var column in _detailColumns)
+            {
+                switch (column.Column)
+                {
+                    case FileListColumn.Modified:
+                        modified = CellText(column.Column, entry.ModifiedText, column.TextWidth).Retain();
+                        break;
+                    case FileListColumn.Size:
+                        size = CellText(column.Column, entry.FormattedSize, column.TextWidth).Retain();
+                        break;
+                    case FileListColumn.Type:
+                        kind = CellText(column.Column, entry.KindText, column.TextWidth).Retain();
+                        break;
+                }
+            }
+        }
         var text = new RowText(entry,
             IsGrid ? GridName(entry).Retain() : ListName(entry.DisplayName, nameWidth).Retain(),
-            CellText(FileListColumn.Modified, IsGrid || NameOnly ? "" : entry.ModifiedText, _columns.Modified - 8).Retain(),
-            IsGrid ? Format(entry.VirtualCountText, MetaFontSize, Secondary, GridNameWidth + 8) : CellText(FileListColumn.Size, NameOnly ? "" : entry.FormattedSize, _columns.Size - 12).Retain(),
-            CellText(FileListColumn.Type, IsGrid || NameOnly ? "" : entry.KindText, _columns.Type - 8).Retain(), nameWidth, IsGrid);
+            modified, size, kind, nameWidth, IsGrid);
         _texts[entry.FullPath] = _textLru.AddFirst(text);
         if (_texts.Count > TextCacheLimit && _textLru.Last is { } last)
         {
@@ -1634,16 +1681,36 @@ public sealed class FastFileList : Control, ILogicalScrollable
         public void Release() { if (--_references == 0) layout.Dispose(); }
     }
 
-    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText Modified, CachedText Size, CachedText Kind, double NameWidth, bool IsGrid)
+    private sealed record RowText(FileSystemEntry Entry, CachedText Name, CachedText? Modified, CachedText? Size, CachedText? Kind, double NameWidth, bool IsGrid)
     {
-        public void Release() { Name.Release(); Modified.Release(); Size.Release(); Kind.Release(); }
-        public bool Matches(FileSystemEntry other, double nameWidth, bool isGrid) => IsGrid == isGrid
-            && NameWidth == nameWidth
-            && Entry.Name == other.Name && Entry.Size == other.Size
-            && Entry.LastModified == other.LastModified && Entry.Extension == other.Extension
-            && Entry.IsDirectory == other.IsDirectory && Entry.IconKey == other.IconKey
-            && Entry.IsVirtual == other.IsVirtual && Entry.VirtualItemCount == other.VirtualItemCount
-            && Entry.VirtualFolderType == other.VirtualFolderType;
+        public CachedText? Cell(FileListColumn column) => column switch
+        {
+            FileListColumn.Modified => Modified,
+            FileListColumn.Size => Size,
+            FileListColumn.Type => Kind,
+            _ => null
+        };
+
+        public void Release() { Name.Release(); Modified?.Release(); Size?.Release(); Kind?.Release(); }
+        public bool Matches(FileSystemEntry other, double nameWidth, bool isGrid)
+        {
+            if (IsGrid != isGrid || NameWidth != nameWidth) return false;
+            if (ReferenceEquals(Entry, other)) return true;
+            if (Entry.Name != other.Name || Entry.IsApplication != other.IsApplication || Entry.IconKey != other.IconKey)
+                return false;
+
+            var sameVirtualStatus = Entry.IsVirtual == other.IsVirtual;
+            if (IsGrid)
+                return sameVirtualStatus && (!other.IsVirtual || Entry.VirtualItemCount == other.VirtualItemCount);
+
+            var sameSize = Size == null || sameVirtualStatus && (other.IsVirtual
+                ? Entry.VirtualItemCount == other.VirtualItemCount
+                : Entry.Size == other.Size && Entry.IsDirectory == other.IsDirectory);
+            var sameKind = Kind == null || sameVirtualStatus && (other.IsVirtual
+                ? Entry.VirtualFolderType == other.VirtualFolderType
+                : Entry.Extension == other.Extension && Entry.IsDirectory == other.IsDirectory);
+            return sameSize && sameKind && (Modified == null || Entry.LastModified == other.LastModified);
+        }
     }
     protected override AutomationPeer OnCreateAutomationPeer() => new FastListPeer(this);
     private sealed class FastListPeer(FastFileList owner) : ControlAutomationPeer(owner)

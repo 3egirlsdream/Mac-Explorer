@@ -229,6 +229,8 @@ public partial class FileListView
     private void BeginFastRename(FileSystemEntry entry)
     {
         if (!FastList.ScrollToEntry(entry)) return;
+        if (FastListHost.Offset.X > 0)
+            FastListHost.Offset = new Vector(0, FastListHost.Offset.Y);
         var editor = new TextBox
         {
             Text = entry.Name, MinWidth = 0, MinHeight = 0,

@@ -189,6 +189,7 @@
     "file_gallery.copied_image": "Image copied",
     "file_gallery.action.more": "More Actions",
     "file_gallery.action.more_tip": "Reveal in Finder, Copy Path",
+    "file_list.columns": "Choose columns",
     "file_list.kind": "Kind",
     "file_kind.generic": "File",
     "file_kind.unknown_extension": "{0} File",
