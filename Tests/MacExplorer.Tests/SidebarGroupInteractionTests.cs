@@ -215,7 +215,11 @@ public sealed class SidebarGroupInteractionTests : FileListViewModelTestBase
             await WaitForIssue11Async(() =>
             {
                 RenderIssue11(window);
-                if (FindGroup() is not { } targetGroup || Center(targetGroup.Children.OfType<Grid>().Single()) is not { } center
+                FindGroup()?.Children.OfType<Grid>().Single().BringIntoView();
+                RenderIssue11(window);
+                if (FindGroup() is not { } targetGroup
+                    || targetGroup.Children.OfType<Grid>().Single() is not { Bounds.Height: > 0 } header
+                    || Center(header) is not { } center
                     || sidebar.InputHitTest(center) is not Visual hit
                     || (hit != targetGroup && !hit.GetVisualAncestors().Contains(targetGroup)))
                     return false;
