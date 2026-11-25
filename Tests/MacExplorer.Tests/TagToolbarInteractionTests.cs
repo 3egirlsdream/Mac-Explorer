@@ -62,7 +62,7 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
                 var tag = await service.CreateTagAsync($"Project folder for delivery {i}");
                 await service.SetTagAsync([file], tag, true);
             }
-            await WaitUntilAsync(() => vm.SidebarTags.Count(tag => tag.ItemCount > 0) == 4);
+            await TestTime.WaitUntilAsync(() => vm.SidebarTags.Count(tag => tag.ItemCount > 0) == 4);
             vm.SelectedEntries.Add(new FileSystemEntry { Name = "example.txt", FullPath = file });
             Resize(1300);
             Assert.True(copy.IsEnabled);
