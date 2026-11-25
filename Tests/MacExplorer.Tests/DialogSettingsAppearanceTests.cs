@@ -49,13 +49,14 @@ public sealed class DialogSettingsAppearanceTests
                 Assert.Equal(0, body.TranslatePoint(default, window)!.Value.X);
                 if (window.ExtendContentToTop)
                     Assert.Equal(44, body.TranslatePoint(default, window)!.Value.Y);
-                foreach (var state in new[] { WindowState.Maximized, WindowState.FullScreen })
-                {
-                    window.WindowState = state;
-                    Assert.False(outline.IsVisible);
-                    Assert.Equal(new CornerRadius(0), frame.CornerRadius);
-                }
+                window.WindowState = WindowState.Maximized;
+                Assert.True(outline.IsVisible);
+                Assert.Equal(new CornerRadius(14), frame.CornerRadius);
+                window.WindowState = WindowState.FullScreen;
+                Assert.False(outline.IsVisible);
+                Assert.Equal(new CornerRadius(0), frame.CornerRadius);
                 window.WindowState = WindowState.Normal;
+                Assert.True(outline.IsVisible);
                 Assert.Equal(new CornerRadius(14), frame.CornerRadius);
             }
             finally { window.Close(); }

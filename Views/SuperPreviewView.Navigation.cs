@@ -1,5 +1,3 @@
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using MacExplorer.Models;
 
@@ -34,9 +32,8 @@ public partial class SuperPreviewView
             _previousPreviewIndex = index > 0 ? index - 1 : -1;
             _nextPreviewIndex = index >= 0 && index + 1 < _previewFiles.Length ? index + 1 : -1;
         }
-        PreviewPreviousSlot.IsVisible = _previousPreviewIndex >= 0;
-        PreviewNextSlot.IsVisible = _nextPreviewIndex >= 0;
-        UpdatePreviewToolbarPlacement();
+        if (HasNativePreview) UpdatePreviewToolbar();
+        else UpdatePreviewToolbarPlacement();
     }
 
     private int FindAdjacentTreeFile(int index, int step)
@@ -48,35 +45,15 @@ public partial class SuperPreviewView
     }
 
     private async void OnPreviewStepClick(object? sender, RoutedEventArgs e)
+        => await StepPreviewAsync(sender == PreviewPreviousButton);
+
+    private Task StepPreviewAsync(bool isPrevious)
     {
-        var isPrevious = sender == PreviewPreviousButton;
         var index = isPrevious ? _previousPreviewIndex : _nextPreviewIndex;
-        if (index < 0) return;
+        if (index < 0) return Task.CompletedTask;
         _previewStepDirection = isPrevious ? -1 : 1;
-        await RunToolbarActionAsync(() => _selectedNode != null
+        return RunToolbarActionAsync(() => _selectedNode != null
             ? SelectTreeNodeAsync(_visiblePreviewNodes[index])
             : SelectStandaloneFileAsync(_previewFiles[index]));
-    }
-
-    private void UpdatePreviewStepPlacement(bool native, bool show)
-    {
-        PlacePreviewStep(PreviewPreviousSlot, PreviewPreviousZone, NativePreviewPreviousSlot, NativePreviewPreviousPopup);
-        PlacePreviewStep(PreviewNextSlot, PreviewNextZone, NativePreviewNextSlot, NativePreviewNextPopup);
-
-        void PlacePreviewStep(Border slot, Border zone, Border nativeSlot, Popup popup)
-        {
-            if (native && slot.Child == zone)
-            {
-                slot.Child = null;
-                nativeSlot.Child = zone;
-            }
-            else if (!native && nativeSlot.Child == zone)
-            {
-                popup.IsOpen = false;
-                nativeSlot.Child = null;
-                slot.Child = zone;
-            }
-            popup.IsOpen = native && show && slot.IsVisible;
-        }
     }
 }

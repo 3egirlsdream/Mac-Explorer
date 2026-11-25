@@ -234,16 +234,7 @@ public partial class MainWindow : AppWindow
         // Avalonia counts consecutive downs even after a drag; AppKit resets its click count.
         if (MacWindowChrome.IsCurrentMouseDoubleClick())
         {
-            if (WindowState == WindowState.Normal)
-            {
-                RenderDiagnostics?.RecordRequest(WindowState.Maximized, "titlebar-double-click");
-                WindowState = WindowState.Maximized;
-            }
-            else if (WindowState == WindowState.Maximized)
-            {
-                RenderDiagnostics?.RecordRequest(WindowState.Normal, "titlebar-double-click");
-                WindowState = WindowState.Normal;
-            }
+            ToggleMaximize("titlebar-double-click");
         }
         else
         {

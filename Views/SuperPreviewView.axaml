@@ -176,24 +176,11 @@
                                 </controls:AppButton>
                             </Border>
                         </Border>
-                        <Popup x:Name="NativePreviewPreviousPopup" Placement="Center" PlacementTarget="PreviewPreviousSlot"
-                               ShouldUseOverlayLayer="False" TakesFocusFromNativeControl="False" WindowManagerAddShadowHint="False">
-                            <Border x:Name="NativePreviewPreviousSlot"/>
-                        </Popup>
-                        <Popup x:Name="NativePreviewNextPopup" Placement="Center" PlacementTarget="PreviewNextSlot"
-                               ShouldUseOverlayLayer="False" TakesFocusFromNativeControl="False" WindowManagerAddShadowHint="False">
-                            <Border x:Name="NativePreviewNextSlot"/>
-                        </Popup>
                         <Border x:Name="PreviewToolbarSlot" HorizontalAlignment="Center" VerticalAlignment="Bottom"
                                 Margin="14,0,14,14" ClipToBounds="False">
                             <local:PreviewActionBar x:Name="PreviewToolbar" IsVisible="False"
                                                     KeyDown="OnSuperPreviewKeyDown"/>
                         </Border>
-                        <Border x:Name="NativePreviewToolbarAnchor" VerticalAlignment="Bottom" Height="1" IsHitTestVisible="False"/>
-                        <Popup x:Name="NativePreviewToolbarPopup" Placement="Top" PlacementTarget="NativePreviewToolbarAnchor"
-                               ShouldUseOverlayLayer="False" TakesFocusFromNativeControl="False" WindowManagerAddShadowHint="False">
-                            <Border x:Name="NativePreviewToolbarSlot" Padding="12"/>
-                        </Popup>
                         </Grid>
                     </Border>
                     <Border x:Name="PreviewTreeResizeHandle" Grid.Column="0" IsVisible="False" ZIndex="1"

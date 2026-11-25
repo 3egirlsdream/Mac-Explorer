@@ -72,11 +72,11 @@
                 <Setter Property="Grid.RowSpan" Value="2"/>
                 <Setter Property="Margin" Value="0"/>
             </Style>
-            <Style Selector="^:maximized /template/ Border#WindowFrame, ^:fullscreen /template/ Border#WindowFrame">
+            <Style Selector="^:fullscreen /template/ Border#WindowFrame">
                 <Setter Property="CornerRadius" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>
             </Style>
-            <Style Selector="^:maximized /template/ Border#WindowOutline, ^:fullscreen /template/ Border#WindowOutline">
+            <Style Selector="^:fullscreen /template/ Border#WindowOutline">
                 <Setter Property="IsVisible" Value="False"/>
             </Style>
             <Style Selector="^:modal-blocked /template/ Border#ModalTitleBarHitShield">

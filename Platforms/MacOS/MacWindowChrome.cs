@@ -103,7 +103,7 @@ internal static class MacWindowChrome
                 var radius = topLevel.TryFindResource("RadiusXl", out var value) && value is CornerRadius corners
                     ? corners.TopLeft : 14;
                 me_window_shadow_update(nsView, radius,
-                    window.IsVisible && window.WindowState == WindowState.Normal);
+                    window.IsVisible && window.WindowState is WindowState.Normal or WindowState.Maximized);
             }
 
             var clearColor = SendIntPtr(GetClass("NSColor"), "clearColor");
@@ -136,7 +136,7 @@ internal static class MacWindowChrome
         var brushKey = window.ExtendContentToTop ? "DialogContentBrush" : "WindowBackgroundBrush";
         if (!window.TryFindResource(brushKey, window.ActualThemeVariant, out var brush)
             || brush is not ISolidColorBrush solid) return;
-        var radius = window.WindowState == WindowState.Normal
+        var radius = window.WindowState != WindowState.FullScreen
             && window.TryFindResource("RadiusXl", out var value) && value is CornerRadius corners
                 ? corners.TopLeft : 0;
         var color = solid.Color;
@@ -146,6 +146,73 @@ internal static class MacWindowChrome
 
     public static bool IsCurrentMouseDoubleClick() =>
         OperatingSystem.IsMacOS() && MacExplorerCurrentLeftMouseClickCount() == 2;
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void ZoomCompletionCallback(IntPtr context,
+        [MarshalAs(UnmanagedType.I1)] bool completed,
+        [MarshalAs(UnmanagedType.I1)] bool maximized);
+
+    private static readonly ZoomCompletionCallback OnZoomCompletedCallback = OnNativeZoomCompleted;
+
+    private static void OnNativeZoomCompleted(IntPtr context, bool completed, bool maximized)
+    {
+        if (context == IntPtr.Zero) return;
+        var handle = GCHandle.FromIntPtr(context);
+        try
+        {
+            if (completed && handle.Target is Action<bool> action)
+                action(maximized);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static bool TryToggleZoom(Controls.AppWindow window, Action<bool> onCompleted)
+    {
+        if (!OperatingSystem.IsMacOS() || window.WindowState == WindowState.FullScreen)
+            return false;
+
+        var nsView = GetNSView(window);
+        if (nsView == IntPtr.Zero)
+            return false;
+
+        var handle = GCHandle.Alloc(onCompleted);
+        try
+        {
+            var currentlyMaximized = window.WindowState == WindowState.Maximized;
+            var started = me_window_toggle_zoom(nsView, currentlyMaximized,
+                !PrefersReducedMotion, OnZoomCompletedCallback, GCHandle.ToIntPtr(handle));
+            if (!started)
+            {
+                handle.Free();
+                return false;
+            }
+            if (!currentlyMaximized && !PrefersReducedMotion)
+            {
+                // Let Avalonia commit the single resized frame at `visibleFrame`,
+                // then launch the 120fps CoreAnimation GPU expand.
+                window.RequestAnimationFrame(_ =>
+                {
+                    if (!window.IsVisible) return;
+                    var currentView = GetNSView(window);
+                    if (currentView != IntPtr.Zero) me_window_zoom_commit_expand(currentView);
+                });
+            }
+            return true;
+        }
+        catch (DllNotFoundException)
+        {
+            handle.Free();
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            handle.Free();
+            return false;
+        }
+    }
 
     public static void SetVibrancy(TopLevel topLevel, bool enabled, double alpha)
     {
@@ -360,6 +427,17 @@ internal static class MacWindowChrome
     [DllImport(NativeDragLibrary)]
     private static extern void me_window_shadow_update(IntPtr nsView, double cornerRadius,
         [MarshalAs(UnmanagedType.I1)] bool enabled);
+
+    [DllImport(NativeDragLibrary)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool me_window_toggle_zoom(IntPtr nsView,
+        [MarshalAs(UnmanagedType.I1)] bool currentlyMaximized,
+        [MarshalAs(UnmanagedType.I1)] bool animate,
+        ZoomCompletionCallback completion,
+        IntPtr context);
+
+    [DllImport(NativeDragLibrary)]
+    private static extern void me_window_zoom_commit_expand(IntPtr nsView);
 
     [DllImport(LibObjC)]
     private static extern IntPtr sel_registerName(string name);

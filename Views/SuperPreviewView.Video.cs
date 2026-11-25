@@ -81,6 +81,7 @@ public partial class SuperPreviewView
             _videoSubscription = SubscriptionAccess.Current;
             if (_videoSubscription != null) _videoSubscription.Changed += UpdateVideoVisibility;
             UpdateVideoVisibility();
+            UpdatePreviewToolbar();
         }
         catch (Exception ex)
         {

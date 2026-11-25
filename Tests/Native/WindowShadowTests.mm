@@ -247,6 +247,78 @@ int main() {
         [dialog close];
         assert(!dialogShadow.window.isVisible && !objc_getAssociatedObject(dialog, &MEWindowShadowKey));
         assert(owner.childWindows.count == 1 && shadow.window.isVisible);
+
+        // Verify transform maps container corners to visual corners for both (0,0) and (0.5,0.5) anchor points.
+        {
+            NSRect container = NSMakeRect(0, 80, 2560, 1320);
+            NSRect visual = NSMakeRect(640, 300, 1280, 800);
+            BOOL flips[2] = {NO, YES};
+            CGPoint anchors[2] = {CGPointMake(0, 0), CGPointMake(0.5, 0.5)};
+            for (BOOL flipped : flips) {
+                for (CGPoint anchor : anchors) {
+                    CALayer *probeLayer = [CALayer new];
+                    probeLayer.bounds = CGRectMake(0, 0, container.size.width, container.size.height);
+                    probeLayer.anchorPoint = anchor;
+                    probeLayer.geometryFlipped = flipped;
+                    CATransform3D xf = METransformContainerToVisual(container, visual, probeLayer);
+                    CGFloat ax = anchor.x * container.size.width;
+                    CGFloat ay = anchor.y * container.size.height;
+                    CGAffineTransform a = CATransform3DGetAffineTransform(xf);
+                    auto mapPt = [&](CGFloat x, CGFloat y) {
+                        CGPoint rel = CGPointMake(x - ax, y - ay);
+                        CGPoint out = CGPointApplyAffineTransform(rel, a);
+                        return CGPointMake(out.x + ax, out.y + ay);
+                    };
+                    CGFloat expectedY = flipped ? (NSMaxY(container) - NSMaxY(visual)) : (visual.origin.y - container.origin.y);
+                    CGPoint p0 = mapPt(0, 0);
+                    CGPoint p1 = mapPt(container.size.width, container.size.height);
+                    assert(fabs(p0.x - (visual.origin.x - container.origin.x)) < 0.5);
+                    assert(fabs(p0.y - expectedY) < 0.5);
+                    assert(fabs(p1.x - (visual.origin.x - container.origin.x + visual.size.width)) < 0.5);
+                    assert(fabs(p1.y - (expectedY + visual.size.height)) < 0.5);
+                }
+            }
+        }
+
+        // Verify smooth zoom/restore preserves the shadow and original normal frame, including rapid retargeting.
+        struct ZoomProbe { int calls; int completed; bool lastMaximized; };
+        ZoomProbe zoomProbe = {0, 0, false};
+        auto onZoom = [](void *ctx, bool completed, bool maximized) {
+            auto *probe = static_cast<ZoomProbe *>(ctx);
+            probe->calls++;
+            if (completed) {
+                probe->completed++;
+                probe->lastMaximized = maximized;
+            }
+        };
+        NSRect initialFrame = owner.frame;
+        NSRect visibleFrame = owner.screen.visibleFrame;
+        assert(me_window_toggle_zoom((__bridge void *)owner.contentView, false, true, onZoom, &zoomProbe));
+        NSDate *zoomDeadline = [NSDate dateWithTimeIntervalSinceNow:1.0];
+        while (zoomProbe.completed < 1 && [zoomDeadline timeIntervalSinceNow] > 0)
+            [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:zoomDeadline];
+        assert(zoomProbe.completed == 1 && zoomProbe.lastMaximized);
+        assert(MEFramesNearlyEqual(owner.frame, visibleFrame));
+        assert(shadow.window.isVisible && MEFramesNearlyEqual(shadow.window.frame, NSInsetRect(owner.frame, -40, -40)));
+
+        // Rapid double-toggle mid-animation must invoke both callbacks (freeing context) and settle at maximized.
+        assert(me_window_toggle_zoom((__bridge void *)owner.contentView, true, true, onZoom, &zoomProbe));
+        assert(me_window_toggle_zoom((__bridge void *)owner.contentView, true, true, onZoom, &zoomProbe));
+        zoomDeadline = [NSDate dateWithTimeIntervalSinceNow:1.0];
+        while (zoomProbe.calls < 3 && [zoomDeadline timeIntervalSinceNow] > 0)
+            [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:zoomDeadline];
+        assert(zoomProbe.calls == 3 && zoomProbe.completed == 2 && zoomProbe.lastMaximized);
+        assert(MEFramesNearlyEqual(owner.frame, visibleFrame));
+
+        // Restore cleanly back to the saved normal frame.
+        assert(me_window_toggle_zoom((__bridge void *)owner.contentView, true, true, onZoom, &zoomProbe));
+        zoomDeadline = [NSDate dateWithTimeIntervalSinceNow:1.0];
+        while (zoomProbe.completed < 3 && [zoomDeadline timeIntervalSinceNow] > 0)
+            [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:zoomDeadline];
+        assert(zoomProbe.completed == 3 && !zoomProbe.lastMaximized);
+        assert(MEFramesNearlyEqual(owner.frame, initialFrame));
+        assert(shadow.window.isVisible && MEFramesNearlyEqual(shadow.window.frame, NSInsetRect(owner.frame, -40, -40)));
+
         [owner close];
         assert(owner.childWindows.count == 0 && !shadow.window.isVisible);
         assert(!objc_getAssociatedObject(owner, &MEWindowShadowKey));

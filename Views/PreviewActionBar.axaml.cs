@@ -15,6 +15,9 @@ internal sealed record PreviewActionBarState
     public string? FileName { get; init; }
     public string? MetaText { get; init; }
     public bool CompactIdentity { get; init; }
+    public bool ShowStepButtons { get; init; }
+    public bool CanStepPrevious { get; init; }
+    public bool CanStepNext { get; init; }
     public bool ShowBranch { get; init; }
     public bool IsBranchExpanded { get; init; }
     public bool ShowPlayVideo { get; init; }
@@ -47,6 +50,8 @@ public sealed partial class PreviewActionBar : UserControl
     private double _availableWidth = double.PositiveInfinity;
     private PreviewActionBarState _state = new();
 
+    public event Action? PreviousClicked;
+    public event Action? NextClicked;
     public event Action? BranchClicked;
     public event Action? PlayVideoClicked;
     public event Action? ZoomClicked;
@@ -72,6 +77,8 @@ public sealed partial class PreviewActionBar : UserControl
     public PreviewActionBar()
     {
         InitializeComponent();
+        PreviousButton.Click += (_, _) => PreviousClicked?.Invoke();
+        NextButton.Click += (_, _) => NextClicked?.Invoke();
         BranchButton.Click += (_, _) => BranchClicked?.Invoke();
         PlayVideoButton.Click += (_, _) => PlayVideoClicked?.Invoke();
         ZoomButton.Click += (_, _) => { if (!_syncing) ZoomClicked?.Invoke(); };
@@ -121,6 +128,10 @@ public sealed partial class PreviewActionBar : UserControl
             ToolTip.SetTip(NameText, state.FileName);
             MetaText.Text = state.MetaText ?? string.Empty;
 
+            PreviousButton.IsVisible = state.ShowStepButtons;
+            PreviousButton.IsEnabled = state.CanStepPrevious;
+            NextButton.IsVisible = state.ShowStepButtons;
+            NextButton.IsEnabled = state.CanStepNext;
             BranchButton.IsVisible = state.ShowBranch;
             if (state.ShowBranch)
             {

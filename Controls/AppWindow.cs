@@ -245,6 +245,28 @@ public class AppWindow : Window
         });
     }
 
+    public void ToggleMaximize(string source = "titlebar-double-click")
+    {
+        if (!CanMaximize || IsModalInteractionBlocked
+            || WindowState is not (WindowState.Normal or WindowState.Maximized))
+            return;
+
+        var target = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        RenderDiagnostics?.RecordRequest(target, source);
+
+        if (MacWindowChrome.TryToggleZoom(this, maximized =>
+            {
+                if (!IsVisible || WindowState == WindowState.FullScreen)
+                    return;
+                var finalState = maximized ? WindowState.Maximized : WindowState.Normal;
+                if (WindowState != finalState)
+                    WindowState = finalState;
+            }))
+            return;
+
+        WindowState = target;
+    }
+
     public void ToggleFullScreen()
     {
         if (!CanMaximize || IsModalInteractionBlocked)

@@ -20,6 +20,8 @@ public partial class SuperPreviewView
 
     private void ConfigureToolbar()
     {
+        PreviewToolbar.PreviousClicked += () => _ = StepPreviewAsync(isPrevious: true);
+        PreviewToolbar.NextClicked += () => _ = StepPreviewAsync(isPrevious: false);
         PreviewToolbar.BranchClicked += () => _ = RunToolbarActionAsync(async () =>
         {
             if (_selectedNode is { } node) await TogglePreviewNodeAsync(node);
@@ -84,17 +86,6 @@ public partial class SuperPreviewView
         });
         PreviewToolbar.CopyPathClicked += () => _ = RunToolbarActionAsync(() =>
             CopyPreviewTextAsync(_selectedNode?.DisplayPath ?? _selectedEntry?.FullPath));
-
-        NativePreviewToolbarPopup.Closed += OnNativePreviewPopupClosed;
-        NativePreviewPreviousPopup.Closed += OnNativePreviewPopupClosed;
-        NativePreviewNextPopup.Closed += OnNativePreviewPopupClosed;
-
-        void OnNativePreviewPopupClosed(object? sender, EventArgs e)
-        {
-            // Drain the owner's layout queue after the native view is detached.
-            if (TopLevel.GetTopLevel(this) is { } owner)
-                Dispatcher.UIThread.Post(owner.UpdateLayout, DispatcherPriority.Background);
-        }
     }
 
     private async Task RunToolbarActionAsync(Func<Task> execute)
@@ -170,6 +161,9 @@ public partial class SuperPreviewView
             FileName = null, // Header already displays the filename in overlay mode.
             MetaText = metaText,
             CompactIdentity = true,
+            ShowStepButtons = HasNativePreview && (_previousPreviewIndex >= 0 || _nextPreviewIndex >= 0),
+            CanStepPrevious = _previousPreviewIndex >= 0,
+            CanStepNext = _nextPreviewIndex >= 0,
             ShowBranch = canExpand,
             IsBranchExpanded = expanded,
             ShowZoom = image,
@@ -222,33 +216,14 @@ public partial class SuperPreviewView
     {
         if (_isCompactPreview) return;
 
-        // AppKit previews draw above the Avalonia window. Use an owned popup
-        // over those previews so the same toolbar can still receive input.
-        var native = _documentPreview != null || _videoPreview != null;
-        if (native != (NativePreviewToolbarSlot.Child == PreviewToolbar))
-        {
-            if (native)
-            {
-                PreviewToolbarSlot.Child = null;
-                NativePreviewToolbarSlot.Child = PreviewToolbar;
-            }
-            else
-            {
-                NativePreviewToolbarPopup.IsOpen = false;
-                NativePreviewToolbarSlot.Child = null;
-                PreviewToolbarSlot.Child = PreviewToolbar;
-            }
-        }
-
-        // Leave the AVKit playback controls reachable under the floating toolbar.
-        NativePreviewToolbarAnchor.Margin = _videoPreview == null ? default : new Thickness(0, 0, 0, 64);
-        var window = _documentWindow ?? _videoWindow;
-        var dialog = _documentDialog ?? _videoDialog;
-        var show = native && IsEffectivelyVisible && this.IsAttachedToVisualTree()
-            && window is not { IsModalInteractionBlocked: true } && window is not { IsUpgradeOpen: true }
-            && window is not { WindowState: WindowState.Minimized } && dialog?.IsVisible != true;
-        NativePreviewToolbarPopup.IsOpen = show && PreviewToolbar.IsVisible;
-        UpdatePreviewStepPlacement(native, show);
+        var native = HasNativePreview;
+        // Match FileGalleryView: reserve bottom breathing room so AppKit previews
+        // never overlap the in-page glass toolbar (no floating Popup windows needed).
+        PreviewHost.Margin = native && PreviewToolbar.IsVisible
+            ? new Thickness(0, 0, 0, 68)
+            : default;
+        PreviewPreviousSlot.IsVisible = !native && _previousPreviewIndex >= 0;
+        PreviewNextSlot.IsVisible = !native && _nextPreviewIndex >= 0;
     }
 
     private void OnPreviewCardSizeChanged(object? sender, SizeChangedEventArgs e)

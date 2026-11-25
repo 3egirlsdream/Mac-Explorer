@@ -37,6 +37,7 @@ internal static class VideoPreviewSmoke
             var path = Path.Combine(output, "中文 视频预览 — very long movie file name for compact window testing.MP4");
             await RunAsync(helper, ["--fixture", path]);
             var entry = Entry(path);
+            owner.ShowAndActivate();
             owner.Width = 1050; owner.Height = 720;
             foreach (var dark in new[] { false, true })
             {
@@ -47,24 +48,40 @@ internal static class VideoPreviewSmoke
                     await preview.OpenAsync(entry);
                     await ReadyAsync();
                     Require(Rate(Player()) == 0, "Preview must start paused.");
-                    var toolbar = preview.FindControl<Popup>("NativePreviewToolbarPopup")!;
-                    Require(toolbar.IsOpen && !toolbar.IsUsingOverlayLayer, "Toolbar must float above the native player.");
-                    Require(preview.FindControl<Grid>("PreviewHost")!.Bounds.Size ==
-                        preview.FindControl<Border>("PreviewCard")!.Bounds.Size, "Toolbar must not shrink the player viewport.");
+                    var toolbar = preview.FindControl<PreviewActionBar>("PreviewToolbar")!;
+                    var hostGrid = preview.FindControl<Grid>("PreviewHost")!;
+                    var card = preview.FindControl<Border>("PreviewCard")!;
+                    Require(toolbar.IsVisible && ReferenceEquals(TopLevel.GetTopLevel(toolbar), owner),
+                        "Toolbar must stay inside the owner window.");
+                    Require(hostGrid.Bounds.Bottom <= toolbar.TranslatePoint(default, card)!.Value.Y + 0.5,
+                        "Native video host must reserve bottom room for the in-page toolbar.");
                     await CaptureAsync($"{(dark ? "dark" : "light")}-{(narrow ? "narrow" : "wide")}");
-                    checks.Add($"{(dark ? "dark" : "light")}/{(narrow ? "narrow" : "wide")}: first frame, paused and floating toolbar");
+                    checks.Add($"{(dark ? "dark" : "light")}/{(narrow ? "narrow" : "wide")}: first frame, paused and in-page toolbar");
                     preview.Close();
                 }
             }
 
-            await preview.OpenAsync(entry);
+            var previous = Entry(Path.Combine(output, "previous.txt"));
+            var next = Entry(Path.Combine(output, "next.txt"));
+            await preview.OpenAsync(entry, [previous, entry, next]);
             await ReadyAsync();
+            var nativeWindow = ((IMacOSTopLevelPlatformHandle)owner.TryGetPlatformHandle()!).NSWindow;
+            var actionBar = preview.FindControl<PreviewActionBar>("PreviewToolbar")!;
+            Require(!preview.FindControl<Border>("PreviewPreviousSlot")!.IsVisible
+                && !preview.FindControl<Border>("PreviewNextSlot")!.IsVisible,
+                "Side step slots must stay hidden on native previews.");
+            Require(actionBar.PreviousButton.IsVisible && actionBar.PreviousButton.IsEnabled
+                && actionBar.NextButton.IsVisible && actionBar.NextButton.IsEnabled,
+                "In-page toolbar must expose previous and next buttons for native previews.");
+            Require(!preview.GetVisualDescendants().OfType<Popup>().Any(popup => popup.IsOpen),
+                "Native preview must not open floating toolbar or navigation popups.");
+            checks.Add("in-page toolbar and step buttons render without floating popups");
+
             var player = Player();
             SendVoid(player, Selector("play"));
             await WaitAsync(() => Rate(player) > 0);
             owner.IsModalInteractionBlocked = true;
             await WaitAsync(() => Rate(player) == 0 && !Host()!.IsVisible);
-            Require(!preview.FindControl<Popup>("NativePreviewToolbarPopup")!.IsOpen, "Modal overlay must hide the floating toolbar.");
             owner.IsModalInteractionBlocked = false;
             await ReadyAsync();
             Require(Rate(player) == 0, "Dismissed modal resumed playback.");
@@ -81,9 +98,10 @@ internal static class VideoPreviewSmoke
             checks.Add("confirmation hides player and pauses");
 
             SendVoid(player, Selector("play"));
+            await WaitAsync(() => Rate(player) > 0);
             owner.WindowState = WindowState.Minimized;
-            var nativeWindow = ((IMacOSTopLevelPlatformHandle)owner.TryGetPlatformHandle()!).NSWindow;
-            await WaitAsync(() => Rate(player) == 0 && SendBool(nativeWindow, Selector("isMiniaturized")));
+            await WaitAsync(() => SendBool(nativeWindow, Selector("isMiniaturized")));
+            Require(Rate(player) == 0, "Minimizing must pause the player.");
             await Task.Delay(300);
             owner.WindowState = WindowState.Normal;
             owner.ShowAndActivate();

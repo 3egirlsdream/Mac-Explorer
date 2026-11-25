@@ -24,6 +24,17 @@
                 <Border x:Name="ContextDivider" Classes="gallery-bar-divider" IsVisible="False"/>
 
                 <StackPanel x:Name="ActionButtons" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <controls:AppButton x:Name="PreviousButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc preview.previous-file}"
+                                        ToolTip.Tip="{loc:Loc preview.previous-file}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.ChevronRight}" Width="16" Height="16"
+                                             RenderTransform="scale(-1,1)"/>
+                    </controls:AppButton>
+                    <controls:AppButton x:Name="NextButton" Classes="ghost gallery-bar-btn" IsVisible="False"
+                                        AutomationProperties.Name="{loc:Loc preview.next-file}"
+                                        ToolTip.Tip="{loc:Loc preview.next-file}">
+                        <controls:FluentIcon Data="{x:Static icons:Icons.ChevronRight}" Width="16" Height="16"/>
+                    </controls:AppButton>
                     <controls:AppButton x:Name="BranchButton" Classes="ghost gallery-bar-btn" IsVisible="False"
                                         AutomationProperties.Name="{loc:Loc preview.action.expand}"
                                         ToolTip.Tip="{loc:Loc preview.action.expand}">
