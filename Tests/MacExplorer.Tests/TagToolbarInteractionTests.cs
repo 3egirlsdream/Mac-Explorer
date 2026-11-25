@@ -147,11 +147,23 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
         var red = FileTagCatalog.FinderColors[0];
         await service.SetTagAsync([Path.Combine(root, "red.txt")], red, true);
         await vm.NavigateToTagAsync(red); await other.NavigateToTagAsync(red);
+        var appStyles = new Avalonia.Styling.IStyle[]
+        {
+            new FluentTheme(),
+            (Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")),
+            (Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml"))
+        };
+        foreach (var style in appStyles) Application.Current!.Styles.Add(style);
         var toolbar = new FinderToolbar { DataContext = vm };
         var window = new Window { Width = 900, Height = 480, Content = toolbar };
-        window.Styles.Add(new FluentTheme());
-        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
-        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        MacExplorer.Views.Dialogs.CollectionManagerDialog? openedDialog = null;
+        toolbar.PresentCollectionManagerAsync = (dialog, owner) =>
+        {
+            openedDialog?.Close();
+            openedDialog = dialog;
+            dialog.Show(owner);
+            return Task.CompletedTask;
+        };
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
@@ -166,35 +178,47 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             }
             OpenActions();
             var menu = Assert.IsType<ContextMenu>(tags.ActiveMenu);
-            Assert.Equal(3, menu.Items.Count);
-            Assert.False(((MenuItem)menu.Items[1]!).IsEnabled);
+            Assert.Equal(5, menu.Items.Count);
+            Assert.False(((MenuItem)menu.Items[4]!).IsEnabled);
             ((MenuItem)menu.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Dispatcher.UIThread.RunJobs();
-            var tree = Assert.Single(toolbar.FindControl<Border>("TagManagementHost")!.GetVisualDescendants().OfType<TagTreePanel>());
-            var input = Assert.Single(tree.GetVisualDescendants().OfType<TextBox>());
+            Assert.NotNull(openedDialog);
+            await openedDialog!.RefreshAsync();
+            openedDialog.UpdateLayout();
+            var input = openedDialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
             input.Text = "优先处理";
             input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
-            Dispatcher.UIThread.RunJobs();
+            await TestTime.WaitUntilAsync(() => vm.CurrentTag?.DisplayName == "优先处理" && other.CurrentTag?.DisplayName == "优先处理");
             Assert.Equal("优先处理", vm.CurrentTag!.DisplayName);
             Assert.Equal("优先处理", other.CurrentTag!.DisplayName);
             Assert.Equal("优先处理", vm.CurrentLocationTitle);
             Assert.Equal("优先处理", other.CurrentLocationTitle);
             Assert.Equal(red.VirtualPath, other.CurrentPath);
-            toolbar.CloseDropdowns();
+            openedDialog.Close();
+            openedDialog = null;
+
             OpenActions();
             menu = Assert.IsType<ContextMenu>(tags.ActiveMenu);
-            ((MenuItem)menu.Items[2]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            ((MenuItem)menu.Items[1]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Dispatcher.UIThread.RunJobs();
-            tree = Assert.Single(toolbar.FindControl<Border>("TagManagementHost")!.GetVisualDescendants().OfType<TagTreePanel>());
-            input = Assert.Single(tree.GetVisualDescendants().OfType<TextBox>());
+            Assert.NotNull(openedDialog);
+            await openedDialog!.RefreshAsync();
+            openedDialog.UpdateLayout();
+            input = openedDialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
             input.Text = "本周";
             input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
-            Dispatcher.UIThread.RunJobs();
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Any(t => t.Name == "本周"));
             Assert.Equal(red.Name, (await service.GetSidebarTagsAsync()).Single(t => t.Name == "本周").ParentName);
             Assert.Equal(red.VirtualPath, vm.CurrentPath);
             Assert.Equal(red.VirtualPath, other.CurrentPath);
         }
-        finally { window.Close(); Directory.Delete(root, true); }
+        finally
+        {
+            openedDialog?.Close();
+            window.Close();
+            foreach (var style in appStyles) Application.Current!.Styles.Remove(style);
+            Directory.Delete(root, true);
+        }
     }
 
     [AvaloniaFact(Explicit = true)]
@@ -211,18 +235,20 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
         await service.CreateTagAsync("空根标签");
         foreach (var tag in await service.GetSidebarTagsAsync()) vm.SidebarTags.Add(tag);
         var toolbar = new TagToolbar { DataContext = vm, Width = 400 };
-        var window = new Window { Content = toolbar, Width = 500, Height = 120 };
+        var window = new Window { Content = toolbar, Width = 500, Height = 320 };
         window.Styles.Add(new FluentTheme());
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         try
         {
             window.Show(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(toolbar.GetVisualDescendants().OfType<Button>(), b => b.Tag is FileTag { Name: "空根标签" });
+            // Custom empty collections remain visible in the toolbar while unused system colors stay hidden.
+            Assert.Contains(toolbar.GetVisualDescendants().OfType<Button>(), b => b.Tag is FileTag { Name: "空根标签" });
+            Assert.DoesNotContain(toolbar.GetVisualDescendants().OfType<Button>(), b => b.Tag is FileTag { Name: "红色" });
             var before = vm.CurrentPath;
             Action? hover = null;
             toolbar.ScheduleHover = (action, _) => { hover = action; return new TestDisposable(); };
-            var parentButton = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"));
+            var parentButton = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Tag is FileTag { Name: "父标签" });
             Assert.DoesNotContain(toolbar.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("tag-toolbar-arrow"));
             var location = parentButton.TranslatePoint(new Point(15, 15), window)!.Value;
             window.MouseMove(location); Assert.NotNull(hover); hover();
@@ -239,12 +265,12 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             Assert.Equal(Avalonia.Media.FontWeight.Normal, tagLabel.FontWeight);
             Assert.Equal(6, buttonContent.Spacing);
             var menu = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
-            var childItem = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag);
+            var childItem = menu.Items.OfType<MenuItem>().Single(item => item.Tag is FileTag { Name: "子标签" });
             Assert.Equal(child.Name, Assert.IsType<FileTag>(childItem.Tag).Name);
             Assert.True(childItem.HasSubMenu);
             var grandchildItem = Assert.Single(childItem.Items.OfType<MenuItem>());
             Assert.Equal(grandchild.Name, Assert.IsType<FileTag>(grandchildItem.Tag).Name);
-            Assert.DoesNotContain(childItem.Items.OfType<MenuItem>(), item => item.Tag is FileTag { Name: "空子标签" });
+            Assert.Contains(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag { Name: "空子标签" });
             // Repeated hover and crossing into the native menu must not toggle it closed.
             hover(); hover(); Assert.Same(menu, toolbar.ActiveMenu); Assert.True(menu.IsOpen);
             menu.UpdateLayout();
@@ -263,29 +289,30 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             leafRoot.MouseDown(leafPoint, MouseButton.Right); leafRoot.MouseUp(leafPoint, MouseButton.Right);
             Dispatcher.UIThread.RunJobs();
             var actions = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
-            Assert.NotSame(menu, actions); Assert.False(menu.IsOpen); Assert.Equal(3, actions.Items.Count);
+            Assert.NotSame(menu, actions); Assert.False(menu.IsOpen); Assert.Equal(5, actions.Items.Count);
             ((MenuItem)actions.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Assert.Equal(grandchild.Name, renameTarget?.Name);
             Assert.Equal(before, vm.CurrentPath);
             parentButton.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
             menu = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
-            childItem = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag);
+            childItem = menu.Items.OfType<MenuItem>().Single(item => item.Tag is FileTag { Name: "子标签" });
             grandchildItem = Assert.Single(childItem.Items.OfType<MenuItem>());
             grandchildItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             await TestTime.WaitUntilAsync(() => vm.CurrentTag?.Name == grandchild.Name && !toolbar.IsNavigating);
             Assert.Equal(grandchild.Name, vm.CurrentTag!.Name);
-            var currentParent = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"));
+            var currentParent = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Tag is FileTag { Name: "父标签" });
             currentParent.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
             Dispatcher.UIThread.RunJobs();
             menu = Assert.IsType<ContextMenu>(toolbar.ActiveMenu); menu.UpdateLayout();
-            childItem = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Tag is FileTag);
+            childItem = menu.Items.OfType<MenuItem>().Single(item => item.Tag is FileTag { Name: "子标签" });
             menuRoot = Assert.IsAssignableFrom<TopLevel>(TopLevel.GetTopLevel(childItem));
+            menuRoot.UpdateLayout();
             childPoint = childItem.TranslatePoint(new Point(40, 15), menuRoot)!.Value;
             menuRoot.MouseDown(childPoint, MouseButton.Left); menuRoot.MouseUp(childPoint, MouseButton.Left);
             await TestTime.WaitUntilAsync(() => vm.CurrentTag?.Name == child.Name && !toolbar.IsNavigating);
             Assert.Equal(child.Name, vm.CurrentTag!.Name);
             toolbar.CloseDropdown();
-            toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"))
+            toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Tag is FileTag { Name: "父标签" })
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await TestTime.WaitUntilAsync(() => vm.CurrentTag?.Name == parent.Name && !toolbar.IsNavigating);
             Assert.Equal(parent.Name, vm.CurrentTag!.Name);
@@ -309,7 +336,7 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
                 RoutedEvent = InputElement.KeyDownEvent, Key = Key.F10, KeyModifiers = KeyModifiers.Shift
             });
             actions = Assert.IsType<ContextMenu>(toolbar.ActiveMenu);
-            Assert.Equal(3, actions.Items.Count);
+            Assert.Equal(5, actions.Items.Count);
             ((MenuItem)actions.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Assert.Equal(((FileTag)overflowItem.Tag!).Name, renameTarget?.Name);
         }
@@ -317,7 +344,7 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact(Explicit = true)]
-    public async Task TreeMultiSelectionAndDragMovesHierarchyWithoutChangingFileTags()
+    public async Task AssignmentTreeSupportsMultiSelectionSearchAndQuickCreateWithoutHierarchyDrag()
     {
         var root = Directory.CreateTempSubdirectory("tag-tree-ui-").FullName;
         using var service = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
@@ -340,20 +367,24 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             await tree.RefreshAsync(); tree.UpdateLayout();
             Assert.True(Checked(Row(moving.Name))); Assert.False(Partial(Row(moving.Name)));
             Assert.Contains(paths[1], await service.FindFilePathsAsync(moving));
+
+            // Tag assignment popup does not allow accidental hierarchy drag-and-drop.
             using var data = new DataTransfer(); var item = new DataTransferItem(); item.Set(TagTreePanel.TagDragFormat, moving.Name); data.Add(item);
             var target = Row(parent.Name); window.UpdateLayout();
             var over = new DragEventArgs(DragDrop.DragOverEvent, data, target, new Point(50, 16), KeyModifiers.None);
-            target.RaiseEvent(over); Assert.Equal(DragDropEffects.Move, over.DragEffects);
-            target.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, target, new Point(50, 16), KeyModifiers.None));
-            await tree.RefreshAsync(); tree.UpdateLayout();
-            Assert.Equal(parent.Name, (await service.GetSidebarTagsAsync()).Single(t => t.Name == moving.Name).ParentName);
-            Assert.Equal(2, (await service.FindFilePathsAsync(moving)).Count);
-            Assert.Empty(await service.FindFilePathsAsync(parent));
-            Assert.Empty(FileTagTree.Build(await service.GetSidebarTagsAsync(), true).Where(n => n.Tag.Name != parent.Name));
-            window.UpdateLayout(); target = Row(parent.Name);
-            using var cycle = new DataTransfer(); var cycleItem = new DataTransferItem(); cycleItem.Set(TagTreePanel.TagDragFormat, parent.Name); cycle.Add(cycleItem);
-            var invalid = new DragEventArgs(DragDrop.DragOverEvent, cycle, target, new Point(50, 16), KeyModifiers.None);
-            target.RaiseEvent(invalid); Assert.Equal(DragDropEffects.None, invalid.DragEffects);
+            target.RaiseEvent(over);
+            Assert.Equal(DragDropEffects.None, over.DragEffects);
+            Assert.Null(target.ContextMenu);
+
+            // Typing a new name filters and creates+applies on Enter.
+            var search = tree.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "TagTreeSearchInput");
+            search.Text = "快速新建";
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotNull(tree.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Name == "QuickCreateCollectionButton"));
+            search.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Any(t => t.Name == "快速新建"));
+            var created = (await service.GetSidebarTagsAsync()).Single(t => t.Name == "快速新建");
+            Assert.Equal(2, (await service.FindFilePathsAsync(created)).Count);
         }
         finally { window.Close(); Directory.Delete(root, true); }
     }
@@ -361,85 +392,161 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
     [AvaloniaTheory(Explicit = true)]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ManagementPopupKeepsInlineEditorOpenAndUpdatesLanguageInBothThemes(bool dark)
+    public async Task CollectionManagerDialogSupportsInlineCreateRenameDragScrollPreserveAndThemes(bool dark)
     {
-        var root = Directory.CreateTempSubdirectory("tag-manager-").FullName;
+        var root = Directory.CreateTempSubdirectory("collection-manager-").FullName;
         using var service = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
         var settings = new StartupSettings();
         using var language = new LocalizationService(settings, () => AppLanguage.ChineseSimplified);
-        using var vm = CreateViewModel(new FakeFileService(root), fileTagService: service, settingsService: settings);
-        var parent = await service.CreateTagAsync("父标签");
-        var child = await service.CreateChildTagAsync("子标签", parent.Name);
-        await service.SetTagAsync([Path.Combine(root, "child.txt")], child, true);
-        foreach (var tag in await service.GetSidebarTagsAsync()) vm.SidebarTags.Add(tag);
-        var toolbar = new FinderToolbar { DataContext = vm };
-        var window = new Window { Width = 640, Height = 500, Content = toolbar,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
-        window.Styles.Add(new FluentTheme());
-        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
-        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        var parent = await service.CreateTagAsync("项目");
+        var sibling = await service.CreateTagAsync("灵感");
+        var child = await service.CreateChildTagAsync("子项", parent.Name);
+        for (var i = 0; i < 12; i++)
+            await service.CreateTagAsync($"额外收藏夹 {i:D2}");
+        await service.SetTagAsync([Path.Combine(root, "a.txt")], child, true);
+
+        var appStyles = new Avalonia.Styling.IStyle[]
+        {
+            new FluentTheme(),
+            (Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")),
+            (Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml"))
+        };
+        foreach (var style in appStyles) Application.Current!.Styles.Add(style);
+        var dialog = new MacExplorer.Views.Dialogs.CollectionManagerDialog(service)
+        {
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
+            Height = 360
+        };
         try
         {
-            window.Show(); window.UpdateLayout();
-            Assert.Null(toolbar.FindControl<Control>("ManageTagsButton"));
-            Assert.Null(toolbar.FindControl<Control>("ShowToolbarTagsOption"));
-            var tags = toolbar.FindControl<TagToolbar>("ToolbarTags")!;
-            tags.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-name"))
-                .RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
+            dialog.Show();
+            await dialog.RefreshAsync(preserveScroll: false);
+            dialog.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
-            tags.ActiveMenu!.UpdateLayout();
-            tags.ActiveMenu.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton")
+
+            // Verify there is no color picker or parent dropdown clutter in the single-pane outline.
+            Assert.Empty(dialog.GetVisualDescendants().OfType<ComboBox>());
+            Assert.DoesNotContain(dialog.GetVisualDescendants().OfType<Button>(), b => b.Name?.StartsWith("ColorSwatch_") == true);
+
+            // Scroll down and expand a lower branch: scroll offset must not jump back to top.
+            var scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "CollectionTreeScrollViewer");
+            scroll.Offset = new Vector(0, 120);
+            dialog.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            var beforeOffsetY = scroll.Offset.Y;
+            Assert.True(beforeOffsetY > 0);
+            Border Row(string name) => dialog.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is FileTag t && t.Name == name);
+            var parentRow = Row(parent.Name);
+            var expandArrow = parentRow.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-tree-arrow"));
+            expandArrow.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            dialog.UpdateLayout();
+            Assert.Same(parentRow, Row(parent.Name));
+            Assert.True(scroll.Offset.Y >= beforeOffsetY - 1);
+
+            // Inline rename in place via BeginRename and Enter.
+            dialog.BeginRename(child);
+            Dispatcher.UIThread.RunJobs();
+            var inlineInput = dialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
+            Assert.Equal("子项", inlineInput.Text);
+            inlineInput.Text = "子项已改名";
+            inlineInput.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Any(t => t.Name == "子项已改名"));
+
+            // Inline child draft create: real pointer click on Cancel cancels without creating,
+            // and real pointer click on Confirm creates the child collection.
+            dialog.BeginCreate(parent.Name);
+            Dispatcher.UIThread.RunJobs();
+            dialog.UpdateLayout();
+            inlineInput = dialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
+            inlineInput.Text = "点取消不建";
+            var cancelBtn = dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CancelInlineEditButton");
+            var cancelPoint = cancelBtn.TranslatePoint(new Point(10, 10), dialog)!.Value;
+            dialog.MouseDown(cancelPoint, MouseButton.Left);
+            dialog.MouseUp(cancelPoint, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.DoesNotContain(dialog.GetVisualDescendants().OfType<TextBox>(), t => t.Name == "CollectionNameInput");
+            Assert.DoesNotContain(await service.GetSidebarTagsAsync(), t => t.Name == "点取消不建");
+
+            dialog.BeginCreate(parent.Name);
+            Dispatcher.UIThread.RunJobs();
+            dialog.UpdateLayout();
+            inlineInput = dialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
+            inlineInput.Text = "点确认建成";
+            var confirmBtn = dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CommitInlineEditButton");
+            var confirmPoint = confirmBtn.TranslatePoint(new Point(10, 10), dialog)!.Value;
+            dialog.MouseDown(confirmPoint, MouseButton.Left);
+            dialog.MouseUp(confirmPoint, MouseButton.Left);
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Any(t => t.Name == "点确认建成" && t.ParentName == parent.Name));
+
+            // Inline draft create; Escape cancels without polluting DB.
+            dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewCollectionButton")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
-            var popup = toolbar.FindControl<Popup>("TagManagementDropdown")!;
-            var tree = Assert.Single(toolbar.FindControl<Border>("TagManagementHost")!.GetVisualDescendants().OfType<TagTreePanel>());
-            await tree.RefreshAsync(); tree.UpdateLayout(); window.UpdateLayout();
-            var create = tree.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton");
-            var popupRoot = Assert.IsAssignableFrom<TopLevel>(TopLevel.GetTopLevel(tree));
-            var point = create.TranslatePoint(new Point(14, 14), popupRoot)!.Value;
-            popupRoot.MouseDown(point, MouseButton.Left); popupRoot.MouseUp(point, MouseButton.Left);
+            inlineInput = dialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
+            inlineInput.Text = "不保存草稿";
+            inlineInput.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
             Dispatcher.UIThread.RunJobs();
-            Assert.True(popup.IsOpen);
-            var input = Assert.Single(tree.GetVisualDescendants().OfType<TextBox>());
-            input.Text = "A very long tag name that remains accessible in compact windows";
-            input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
-            await tree.RefreshAsync(); tree.UpdateLayout();
-            Assert.Contains(await service.GetSidebarTagsAsync(), t => t.Name == input.Text);
-            Assert.True(popup.IsOpen);
-            language.SetLanguage(AppLanguage.English); Dispatcher.UIThread.RunJobs(); await tree.RefreshAsync(); tree.UpdateLayout();
-            Assert.Equal("New tag…", Avalonia.Automation.AutomationProperties.GetName(create));
-            Assert.IsType<PathIcon>(create.Content);
-            Assert.DoesNotContain(create.GetVisualDescendants().OfType<TextBlock>(), t => !string.IsNullOrEmpty(t.Text));
-            var title = Assert.Single(tree.GetVisualDescendants().OfType<TextBlock>(), t => t.Classes.Contains("tag-tree-title"));
-            Assert.Equal("Collections", title.Text);
-            Assert.True(title.TranslatePoint(default, tree)!.Value.X < create.TranslatePoint(default, tree)!.Value.X);
-            await service.CreateChildTagAsync("子项", input.Text!); Dispatcher.UIThread.RunJobs();
-            await tree.RefreshAsync(); tree.UpdateLayout(); window.UpdateLayout();
-            var row = tree.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is FileTag t && t.Name == input.Text);
-            Assert.Equal(FastFileList.RowHeight, row.Bounds.Height);
-            var disclosure = row.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-tree-arrow"));
-            Assert.Equal(FastFileList.TreeDisclosureWidth, disclosure.Bounds.Width);
-            Assert.Equal(22, disclosure.Bounds.Height);
-            Assert.Equal(12, Assert.IsType<PathIcon>(disclosure.Content).Width);
-            var name = row.GetVisualDescendants().OfType<Button>().Single(b => b.Tag is FileTag);
-            var rowPoint = name.TranslatePoint(new Point(20, 15), popupRoot)!.Value;
-            popupRoot.MouseMove(rowPoint); Dispatcher.UIThread.RunJobs();
-            Assert.True(row.IsPointerOver);
-            Assert.True(row.TryFindResource("SidebarHoverBrush", row.ActualThemeVariant, out var hoverBrush));
-            Assert.Equal(Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(hoverBrush).Color,
-                Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(row.Background).Color);
-            var presenter = name.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().Single();
-            Assert.Equal(0, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(presenter.Background).Color.A);
-            popupRoot.MouseDown(rowPoint, MouseButton.Right); popupRoot.MouseUp(rowPoint, MouseButton.Right);
+            Assert.DoesNotContain(await service.GetSidebarTagsAsync(), t => t.Name == "不保存草稿");
+
+            // Inline draft create with Enter creates the collection cleanly.
+            dialog.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewCollectionButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
-            Assert.NotNull(row.ContextMenu); Assert.True(row.ContextMenu.IsOpen);
-            Assert.Contains(row.ContextMenu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "Add subtag");
-            Assert.Contains(row.ContextMenu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "Rename");
-            row.ContextMenu.Close();
-            Assert.True(tree.Bounds.Width <= 380);
-            toolbar.CloseDropdowns(); Assert.False(popup.IsOpen);
+            inlineInput = dialog.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "CollectionNameInput");
+            var longName = "A very long collection name for compact outline verification";
+            inlineInput.Text = longName;
+            inlineInput.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Any(t => t.Name == longName));
+
+            // Drag & drop moves collection under parent and RootDropZone moves it back to top level.
+            await dialog.RefreshAsync(preserveScroll: true);
+            dialog.UpdateLayout();
+            parentRow = Row(parent.Name);
+            using var drag = new DataTransfer();
+            var dragItem = new DataTransferItem();
+            dragItem.Set(TagTreePanel.TagDragFormat, sibling.Name);
+            drag.Add(dragItem);
+            var over = new DragEventArgs(DragDrop.DragOverEvent, drag, parentRow, new Point(40, 15), KeyModifiers.None);
+            parentRow.RaiseEvent(over);
+            Assert.Equal(DragDropEffects.Move, over.DragEffects);
+            parentRow.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, drag, parentRow, new Point(40, 15), KeyModifiers.None));
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Single(t => t.Name == sibling.Name).ParentName == parent.Name);
+
+            await dialog.RefreshAsync(preserveScroll: true);
+            dialog.UpdateLayout();
+            var rootDrop = dialog.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "RootDropSpacer");
+            rootDrop.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, drag, rootDrop, new Point(40, 10), KeyModifiers.None));
+            await WaitUntilAsync(async () => (await service.GetSidebarTagsAsync()).Single(t => t.Name == sibling.Name).ParentName == null);
+
+            // Narrow width + live language switch keeps title and layout intact.
+            dialog.Width = 340;
+            language.SetLanguage(AppLanguage.English);
+            Dispatcher.UIThread.RunJobs();
+            await dialog.RefreshAsync(preserveScroll: true);
+            dialog.UpdateLayout();
+            Assert.Equal("Manage Collections", dialog.Title);
+            Assert.True(dialog.Bounds.Width <= 345);
         }
-        finally { window.Close(); Directory.Delete(root, true); }
+        finally
+        {
+            dialog.Close();
+            foreach (var style in appStyles) Application.Current!.Styles.Remove(style);
+            Directory.Delete(root, true);
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<Task<bool>> condition, int timeoutMs = 4000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (await condition()) return;
+            await Task.Delay(20);
+        }
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(await condition());
     }
 
     private sealed class TestDisposable : IDisposable { public void Dispose() { } }

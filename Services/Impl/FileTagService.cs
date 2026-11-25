@@ -114,7 +114,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
             var current = definitions.Single(t => SameName(t.Name, tag.Name));
             var parent = ResolveParent(definitions, parentName);
             for (var ancestor = parent; ancestor != null; ancestor = definitions.Single(t => SameName(t.Name, ancestor)).ParentName)
-                if (SameName(current.Name, ancestor)) throw new InvalidOperationException(LocalizationText.Get("不能将标签移入自身或子标签"));
+                if (SameName(current.Name, ancestor)) throw new InvalidOperationException(LocalizationText.Get("tags.cycle"));
             var siblings = definitions.Where(t => SameParent(t.ParentName, parent) && !SameName(t.Name, current.Name)).ToList();
             siblings.Insert(Math.Clamp(index, 0, siblings.Count), current);
             using var transaction = _connection.BeginTransaction();
@@ -130,7 +130,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
     private static bool SameParent(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
     private static string? ResolveParent(IReadOnlyList<FileTag> definitions, string? parentName) => parentName == null ? null :
         definitions.FirstOrDefault(t => SameName(t.Name, parentName))?.Name
-            ?? throw new InvalidOperationException(LocalizationText.Get("父标签不存在"));
+            ?? throw new InvalidOperationException(LocalizationText.Get("tags.missing-parent"));
 
     public async Task<IReadOnlyList<string>> FindFilePathsAsync(FileTag tag, CancellationToken cancellationToken = default)
     {
@@ -375,7 +375,7 @@ public sealed class FileTagService : IFileTagService, IDisposable
             // A concurrent hierarchy edit must not leave a partially deleted tree.
             var currentTree = FileTagTree.Descendants(ReadDefinitions(), tag.Name).Prepend(tag).ToArray();
             if (!currentTree.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(subtree.Select(t => t.Name)))
-                throw new InvalidOperationException(LocalizationText.Get("标签层级已变化，请重试"));
+                throw new InvalidOperationException(LocalizationText.Get("tags.changed"));
             var indexed = pathsByTag.ToDictionary(pair => pair.Key,
                 pair => pair.Value.Concat(ReadPaths("SELECT file_path FROM file_tags WHERE tag = @tag COLLATE NOCASE", ("@tag", pair.Key))).Distinct().ToArray(),
                 StringComparer.OrdinalIgnoreCase);

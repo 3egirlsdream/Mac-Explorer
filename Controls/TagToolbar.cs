@@ -38,7 +38,7 @@ public sealed class TagToolbar : UserControl
     internal Func<Action, TimeSpan, IDisposable> ScheduleHover { get; set; } = (action, delay) => DispatcherTimer.RunOnce(action, delay);
     private IReadOnlyList<FileTagNode> _hidden = [];
     public event Action? Opening;
-    public event Action? NewTagRequested;
+    public event Action? ManageTagsRequested;
     public event Action<FileTag>? RenameTagRequested;
     public event Action<FileTag>? CreateChildRequested;
     private bool _actionsOpen;
@@ -103,13 +103,13 @@ public sealed class TagToolbar : UserControl
             Reflow();
             return;
         }
-        foreach (var node in FileTagTree.Build(_viewModel.SidebarTags, hideEmpty: true))
+        foreach (var node in FileTagTree.BuildForToolbar(_viewModel.SidebarTags))
         {
             var text = AppTypography.BindFontSize(new TextBlock { Text = node.Tag.DisplayName,
                 MaxWidth = 128, TextTrimming = TextTrimming.CharacterEllipsis }, AppTypography.Label);
             text.Measure(new Size(double.PositiveInfinity, 30));
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6,
-                Children = { TagIcon(node.Tag, toolbar: true), text } };
+                Children = { TagIcon(node, toolbar: true), text } };
             var name = new AppButton { Content = content, Width = Math.Clamp(text.DesiredSize.Width + 35, 52, 163),
                 VerticalAlignment = VerticalAlignment.Center, Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-name" }, Tag = node.Tag };
             ToolTip.SetTip(name, node.Tag.DisplayName); AutomationProperties.SetName(name, node.Tag.DisplayName);
@@ -117,19 +117,19 @@ public sealed class TagToolbar : UserControl
             AttachActions(name, node.Tag);
             if (node.Children.Count > 0)
             {
-                AutomationProperties.SetHelpText(name, LocalizationText.Get("悬停查看子标签"));
+                AutomationProperties.SetHelpText(name, LocalizationText.Get("tags.hover"));
                 name.PointerEntered += (_, _) =>
                 {
                     CancelHover();
                     if (_actionsOpen) return;
                     if (_menu?.IsOpen == true && _menuTarget == name) return;
-                    _openDelay = ScheduleHover(() => OpenMenu(name, node.Children, node.Tag.DisplayName), TimeSpan.FromMilliseconds(250));
+                    _openDelay = ScheduleHover(() => OpenMenu(name, node.Children, node.Tag.DisplayName, node.Tag), TimeSpan.FromMilliseconds(250));
                 };
                 name.PointerExited += (_, _) => CancelHover();
                 name.KeyDown += (_, e) =>
                 {
                     if (e.Key is not (Key.Down or Key.Right)) return;
-                    OpenMenu(name, node.Children, node.Tag.DisplayName); e.Handled = true;
+                    OpenMenu(name, node.Children, node.Tag.DisplayName, node.Tag); e.Handled = true;
                     _menu?.Items.OfType<MenuItem>().FirstOrDefault(item => item.Tag is FileTag)?.Focus();
                 };
             }
@@ -142,13 +142,13 @@ public sealed class TagToolbar : UserControl
         Reflow();
     }
 
-    private static PathIcon TagIcon(FileTag tag, bool toolbar = false)
+    private static PathIcon TagIcon(FileTagNode node, bool toolbar = false)
     {
-        var geometry = tag.IsFinderColor ? Icons.Tag : Icons.Folder;
+        var geometry = FileTagTree.IconGeometry(node);
         var icon = toolbar
             ? new PathIcon { Data = Geometry.Parse(geometry), Classes = { "toolbar-icon" } }
             : TagTreePanel.Icon(geometry, 16);
-        if (tag.ColorId != 0) icon.Foreground = Brush.Parse(tag.ColorHex);
+        if (node.Tag.ColorId != 0) icon.Foreground = Brush.Parse(node.Tag.ColorHex);
         return icon;
     }
 
@@ -183,13 +183,17 @@ public sealed class TagToolbar : UserControl
         _menu?.Items.OfType<MenuItem>().FirstOrDefault(item => item.Tag is FileTag)?.Focus();
     }
 
-    private void OpenMenu(Control target, IReadOnlyList<FileTagNode> nodes, string title)
+    private void OpenMenu(Control target, IReadOnlyList<FileTagNode> nodes, string title, FileTag? parentTag = null)
     {
         if (_viewModel == null || _actionsOpen || nodes.Count == 0 || _menu?.IsOpen == true && _menuTarget == target) return;
         Opening?.Invoke();
         CloseDropdown();
         var menu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft, MinWidth = 240 };
-        var header = new TagMenuHeader(title, () => { CloseDropdown(); NewTagRequested?.Invoke(); });
+        var header = new TagMenuHeader(title, () =>
+        {
+            CloseDropdown();
+            ManageTagsRequested?.Invoke();
+        });
         menu.Items.Add(new MenuItem { Focusable = false, StaysOpenOnClick = true,
             Template = new FuncControlTemplate<MenuItem>((_, _) => header) });
         menu.Items.Add(new Separator());
@@ -202,7 +206,7 @@ public sealed class TagToolbar : UserControl
     private MenuItem CreateMenuItem(FileTagNode node)
     {
         var item = new MenuItem { Header = new TextBlock { Text = node.Tag.DisplayName, MaxWidth = 280,
-            TextTrimming = TextTrimming.CharacterEllipsis }, Icon = TagIcon(node.Tag), Tag = node.Tag };
+            TextTrimming = TextTrimming.CharacterEllipsis }, Icon = TagIcon(node), Tag = node.Tag };
         AutomationProperties.SetName(item, node.Tag.DisplayName); ToolTip.SetTip(item, node.Tag.DisplayName);
         ContextMenuPopupStyler.Attach(item);
         AttachActions(item, node.Tag);
@@ -260,9 +264,11 @@ public sealed class TagToolbar : UserControl
             item.Click += (_, e) => { e.Handled = true; CloseDropdown(); action(); };
             menu.Items.Add(item);
         }
-        Add(LocalizationText.Get("重命名"), Icons.Rename, () => RenameTagRequested?.Invoke(tag));
-        Add(LocalizationText.Get("删除"), Icons.Delete, () => _viewModel?.ShowTagDeleteConfirmDialog(tag), tag.IsCustom);
+        Add(LocalizationText.Get("collections.edit"), Icons.Edit, () => RenameTagRequested?.Invoke(tag));
         Add(LocalizationText.Get("tags.add_child_collection"), Icons.StarAdd, () => CreateChildRequested?.Invoke(tag));
+        Add(LocalizationText.Get("tags.manage"), Icons.Settings, () => ManageTagsRequested?.Invoke());
+        menu.Items.Add(new Separator());
+        Add(LocalizationText.Get("删除"), Icons.Delete, () => _viewModel?.ShowTagDeleteConfirmDialog(tag), tag.IsCustom);
         _menu = menu; _menuTarget = this; _actionsOpen = true;
         menu.Closed += (_, _) =>
         {

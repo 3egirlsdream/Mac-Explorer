@@ -230,11 +230,6 @@
                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.MoreHorizontal}"/>
             </controls:AppButton>
 
-            <Popup x:Name="TagManagementDropdown" Placement="BottomEdgeAlignedRight" PlacementTarget="MoreBtn"
-                   IsLightDismissEnabled="True" OverlayDismissEventPassThrough="True" WindowManagerAddShadowHint="False">
-                <Border x:Name="TagManagementHost" Classes="toolbar-popup"/>
-            </Popup>
-
             <!-- More dropdown popup -->
             <Popup x:Name="MoreDropdown" Placement="BottomEdgeAlignedRight" PlacementTarget="MoreBtn"
                    IsOpen="False" IsLightDismissEnabled="True"
@@ -296,6 +291,14 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Tag}"/>
                                 <TextBlock Text="{loc:Loc tags.more}" FontSize="{DynamicResource FontSizeBody}"/>
+                            </StackPanel>
+                        </controls:AppButton>
+                        <controls:AppButton x:Name="ManageCollectionsButton" Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                AutomationProperties.Name="{loc:Loc tags.manage}" Click="OnManageCollections">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.StarOutline}"/>
+                                <TextBlock Text="{loc:Loc tags.manage}" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </controls:AppButton>
                         <controls:AppButton x:Name="BatchRenameButton" Classes="toolbar-popup-item"

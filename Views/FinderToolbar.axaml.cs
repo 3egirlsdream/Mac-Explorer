@@ -42,9 +42,9 @@ public partial class FinderToolbar : UserControl
                 InvalidateMeasure();
         };
         ToolbarTags.Opening += CloseDropdowns;
-        ToolbarTags.NewTagRequested += () => ShowTagManagement(create: true);
-        ToolbarTags.RenameTagRequested += tag => ShowTagManagement(create: false, target: tag, rename: true);
-        ToolbarTags.CreateChildRequested += tag => ShowTagManagement(create: false, target: tag);
+        ToolbarTags.ManageTagsRequested += () => _ = OpenCollectionManagerAsync();
+        ToolbarTags.RenameTagRequested += tag => _ = OpenCollectionManagerAsync(target: tag, startRename: true);
+        ToolbarTags.CreateChildRequested += tag => _ = OpenCollectionManagerAsync(startCreate: true, createParent: tag);
         DataContextChanged += OnDataContextChanged;
         SubscribeToViewModel(ViewModel);
         SyncViewModeToggles();
@@ -373,7 +373,6 @@ public partial class FinderToolbar : UserControl
         NewDropdown.IsOpen = false;
         SortDropdown.IsOpen = false;
         MoreDropdown.IsOpen = false;
-        TagManagementDropdown.IsOpen = false;
         ToolbarTags.CloseDropdown();
     }
 
@@ -391,30 +390,52 @@ public partial class FinderToolbar : UserControl
         popup.IsOpen = shouldOpen;
     }
 
-    private async void ShowTagManagement(bool create, FileTag? target = null, bool rename = false)
+    internal CollectionManagerDialog? ActiveCollectionManager { get; private set; }
+    internal Func<CollectionManagerDialog, Window, Task>? PresentCollectionManagerAsync { get; set; }
+
+    private void OnManageCollections(object? sender, RoutedEventArgs e) =>
+        _ = OpenCollectionManagerAsync();
+
+    internal async Task OpenCollectionManagerAsync(FileTag? target = null, bool startCreate = false, FileTag? createParent = null, bool startRename = false)
     {
         CloseDropdowns();
-        if (ViewModel == null) return;
-        var tree = new MacExplorer.Controls.TagTreePanel(ViewModel);
-        tree.CloseRequested += () => TagManagementDropdown.IsOpen = false;
-        tree.NavigationRequested += () => TagManagementDropdown.IsOpen = false;
-        TagManagementHost.Child = tree;
-        TagManagementDropdown.IsOpen = true;
-        await tree.RefreshAsync();
-        if (!TagManagementDropdown.IsOpen || !TagManagementHost.GetVisualDescendants().Contains(tree)) return;
-        if (target != null)
+        if (ViewModel?.FileTagService is not { } service) return;
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null) return;
+        var dialog = new CollectionManagerDialog(
+            service,
+            initialTarget: target ?? (!startCreate ? ViewModel.CurrentTag : null),
+            startCreate: startCreate,
+            createParent: createParent,
+            startRename: startRename,
+            navigateAsync: tag => ViewModel.NavigateToTagAsync(tag));
+        ActiveCollectionManager = dialog;
+        try
         {
-            if (rename) tree.BeginEditTag(target);
-            else tree.BeginCreateChildTag(target);
+            if (PresentCollectionManagerAsync != null)
+            {
+                await PresentCollectionManagerAsync(dialog, owner);
+            }
+            else
+            {
+                using var modalBlock = owner is MainWindow mainWindow
+                    ? mainWindow.BlockModalParentInteraction()
+                    : null;
+                await dialog.ShowDialog(owner);
+            }
         }
-        if (create) tree.BeginCreateTag();
+        finally
+        {
+            if (ReferenceEquals(ActiveCollectionManager, dialog))
+                ActiveCollectionManager = null;
+        }
     }
 
     public bool TryCloseDropdown()
     {
-        if (TagManagementDropdown.IsOpen || ToolbarTags.IsDropdownOpen)
+        if (ToolbarTags.IsDropdownOpen)
         {
-            TagManagementDropdown.IsOpen = false; ToolbarTags.CloseDropdown(); MoreBtn.Focus(); return true;
+            ToolbarTags.CloseDropdown(); MoreBtn.Focus(); return true;
         }
         if (MoreDropdown.IsOpen)
         {
@@ -444,7 +465,6 @@ public partial class FinderToolbar : UserControl
     {
         var visual = source as Visual;
         if (ToolbarTags.ContainsSource(visual)
-            || IsInsideVisual(visual, TagManagementDropdown.Child as Visual)
             || IsInsideVisual(visual, NewBtn)
             || IsInsideVisual(visual, SortButton)
             || IsInsideVisual(visual, MoreBtn)

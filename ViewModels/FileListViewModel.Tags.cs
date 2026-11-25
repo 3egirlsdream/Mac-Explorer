@@ -22,7 +22,7 @@ public partial class FileListViewModel
     private bool _showToolbarTags = true;
 
     public string TagDeleteConfirmation => MacExplorer.Services.Impl.LocalizationText.Get(
-        "确定要删除标签“{0}”及其 {1} 个自定义子标签吗？这会移除文件上的这些标签，原始文件保留。系统颜色标签将移回顶层。",
+        "tags.delete-tree",
         PendingDeleteTagName, FileTagTree.Descendants(SidebarTags, PendingDeleteTagName).Count(t => t.IsCustom));
 
     private IReadOnlyList<string> _newTagPaths = [];
