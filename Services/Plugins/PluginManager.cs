@@ -41,7 +41,13 @@ public sealed partial class PluginManager : IAsyncDisposable
 
     internal PluginManager(ISettingsService settings, string root, string bundledPackage, string executable, string assembly)
     {
-        _settings = settings; RootDirectory = root; _bundledPackage = bundledPackage; _executable = executable; _assembly = assembly;
+        _settings = settings; RootDirectory = root; _bundledPackage = bundledPackage; _assembly = assembly;
+        _executable = executable;
+        if (OperatingSystem.IsMacOS() && !DistributionChannel.IsAppStore && Path.GetFileName(executable) == "MacExplorer")
+        {
+            var worker = Path.Combine(Path.GetDirectoryName(executable) ?? "", "MacExplorer.PluginWorker");
+            if (File.Exists(worker)) _executable = worker;
+        }
         try { _state = JsonSerializer.Deserialize<Dictionary<string, PluginState>>(settings.Get(StateKey) ?? "{}", PluginProtocol.Json) ?? new(); }
         catch (JsonException) { _state = new(); }
     }

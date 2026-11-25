@@ -51,43 +51,30 @@ dotnet publish -c Release
 
 ## 代码签名
 
-### 自签名（开发/测试分发）
+### 临时签名（本地开发和测试）
 
-构建脚本默认使用 ad-hoc 签名，防止"app 已损坏"提示：
-
-```bash
-codesign --force --deep --sign - "Mac Explorer.app"
-```
-
-用户首次打开需**右键 → 打开**信任一次。
+本地构建默认使用 ad-hoc 签名。macOS 用本次构建的签名哈希识别这种应用，重新构建后可能再次询问隐私权限。
 
 ### Developer ID 签名 + 公证（正式分发）
 
-需要 Apple Developer 账号（$99/年）。
+官网 GitHub Release 使用 Apple Developer ID Application 证书，团队 ID 为 `AXBYDPHN88`，Bundle ID 为 `com.thankful.top.macexplorer`。签名身份规则保存在 `Tools/Distribution/website-signing.requirement`，发布流程和应用内更新共用。旧版首次换签时可能再次请求已有隐私权限。之后同一签名身份的版本可继承授权。
+
+在 GitHub Actions 配置以下仓库密钥后，正常发布和手动重建会检查签名、公证和票据。仅测试的运行无需密钥。
+
+- `WEBSITE_DEVELOPER_ID_P12_BASE64`、`WEBSITE_DEVELOPER_ID_P12_PASSWORD` 为含私钥的 Developer ID Application PKCS#12 文件的 Base64 内容和密码。
+- `WEBSITE_NOTARY_KEY_BASE64`、`WEBSITE_NOTARY_KEY_ID`、`WEBSITE_NOTARY_ISSUER_ID` 为同一团队的 App Store Connect 团队 API 私钥 `.p8` 的 Base64 内容、Key ID 和 Issuer ID。
+
+也可以用钥匙串中已有的 Developer ID 证书和 `notarytool store-credentials` 保存的凭据配置在本机打包。先生成两个架构的 Release `.app`（传入 `-p:SkipMacOSReleaseDMG=true`），再运行下列命令。填写实际构建版本，例如 `2.0.13`。
 
 ```bash
-# 签名
-codesign --force --deep --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  --options runtime "Mac Explorer.app"
-
-# 打包 DMG
-hdiutil create -volname "Mac Explorer" -srcfolder dmg-staging -ov \
-  -format UDZO -imagekey zlib-level=9 MacExplorer-x.x.x-macos.dmg
-
-# DMG 签名
-codesign --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  MacExplorer-x.x.x-macos.dmg
-
-# 公证
-xcrun notarytool submit MacExplorer-x.x.x-macos.dmg \
-  --apple-id "your-apple-id@example.com" \
-  --password "app-specific-password" \
-  --team-id "TEAM_ID" \
-  --wait
-
-# 装订票据
-xcrun stapler staple MacExplorer-x.x.x-macos.dmg
+WEBSITE_SIGNING_IDENTITY='Developer ID Application: XinJi Jiang (AXBYDPHN88)' \
+WEBSITE_NOTARY_PROFILE='MacExplorer' \
+bash Tools/Distribution/package-website-release.sh 2.0.13 ./dist \
+  'bin/Release/net10.0/osx-arm64/Mac Explorer.app' \
+  'bin/Release/net10.0/osx-x64/Mac Explorer.app'
 ```
+
+脚本逐个签名原生文件和应用包，将 DMG 送交 Apple 公证，再为 DMG 及 ZIP 内的应用装订票据。主程序启用 Hardened Runtime 和库签名验证。第三方插件通过独立工作进程加载原生依赖。发版前可用独立 macOS 用户或虚拟机检查首次换签和后续升级，分别对照「文件与文件夹」「照片」或实际遇到的系统权限。
 
 ## 图标生成
 
@@ -167,43 +154,30 @@ The build script automates:
 
 ## Code Signing
 
-### Ad-Hoc Signing (dev/test distribution)
+### Ad-hoc signing (local development and testing)
 
-The build script defaults to ad-hoc signing, which prevents "app is damaged" errors:
-
-```bash
-codesign --force --deep --sign - "Mac Explorer.app"
-```
-
-Users must **Right-click → Open** once to trust the app.
+Local builds use ad-hoc signing by default. macOS identifies each build by its signature hash and may ask again for access to privacy-protected resources after a rebuild.
 
 ### Developer ID Signing + Notarization (public distribution)
 
-Requires an Apple Developer account ($99/year).
+GitHub website releases use a Developer ID Application certificate for team `AXBYDPHN88` with bundle ID `com.thankful.top.macexplorer`. The release workflow and in-app updater share the identity requirement in `Tools/Distribution/website-signing.requirement`. The first upgrade from an ad-hoc build may ask for existing privacy permissions again. Later builds with the same signing identity can retain those permissions.
+
+Set these GitHub Actions repository secrets before publishing or rebuilding a release. Test-only runs do not require them.
+
+- `WEBSITE_DEVELOPER_ID_P12_BASE64` and `WEBSITE_DEVELOPER_ID_P12_PASSWORD` contain the Base64-encoded Developer ID Application PKCS#12 file with its private key and the file’s password.
+- `WEBSITE_NOTARY_KEY_BASE64`, `WEBSITE_NOTARY_KEY_ID`, and `WEBSITE_NOTARY_ISSUER_ID` contain the same team’s Base64-encoded App Store Connect Team API `.p8` key, Key ID, and Issuer ID.
+
+To package locally, build Release apps for both architectures with `-p:SkipMacOSReleaseDMG=true`. Use the installed Developer ID identity and a Keychain profile created with `notarytool store-credentials`. Pass your build version, such as `2.0.13`.
 
 ```bash
-# Sign
-codesign --force --deep --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  --options runtime "Mac Explorer.app"
-
-# Package DMG
-hdiutil create -volname "Mac Explorer" -srcfolder dmg-staging -ov \
-  -format UDZO -imagekey zlib-level=9 MacExplorer-x.x.x-macos.dmg
-
-# Sign DMG
-codesign --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  MacExplorer-x.x.x-macos.dmg
-
-# Notarize
-xcrun notarytool submit MacExplorer-x.x.x-macos.dmg \
-  --apple-id "your-apple-id@example.com" \
-  --password "app-specific-password" \
-  --team-id "TEAM_ID" \
-  --wait
-
-# Staple ticket
-xcrun stapler staple MacExplorer-x.x.x-macos.dmg
+WEBSITE_SIGNING_IDENTITY='Developer ID Application: XinJi Jiang (AXBYDPHN88)' \
+WEBSITE_NOTARY_PROFILE='MacExplorer' \
+bash Tools/Distribution/package-website-release.sh 2.0.13 ./dist \
+  'bin/Release/net10.0/osx-arm64/Mac Explorer.app' \
+  'bin/Release/net10.0/osx-x64/Mac Explorer.app'
 ```
+
+The script signs native code and the app, submits the DMG to Apple for notarization, and staples the tickets to the DMG and the app inside the ZIP. The main app uses Hardened Runtime with library validation. Third-party plug-ins load their native dependencies in a separate worker executable. Use a dedicated macOS account or VM to check permission behavior during the identity transition and a later same-identity upgrade.
 
 ## Icon Generation
 

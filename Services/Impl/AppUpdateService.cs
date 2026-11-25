@@ -362,9 +362,17 @@ echo ""[$(date)] Update completed""
         await EnsureUpdateArchitectureAsync(executablePath, RuntimeInformation.ProcessArchitecture, ct)
             .ConfigureAwait(false);
         await RunProcessAsync("/bin/chmod", ["+x", executablePath], ct).ConfigureAwait(false);
-        await RunProcessAsync(
-            "/usr/bin/codesign",
-            ["--verify", "--deep", "--strict", appBundle],
+        await VerifyUpdateSignatureAsync(appBundle, ct).ConfigureAwait(false);
+    }
+
+    internal static async Task VerifyUpdateSignatureAsync(string appBundle, CancellationToken ct)
+    {
+        using var requirementStream = typeof(AppUpdateService).Assembly.GetManifestResourceStream(
+            "MacExplorer.WebsiteSigningRequirement")!;
+        using var reader = new StreamReader(requirementStream);
+        var requirement = (await reader.ReadToEndAsync(ct).ConfigureAwait(false)).Trim();
+        await RunProcessAsync("/usr/bin/codesign",
+            ["--verify", "--all-architectures", "--deep", "--strict", "-R", "=" + requirement, appBundle],
             ct).ConfigureAwait(false);
     }
 

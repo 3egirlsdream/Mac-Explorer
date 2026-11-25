@@ -80,6 +80,17 @@ if channel == 'AppStore':
         helper_entitlements = plistlib.loads(helper_xml)
         if helper_entitlements != {'com.apple.security.app-sandbox': True, 'com.apple.security.inherit': True}:
             errors.append(f'{helper.name}: unexpected inherited sandbox entitlements')
+elif channel == 'Website':
+    if entitlements.get('com.apple.security.cs.disable-library-validation'):
+        errors.append('The website app must keep library validation enabled')
+    worker = app / 'Contents/MacOS/MacExplorer.PluginWorker'
+    if not worker.is_file():
+        errors.append('Missing website plugin worker')
+    else:
+        expected_worker = pathlib.Path(__file__).resolve().parents[2] / 'Platforms/MacOS/WebsitePluginWorker.entitlements'
+        worker_xml = subprocess.check_output(['codesign', '-d', '--entitlements', ':-', str(worker)], stderr=subprocess.DEVNULL)
+        if not worker_xml or plistlib.loads(worker_xml) != plistlib.loads(expected_worker.read_bytes()):
+            errors.append('Incorrect entitlements on the website plugin worker')
 host = next(item for item in native if item['path'] == 'Contents/MacOS/' + info['CFBundleExecutable'])
 required_architectures = set(host['architectures'].split())
 for item in native:
