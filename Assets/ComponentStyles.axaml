@@ -887,6 +887,55 @@
     <Style Selector="TextBlock.tag-tree-partial">
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
     </Style>
+    <Style Selector="Border.tag-tree-search">
+        <Setter Property="Background" Value="{DynamicResource DialogGroupBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+        <Setter Property="Padding" Value="8,0,4,0"/>
+        <Setter Property="MinHeight" Value="30"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="Margin" Value="0,1"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row.selected">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row.selected:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row.drop-inside">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row.drop-before">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="0,2,0,0"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row.drop-after">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,2"/>
+    </Style>
+    <Style Selector="PathIcon.collection-drag-grip">
+        <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row:pointerover PathIcon.collection-drag-grip">
+        <Setter Property="Opacity" Value="0.55"/>
+    </Style>
+    <Style Selector="StackPanel.collection-row-actions">
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="Border.collection-tree-row:pointerover StackPanel.collection-row-actions, Border.collection-tree-row:focus-within StackPanel.collection-row-actions">
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="IsHitTestVisible" Value="True"/>
+    </Style>
 
     <StyleInclude Source="avares://MacExplorer/Assets/ToastStyles.axaml"/>
 

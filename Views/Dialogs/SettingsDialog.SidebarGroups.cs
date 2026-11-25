@@ -33,4 +33,13 @@ public partial class SettingsDialog
         try { await _pinnedFolderService.DeleteGroupAsync(group.Id); }
         catch (Exception ex) { AppToast.ShowError(this, LocalizationText.Get("sidebar.groups.operation_failed", ex.Message)); }
     }
+
+    private async void OnManageCollections(object? sender, RoutedEventArgs e)
+    {
+        var service = ViewModel?.FileTagService
+            ?? (App.Services != null ? Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<Services.IFileTagService>(App.Services) : null);
+        if (service == null) return;
+        var dialog = new CollectionManagerDialog(service, navigateAsync: ViewModel != null ? tag => ViewModel.NavigateToTagAsync(tag) : null);
+        await dialog.ShowDialog(this);
+    }
 }

@@ -241,3 +241,5 @@ feat: 优化文件夹恢复
 - 磨砂玻璃的普通文件夹与照片封面共用 `FrostedFolderDepth` 的默认文件夹横向轮廓（约 1.27:1）、前片和圆角；照片纹理按前片实际宽高等比裁切，默认 11% 底部磨砂与细边材质独立于轮廓比例。
 
 - 文件复制、粘贴、移动和删除共用独立非模态 `FileOperationWindow`，操作复用全局 `AppButton.secondary.small`，以 24px 按钮高度换算附件比例，默认宽 617px；横条随屏幕逐帧过渡至已完成量，失败时直接显示错误与逐项结果。操作超过 800ms 才显示进度窗，等待同名确认的时间单独扣除；整批递归预检后复用现有同名弹窗，完成全部确认后才写入。
+
+- 收藏夹配置与嵌套编辑统一进入独立单栏大纲弹窗 `CollectionManagerDialog`（继承 `DialogWindow`、透明标题栏与 `SettingsStyles.axaml`），复用 `Border.collection-tree-row`、`PathIcon.collection-drag-grip`、`StackPanel.collection-row-actions` 与全局 `TextBox.inline-rename-editor.bordered`，支持树内拖拽排序／嵌套／空白区移回顶层、键盘 `Tab`／`Shift+Tab` 缩进、原地对齐行内重命名及草稿式新建，展开收起保持滚动位置不跳动；顶栏通过 `FileTagTree.BuildForToolbar` 保留自定义与置顶收藏夹，图标按 `FileTagTree.IconGeometry` 统一（有子项用文件夹、叶子项用标签）；文件右键「标签」菜单使用 `CollectionAssignmentMenu` 的无限级联标准二级菜单（无搜索框），顶部标题栏（`TagMenuHeader`）右侧统一为管理齿轮按钮，点击打开 `CollectionManagerDialog`。

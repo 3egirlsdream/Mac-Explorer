@@ -7,7 +7,17 @@ public sealed record FileTagNode(FileTag Tag, IReadOnlyList<FileTagNode> Childre
 
 public static class FileTagTree
 {
-    public static IReadOnlyList<FileTagNode> Build(IEnumerable<FileTag> source, bool hideEmpty = false)
+    public static IReadOnlyList<FileTagNode> Build(IEnumerable<FileTag> source, bool hideEmpty = false) =>
+        BuildCore(source, (tag, children) => !hideEmpty || tag.ItemCount > 0 || children.Length > 0);
+
+    // Toolbar retains custom collections (even while empty), pinned collections, non-empty items, and ancestors of visible items.
+    public static IReadOnlyList<FileTagNode> BuildForToolbar(IEnumerable<FileTag> source) =>
+        BuildCore(source, (tag, children) => tag.IsCustom || tag.IsPinned || tag.ItemCount > 0 || children.Length > 0);
+
+    public static string IconGeometry(FileTagNode node) =>
+        node.Children.Count > 0 ? Assets.Icons.Folder : Assets.Icons.Tag;
+
+    private static IReadOnlyList<FileTagNode> BuildCore(IEnumerable<FileTag> source, Func<FileTag, FileTagNode[], bool> include)
     {
         var tags = source.OrderBy(t => t.SortOrder).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToArray();
         var names = tags.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -17,7 +27,7 @@ public static class FileTagTree
             if (!visited.Add(tag.Name)) return null;
             var children = tags.Where(t => string.Equals(t.ParentName, tag.Name, StringComparison.OrdinalIgnoreCase))
                 .Select(BuildNode).OfType<FileTagNode>().ToArray();
-            return hideEmpty && tag.ItemCount == 0 && children.Length == 0 ? null : new FileTagNode(tag, children);
+            return include(tag, children) ? new FileTagNode(tag, children) : null;
         }
         return tags.Where(t => t.ParentName == null || !names.Contains(t.ParentName))
             .Select(BuildNode).OfType<FileTagNode>().ToArray();

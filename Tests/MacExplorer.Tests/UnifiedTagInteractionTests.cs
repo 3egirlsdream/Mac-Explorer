@@ -53,16 +53,26 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
             Dispatcher.UIThread.RunJobs();
             var menu = Assert.Single(window.GetVisualDescendants().OfType<ContextMenu>());
             var submenu = Assert.Single(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == "标签");
+            var parent = await tags.CreateTagAsync("父级");
+            var child = await tags.CreateChildTagAsync("子级", parent.Name);
+            var grandchild = await tags.CreateChildTagAsync("孙级", child.Name);
             submenu.IsSubMenuOpen = true;
+            await TestTime.WaitUntilAsync(() => submenu.Items.OfType<MenuItem>().Any(i => i.Tag is FileTag { Name: "父级" }));
             Dispatcher.UIThread.RunJobs();
             var popup = Assert.Single(submenu.GetTemplateDescendants().OfType<Avalonia.Controls.Primitives.Popup>());
-            var tree = Assert.Single(popup.Child!.GetVisualDescendants().OfType<TagTreePanel>());
-            await tree.RefreshAsync(); tree.UpdateLayout();
-            var row = Assert.Single(tree.GetVisualDescendants().OfType<Border>(), b => b.Tag is FileTag { Name: "红色" });
-            var icon = Assert.Single(row.GetVisualDescendants().OfType<PathIcon>(), i => i.Width == 14);
+            Assert.Empty(popup.Child!.GetVisualDescendants().OfType<TextBox>());
+            Assert.NotNull(popup.Child!.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Name == "ManageCollectionsButton"));
+            var redItem = Assert.Single(submenu.Items.OfType<MenuItem>(), item => item.Tag is FileTag { Name: "红色" });
+            var icon = Assert.IsType<PathIcon>(redItem.Icon);
+            Assert.Equal(14, icon.Width);
             Assert.Equal(Avalonia.Media.Color.Parse(tag.ColorHex), Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(icon.Foreground).Color);
-            Assert.Equal(isChecked, Assert.Single(row.GetVisualDescendants().OfType<PathIcon>(), t => t.Classes.Contains("tag-tree-check")).IsVisible);
-            Assert.NotNull(tree.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Name == "CreateTagButton"));
+            var headerVisual = Assert.IsAssignableFrom<Control>(redItem.Header);
+            await TestTime.WaitUntilAsync(() =>
+                headerVisual.GetVisualDescendants().OfType<PathIcon>().Single(t => t.Classes.Contains("tag-tree-check")).IsVisible == isChecked);
+            var parentItem = Assert.Single(submenu.Items.OfType<MenuItem>(), item => item.Tag is FileTag { Name: "父级" });
+            var childItem = Assert.Single(parentItem.Items.OfType<MenuItem>(), item => item.Tag is FileTag { Name: "子级" });
+            var grandchildItem = Assert.Single(childItem.Items.OfType<MenuItem>(), item => item.Tag is FileTag { Name: "孙级" });
+            Assert.Equal(grandchild.Name, Assert.IsType<FileTag>(grandchildItem.Tag).Name);
             menu.Close();
         }
         finally { view.DismissContextMenu(); window.Close(); root.Delete(true); }
@@ -163,14 +173,13 @@ public sealed class UnifiedTagInteractionViewModelTests : FileListViewModelTestB
         try
         {
             window.Show();
-            sidebar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();
             var input = sidebar.GetVisualDescendants().OfType<TextBox>().Single();
+            input.Focus();
             input.Text = "空项目";
             input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
             Assert.Single(await tags.GetSidebarTagsAsync(), t => t.Name == "空项目" && t.ItemCount == 0);
-            sidebar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "CreateTagButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Dispatcher.UIThread.RunJobs();
+            input.Focus();
             input.Text = "不要创建";
             input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
             Assert.DoesNotContain(await tags.GetSidebarTagsAsync(), t => t.Name == "不要创建");

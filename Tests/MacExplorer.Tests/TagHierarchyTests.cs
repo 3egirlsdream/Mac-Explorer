@@ -131,5 +131,29 @@ public sealed class TagHierarchyTests : IDisposable
         Assert.Equal(2, FileTagTree.Build(tags).Count);
     }
 
+    [Fact]
+    public void ToolbarTreeRetainsEmptyCustomAndPinnedWhileHidingUnusedSystemColors()
+    {
+        FileTag[] tags =
+        [
+            new("红色", "#FF3B30", FileTagKind.FinderColor, ColorId: 6, ItemCount: 0),
+            new("蓝色", "#007AFF", FileTagKind.FinderColor, ColorId: 4, ItemCount: 0, IsPinned: true),
+            new("绿色", "#34C759", FileTagKind.FinderColor, ColorId: 2, ItemCount: 1),
+            new("新建空收藏夹", "#8E8E93", FileTagKind.Custom, ItemCount: 0),
+            new("父收藏夹", "#8E8E93", FileTagKind.Custom, ItemCount: 0),
+            new("子收藏夹", "#8E8E93", FileTagKind.Custom, ItemCount: 0, ParentName: "父收藏夹")
+        ];
+        var roots = FileTagTree.BuildForToolbar(tags);
+        var names = roots.Select(n => n.Tag.Name).ToArray();
+        Assert.DoesNotContain("红色", names);
+        Assert.Contains("蓝色", names);
+        Assert.Contains("绿色", names);
+        Assert.Contains("新建空收藏夹", names);
+        var parentNode = Assert.Single(roots, n => n.Tag.Name == "父收藏夹");
+        var childNode = Assert.Single(parentNode.Children);
+        Assert.Equal(Assets.Icons.Folder, FileTagTree.IconGeometry(parentNode));
+        Assert.Equal(Assets.Icons.Tag, FileTagTree.IconGeometry(childNode));
+    }
+
     public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
 }

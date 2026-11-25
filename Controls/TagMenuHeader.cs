@@ -11,26 +11,39 @@ namespace MacExplorer.Controls;
 internal sealed class TagMenuHeader : Grid
 {
     private readonly TextBlock _title;
-    private readonly Button _create;
+    private readonly Button _manage;
 
-    public TagMenuHeader(string title, Action create)
+    public TagMenuHeader(string title, Action manage)
     {
         ColumnDefinitions = new ColumnDefinitions("*,28");
-        Margin = new Thickness(8, 0, 4, 0); Height = 32;
-        _title = AppTypography.BindFontSize(new TextBlock { VerticalAlignment = VerticalAlignment.Center,
-            FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
-            Classes = { "tag-tree-title" } }, AppTypography.Body);
-        _create = new AppButton { Name = "CreateTagButton", Classes = { "icon-action", "tag-tree-create" },
-            Content = TagTreePanel.Icon(Icons.StarAdd, 16), VerticalAlignment = VerticalAlignment.Center };
-        _create.Click += (_, _) => create();
-        SetColumn(_create, 1); Children.Add(_title); Children.Add(_create);
+        Margin = new Thickness(8, 0, 4, 0);
+        Height = 32;
+        _title = AppTypography.BindFontSize(new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            FontWeight = FontWeight.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Classes = { "tag-tree-title" }
+        }, AppTypography.Body);
+        _manage = new AppButton
+        {
+            Name = "ManageCollectionsButton",
+            Classes = { "icon-action", "tag-tree-create" },
+            Content = TagTreePanel.Icon(Icons.Settings, 15),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _manage.Click += (_, _) => manage();
+        SetColumn(_manage, 1);
+        Children.Add(_title);
+        Children.Add(_manage);
         Update(title);
     }
 
     public void Update(string title)
     {
         _title.Text = title;
-        AutomationProperties.SetName(_create, LocalizationText.Get("新建标签…"));
-        ToolTip.SetTip(_create, LocalizationText.Get("新建标签…"));
+        var tip = LocalizationText.Get("tags.manage");
+        AutomationProperties.SetName(_manage, tip);
+        ToolTip.SetTip(_manage, tip);
     }
 }

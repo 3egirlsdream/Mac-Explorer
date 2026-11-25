@@ -454,10 +454,16 @@
                                 <Border Classes="settings-group">
                                     <StackPanel>
                                         <Border Classes="settings-row settings-divider">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                                                 <TextBlock Classes="settings-label" Text="{loc:Loc tags.toolbar-visible}"
                                                            VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                                <ToggleSwitch Grid.Column="1" x:Name="ShowToolbarTagsToggle"
+                                                <controls:AppButton Grid.Column="1" x:Name="ManageCollectionsSettingsButton"
+                                                                    Classes="secondary compact"
+                                                                    Content="{loc:Loc collections.manage_button}"
+                                                                    ToolTip.Tip="{loc:Loc tags.manage}"
+                                                                    AutomationProperties.Name="{loc:Loc tags.manage}"
+                                                                    Click="OnManageCollections"/>
+                                                <ToggleSwitch Grid.Column="2" x:Name="ShowToolbarTagsToggle"
                                                               Classes="settings-toggle compact"
                                                               AutomationProperties.Name="{loc:Loc tags.toolbar-visible}"
                                                               IsChecked="{Binding ShowToolbarTags, Mode=TwoWay}"/>

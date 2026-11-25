@@ -1085,14 +1085,7 @@ public partial class FileListView : UserControl
         if (action.TagTreePaths != null && ViewModel != null)
         {
             _asyncSubmenus.Add(item);
-            var tree = new MacExplorer.Controls.TagTreePanel(ViewModel, action.TagTreePaths);
-            tree.CloseRequested += DismissContextMenu;
-            var host = new MenuItem
-            {
-                StaysOpenOnClick = true, Focusable = false,
-                Template = new FuncControlTemplate<MenuItem>((_, _) => new Border { Child = tree, Padding = new Thickness(2) })
-            };
-            item.Items.Add(host);
+            MacExplorer.Controls.CollectionAssignmentMenu.Attach(item, ViewModel, action.TagTreePaths, this, DismissContextMenu);
             return item;
         }
         if (action.SubItems is { Count: > 0 })
