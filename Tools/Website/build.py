@@ -12,23 +12,17 @@ REPO = 'https://github.com/3egirlsdream/Mac-Explorer'
 APP_STORE_URL = 'https://apps.apple.com/cn/app/id6820338798?mt=12'
 ROUTES = {'zh-CN': '', 'zh-Hant': 'zh-Hant/', 'en': 'en/', 'fr': 'fr/'}
 GUIDE_IMAGES = {
-    'finder-comparison': ('split-view.webp', 1280, 800, 'split'),
-    'batch-rename': ('rename-preview.webp', 1160, 720, 'text-edit'),
+    'finder-comparison': ('split-view.webp', 1200, 750, 'split'),
+    'batch-rename': ('rename-preview.webp', 1160, 680, 'text-edit'),
 }
 SPOTLIGHT_MEDIA = (
-    ('feature-split.webp', 1280, 800, 'wide'),
-    ('feature-preview.webp', 1200, 680, 'wide'),
-    ('feature-transfer-{lang}.webp', 730, 451, 'compact'),
-    ('feature-delivery-{lang}.webp', 560, 396, 'compact'),
+    [('feature-split.webp', 1200, 750)],
+    [('feature-search.webp', 1160, 720)],
+    [('feature-compress.webp', 1160, 720)],
+    [('feature-delivery-{lang}.webp', 560, 420), ('feature-git-{lang}.webp', 920, 540)],
 )
+SPOTLIGHT_KINDS = ('wide', 'wide', 'wide', 'dual')
 SHOWCASE_THEMES = ('nature-willow', 'cyber-circuit', 'nature-marigold', 'animal-dragon', 'animal-rabbit')
-THEME_SWATCHES = {
-    'nature-willow': '#88b28e',
-    'cyber-circuit': '#829fcf',
-    'nature-marigold': '#d6a88f',
-    'animal-dragon': '#cba088',
-    'animal-rabbit': '#a3a4cb',
-}
 LOCALES = {lang: json.loads((DOCS / 'locales' / (lang + '.json')).read_text()) for lang in ROUTES}
 assert all(set(t) == set(LOCALES['zh-CN']) for t in LOCALES.values()), 'Locale keys must match'
 GUIDES = {lang: json.loads((DOCS / 'locales' / 'guides' / (lang + '.json')).read_text()) for lang in ROUTES}
@@ -140,10 +134,8 @@ def stage(label, demo, icon):
 
 def showcase(t, icons):
     icon = icons.use
-    icons.ensure('weather-sunny')
     label = t['browserAlt']
     demo = t['browserDemo']
-    theme_names = t['themeNames']
     windows = []
     for layer, theme in enumerate(SHOWCASE_THEMES):
         front = layer == len(SHOWCASE_THEMES) - 1
@@ -157,31 +149,20 @@ def showcase(t, icons):
             f'<div class="showcase-window theme-{theme} {"showcase-front" if front else "showcase-back"}"'
             f' data-theme-id="{theme}" style="--layer:{layer}"{hidden}>{content}</div>'
         )
-    swatches = ''.join(
-        f'<button type="button" class="theme-chip{" is-active" if i == len(SHOWCASE_THEMES) - 1 else ""}"'
-        f' data-theme-select="{theme}" aria-pressed="{"true" if i == len(SHOWCASE_THEMES) - 1 else "false"}">'
-        f'<i style="--swatch:{THEME_SWATCHES[theme]}" aria-hidden="true"></i><span>{escape(theme_names[i])}</span></button>'
-        for i, theme in enumerate(SHOWCASE_THEMES)
-    )
-    mode_switch = (
-        '<span class="showcase-divider" aria-hidden="true"></span>'
-        f'<button type="button" class="mode-chip" data-appearance-toggle aria-pressed="false"'
-        f' data-light-label="{escape(t["themeLight"])}" data-dark-label="{escape(t["themeDark"])}">'
-        f'{icon("weather-moon")}<span>{escape(t["themeDark"])}</span></button>'
-    )
-    controls = f'<div class="showcase-controls" role="group" aria-label="{escape(t["showcaseControls"])}">{swatches}{mode_switch}</div>'
-    return '<div class="showcase"><div class="showcase-stage"><div class="showcase-stack">' + ''.join(windows) + '</div></div>' + controls + '</div>'
+    return '<div class="showcase"><div class="showcase-stage"><div class="showcase-stack">' + ''.join(windows) + '</div></div></div>'
 
 
 def feature_spotlight(index, lang, t):
-    filename, width, height, size_kind = SPOTLIGHT_MEDIA[index]
-    src = '{asset}Assets/showcase/' + filename.format(lang=lang)
-    alt = escape(t['spotlightAlts'][index])
-    return (
-        f'<figure class="feature-spotlight spotlight-{size_kind}">'
-        f'<img src="{src}" width="{width}" height="{height}" alt="{alt}" loading="lazy">'
-        '</figure>'
+    items = SPOTLIGHT_MEDIA[index]
+    size_kind = SPOTLIGHT_KINDS[index]
+    alts = t['spotlightAlts'][index]
+    if isinstance(alts, str):
+        alts = [alts]
+    imgs = ''.join(
+        f'<img src="{{asset}}Assets/showcase/{filename.format(lang=lang)}" width="{width}" height="{height}" alt="{escape(alt)}" loading="lazy">'
+        for (filename, width, height), alt in zip(items, alts)
     )
+    return f'<figure class="feature-spotlight spotlight-{size_kind}">{imgs}</figure>'
 
 
 def feature_sections(lang, t, icon):
@@ -344,7 +325,7 @@ def render(lang, t):
     schema = {'@context': 'https://schema.org', '@graph': [{'@type': 'WebSite', '@id': BASE + '#website', 'url': BASE, 'name': 'Mac Explorer', 'alternateName': ['Mac 文件资源管理器', 'Mac文件资源管理器', 'Mac file manager'], 'inLanguage': list(ROUTES)}, {'@type': 'SoftwareApplication', '@id': BASE + '#app', 'name': 'Mac Explorer', 'alternateName': 'Mac 文件资源管理器', 'url': url, 'description': t['description'], 'applicationCategory': 'UtilitiesApplication', 'operatingSystem': 'macOS 14.0 or later', 'downloadUrl': REPO + '/releases/latest', 'license': REPO + '/blob/main/LICENSE', 'image': BASE + 'Assets/social-preview.png', 'offers': {'@type': 'Offer', 'price': '0', 'priceCurrency': 'USD', 'url': REPO + '/releases/latest'}, 'featureList': [item[1] for group in t['capabilities'] for item in group['items']], 'inLanguage': list(ROUTES)}, {'@type': 'WebPage', '@id': url + '#webpage', 'url': url, 'name': t['title'], 'description': t['description'], 'inLanguage': lang, 'isPartOf': {'@id': BASE + '#website'}, 'about': {'@id': BASE + '#app'}}]}
     body_html = (
         f'<a class="skip-link" href="#main">{text("skip")}</a>'
-        + f'<header class="site-header"><div class="site-header-inner wrap"><a class="brand" href="{asset or "./"}" aria-label="Mac Explorer"><img src="{asset}Assets/appicon.svg" alt="" width="32" height="32">Mac Explorer<span class="brand-label">FOR MAC</span></a>'
+        + f'<header class="site-header site-header-home"><div class="site-header-inner wrap"><a class="brand" href="{asset or "./"}" aria-label="Mac Explorer"><img src="{asset}Assets/appicon.svg" alt="" width="32" height="32">Mac Explorer<span class="brand-label">FOR MAC</span></a>'
         + f'<nav aria-label="{text("menu")}"><a href="#features">{text("features")}</a><a href="#guides">{text("guidesNav")}</a><a href="{asset}developers/">{text("docs")}</a><a href="{REPO}">GitHub {icon("arrow-up-right")}</a></nav>'
         + f'<div class="header-actions">{language_picker(lang, ROUTES, asset, icon)}<a class="button primary header-download" href="{APP_STORE_URL}">{text("download")}</a>{mobile_menu(t, asset, icon)}</div></div></header>'
         + f'<main id="main"><section class="hero wrap" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">{text("eyebrow")}</p><h1 id="hero-title">Mac Explorer</h1><p class="hero-tagline">{text("tagline")}</p><p class="hero-intro">{text("intro")}</p>'

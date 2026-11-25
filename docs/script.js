@@ -19,10 +19,19 @@
 
   const header = document.querySelector(".site-header");
   if (header) {
-    const syncHeader = () =>
+    const heroActions = document.querySelector(".hero-actions");
+    const syncHeader = () => {
       header.classList.toggle("is-scrolled", window.scrollY > 8);
+      if (heroActions) {
+        header.classList.toggle(
+          "is-past-hero",
+          heroActions.getBoundingClientRect().bottom < 64,
+        );
+      }
+    };
     syncHeader();
     window.addEventListener("scroll", syncHeader, { passive: true });
+    window.addEventListener("resize", syncHeader, { passive: true });
   }
 
   const popovers = [
@@ -57,8 +66,7 @@
   const showcase = document.querySelector(".showcase");
   if (showcase) {
     const windows = [...showcase.querySelectorAll(".showcase-window")];
-    const themeButtons = [...showcase.querySelectorAll("[data-theme-select]")];
-    const allThemes = themeButtons.map((btn) => btn.dataset.themeSelect);
+    const allThemes = windows.map((win) => win.dataset.themeId).filter(Boolean);
 
     const setTheme = (selectedTheme) => {
       if (!allThemes.includes(selectedTheme)) return;
@@ -72,16 +80,7 @@
         win.classList.add(`theme-${nextTheme}`);
         win.dataset.themeId = nextTheme;
       });
-      themeButtons.forEach((btn) => {
-        const active = btn.dataset.themeSelect === selectedTheme;
-        btn.classList.toggle("is-active", active);
-        btn.setAttribute("aria-pressed", String(active));
-      });
     };
-
-    themeButtons.forEach((btn) => {
-      btn.addEventListener("click", () => setTheme(btn.dataset.themeSelect));
-    });
 
     windows.forEach((win) => {
       if (!win.classList.contains("showcase-back")) return;
@@ -89,27 +88,5 @@
         if (win.dataset.themeId) setTheme(win.dataset.themeId);
       });
     });
-
-    const modeBtn = showcase.querySelector("[data-appearance-toggle]");
-    if (modeBtn) {
-      modeBtn.addEventListener("click", () => {
-        const isDark = showcase.classList.toggle("showcase-dark");
-        modeBtn.classList.toggle("is-active", isDark);
-        modeBtn.setAttribute("aria-pressed", String(isDark));
-        const useEl = modeBtn.querySelector("use");
-        const labelEl = modeBtn.querySelector("span");
-        if (useEl) {
-          useEl.setAttribute(
-            "href",
-            isDark ? "#icon-weather-sunny" : "#icon-weather-moon",
-          );
-        }
-        if (labelEl) {
-          labelEl.textContent = isDark
-            ? modeBtn.dataset.lightLabel
-            : modeBtn.dataset.darkLabel;
-        }
-      });
-    }
   }
 })();

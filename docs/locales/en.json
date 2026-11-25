@@ -30,6 +30,10 @@
       "Mac Explorer is an open-source Mac file manager for macOS. It brings split panes, vertical tabs, workspace groups, instant previews, content search and transfers into one window."
     ],
     [
+      "Will it affect Apple’s built-in Finder?",
+      "No. Mac Explorer runs as an independent app and never modifies or replaces Finder. You can use both side by side and uninstall anytime without touching your files."
+    ],
+    [
       "Which Macs are supported?",
       "Requires macOS 14 or later, on Apple Silicon or Intel."
     ],
@@ -57,28 +61,28 @@
   "capabilities": [
     {
       "label": "01 / BROWSE & ORGANIZE",
-      "title": "Multiple folders. One workspace.",
+      "title": "Multiple folders. One window.",
       "intro": "Bring files, folders and projects into a view that works for you.",
       "items": [
         [
           "panel-left",
           "Split panes, vertical tabs and groups",
-          "Work side by side in horizontal, vertical, three-pane or four-pane layouts, or switch to a hover-expanding vertical tab bar. Organize tabs into groups and save workspace presets to reopen layouts in one click."
+          "Work side by side in two to four panes, or switch to a hover-expanding vertical tab bar. Save tab groups as presets to restore entire layouts in one click."
         ],
         [
           "grid",
           "Four ways to browse",
-          "Switch between list, icon, tree and gallery views. Resize thumbnails with the status bar slider, jump by typing initials, and narrow results with grouping, sorting and column filters."
+          "Switch between list, icon, tree and gallery views. Resize thumbnails with the slider, jump by typing initials, and narrow down with grouping and column filters."
         ],
         [
           "tag",
           "Workbench, tags and collections",
-          "See mounted drives, workspace groups, frequent folders and recent files on the Workbench. Organize with nested tags, ratings and tag filters without moving the original files."
+          "See drives, workspace groups, frequent folders and recent files on the Workbench. Organize with nested tags and star ratings without moving originals."
         ],
         [
           "info",
           "File details and disk management",
-          "Inspect sizes, dates, camera and photo metadata, and copy local SHA-256 hashes. Open Disk Management from the sidebar to check mounted volumes, formats and eject safely."
+          "Check sizes, camera metadata and SHA-256 checksums at a glance. Open Disk Management from the sidebar to inspect mounted volumes and eject safely."
         ]
       ]
     },
@@ -90,22 +94,22 @@
         [
           "search",
           "Global and content search",
-          "Press ⌘ K to find filenames, indexed PDF content and image OCR text. Preview the selected match right inside the panel or jump straight to its folder."
+          "Press ⌘ K to find filenames, PDF text and image OCR. Preview the selected match right in the panel or jump straight to its folder."
         ],
         [
           "scan",
           "On-device image analysis",
-          "Browse photos by people, recognized text, scenes, dates and locations. Name groups of people, with image recognition on your device."
+          "Browse photos by people, recognized text, scenes, dates and locations. Name groups of people, with all recognition running locally on your Mac."
         ],
         [
           "eye",
-          "Super preview, video and diffs",
-          "Press Space for images, PDFs, Office docs, archives and native video playback. Edit Markdown with live formatting, and inspect side-by-side Diff / Patch previews with line numbers."
+          "Quick previews, video and code diffs",
+          "Press Space for images, PDFs, Office docs, archives and native video playback. Edit Markdown live and compare side-by-side code diffs."
         ],
         [
           "text-edit",
-          "Batch rename workspace",
-          "Combine replacements, numbering, dates, templates and regular expressions. Preview every name, check conflicts, save presets and undo a completed batch."
+          "Batch rename",
+          "Combine replacements, numbering, dates, templates and regex rules. Preview every new name, catch conflicts, save presets and undo a completed batch."
         ]
       ]
     },
@@ -117,22 +121,22 @@
         [
           "archive",
           "Archives, encryption and conversion",
-          "Double-click ZIP, TAR, 7Z and other archives to browse inside and extract single items, or create encrypted ZIPs with custom compression levels. Convert documents to Word or PDF and resize images."
+          "Double-click archives to browse inside and extract single items, or create encrypted ZIPs. Convert docs to Word or PDF and batch-resize images."
         ],
         [
           "list",
           "Task queue and conflict resolution",
-          "Track copy, move, transfer and extract jobs in the background queue or dedicated progress window with pause, resume and retry. Compare incoming and existing files side by side before skipping, replacing or keeping both."
+          "Run copies, transfers and extractions in the background with pause, resume and retry. Compare conflicting files side by side before replacing or keeping both."
         ],
         [
           "server",
           "SFTP, SMB, WebDAV and network discovery",
-          "Manage SFTP files and upload edits automatically. Mount SMB and WebDAV through macOS, manage network locations together, and discover and connect to local network servers."
+          "Manage SFTP files with automatic upload on save. Mount SMB and WebDAV via macOS and discover local network servers automatically."
         ],
         [
           "share",
           "LocalSend and AirDrop",
-          "Send files and folders from the context menu. Check the device and file list before receiving, or share selected items with AirDrop."
+          "Send files and folders from the context menu and confirm devices before receiving, or share selected items directly via AirDrop."
         ]
       ]
     },
@@ -144,22 +148,22 @@
         [
           "folder",
           "Menu bar delivery and file staging",
-          "Browse Downloads, Desktop, custom folders and collections from the menu bar. Drag files or folders into the staging area to preview them, drag copies into other apps or clear the list. Originals stay in place; staging clears when you quit."
+          "Reach Downloads, Desktop and favorites from the menu bar. Drop scattered files into staging to preview and drag copies into other apps without moving originals."
         ],
         [
           "sparkle",
           "Copilot file assistant",
-          "Use natural language to find files, organize selections, prepare renames or convert files. Review the plan before changes or content sharing."
+          "Use natural language to find files, organize selections, prepare renames or convert formats. Review and confirm every plan before changes happen."
         ],
         [
           "code",
           "Git integration, plugins and scripts",
-          "Inspect Git diffs, commit history and stage changes right from the context menu. The website edition also supports a plugin market, local plugin packages and Workbench shell commands."
+          "View Git diffs, commit history and stage changes from the context menu. The website edition also supports plugins and custom shell commands."
         ],
         [
           "settings",
           "Themes, folder covers and shortcuts",
-          "Pick built-in background themes, light or dark glass, and frosted or skeuomorphic folder covers. Resize and group sidebar items, customize shortcuts, and switch across four languages."
+          "Pick built-in background themes, light or dark glass, and custom folder covers. Resize and group the sidebar, tailor shortcuts, and hold ⌘ for hints."
         ]
       ]
     }
@@ -191,8 +195,11 @@
   },
   "spotlightAlts": [
     "Mac Explorer split workspace with color-coded tab groups showing two project folders side by side",
-    "Mac Explorer instant image preview with a floating glass action bar to zoom, open, or reveal in folder",
-    "Mac Explorer file conflict dialog comparing incoming and existing file sizes and timestamps side by side",
-    "Mac Explorer menu bar file delivery and staging popover listing Downloads, Desktop, and staged items"
+    "Mac Explorer global quick search panel showing matching files on the left, locate buttons, and a live document preview on the right",
+    "Mac Explorer archive compression dialog with ZIP, tar.gz and tar.bz2 format choices, compression levels, and optional password encryption",
+    [
+      "Mac Explorer menu bar file delivery and staging popover listing Downloads, Desktop, and staged items",
+      "Mac Explorer built-in Git commit history and side-by-side code diff dialog highlighting before and after changes"
+    ]
   ]
 }

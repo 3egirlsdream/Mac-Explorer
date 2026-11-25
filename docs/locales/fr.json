@@ -30,6 +30,10 @@
       "Mac Explorer est un gestionnaire de fichiers Mac libre pour macOS. Il réunit volets multiples, onglets verticaux, groupes d’onglets, aperçus rapides, recherche et transferts dans une seule fenêtre."
     ],
     [
+      "Est-ce que cela modifie le Finder intégré ?",
+      "Non. Mac Explorer est une application indépendante qui ne modifie ni ne remplace le Finder. Vous pouvez utiliser les deux ensemble et désinstaller à tout moment sans toucher à vos fichiers."
+    ],
+    [
       "Quels Mac sont compatibles ?",
       "Compatible avec macOS 14 ou ultérieur, sur Apple Silicon et Intel."
     ],
@@ -57,28 +61,28 @@
   "capabilities": [
     {
       "label": "01 / EXPLORER ET ORGANISER",
-      "title": "Plusieurs dossiers. Un espace de travail.",
+      "title": "Plusieurs dossiers. Une seule fenêtre.",
       "intro": "Affichez vos fichiers et projets comme vous le souhaitez.",
       "items": [
         [
           "panel-left",
           "Volets multiples, onglets verticaux et groupes",
-          "Ouvrez deux à quatre volets côte à côte ou passez à la barre d’onglets verticaux dépliable au survol. Enregistrez vos groupes d’onglets en préréglages pour restaurer tout un espace en un clic."
+          "Ouvrez deux à quatre volets côte à côte ou passez aux onglets verticaux dépliables au survol. Enregistrez vos groupes en préréglages pour tout rouvrir en un clic."
         ],
         [
           "grid",
           "Quatre vues au choix",
-          "Passez de la liste aux icônes, à l’arborescence ou à la galerie. Ajustez les vignettes au curseur, sautez par initiale et affinez avec regroupement, tri et filtres."
+          "Passez de la liste aux icônes, à l’arborescence ou à la galerie. Ajustez les vignettes au curseur, sautez par initiale et affinez par regroupement et filtres."
         ],
         [
           "tag",
           "Espace d’accueil, étiquettes et collections",
-          "Retrouvez disques, groupes, dossiers fréquents et fichiers récents dans l’espace d’accueil ; classez par étiquettes imbriquées et notes sans déplacer les fichiers originaux."
+          "Retrouvez disques, groupes, dossiers fréquents et fichiers récents ; classez par étiquettes imbriquées et notes sans déplacer les fichiers originaux."
         ],
         [
           "info",
           "Détails et gestion des disques",
-          "Consultez tailles, dates, métadonnées photo et empreintes SHA-256 locales. Ouvrez la gestion des disques depuis la barre latérale pour vérifier volumes, formats et éjecter en sécurité."
+          "Consultez tailles, métadonnées photo et empreintes SHA-256 en un clin d’œil. Ouvrez la gestion des disques depuis la barre latérale pour vérifier et éjecter vos volumes."
         ]
       ]
     },
@@ -90,22 +94,22 @@
         [
           "search",
           "Recherche globale et de contenu",
-          "Appuyez sur ⌘ K pour rechercher noms, texte PDF indexé et texte OCR des images. Prévisualisez le résultat directement dans le panneau ou ouvrez son dossier."
+          "Appuyez sur ⌘ K pour rechercher noms, texte PDF et OCR des images. Prévisualisez le résultat dans le panneau ou ouvrez son dossier."
         ],
         [
           "scan",
           "Analyse d’images sur l’appareil",
-          "Parcourez les photos par personnes, texte reconnu, scènes, dates et lieux. Nommez les groupes de personnes ; la reconnaissance reste sur l’appareil."
+          "Parcourez les photos par personnes, texte reconnu, scènes, dates et lieux. Nommez les groupes ; toute la reconnaissance reste locale sur votre Mac."
         ],
         [
           "eye",
-          "Super aperçu, vidéo et différences",
-          "Appuyez sur Espace pour images, PDF, documents, archives et lecture vidéo native. Éditez le Markdown en direct et comparez des fichiers Diff / Patch côte à côte."
+          "Aperçus rapides, vidéo et différences de code",
+          "Appuyez sur Espace pour images, PDF, documents, archives et lecture vidéo native. Éditez le Markdown en direct et comparez les différences de code côte à côte."
         ],
         [
           "text-edit",
           "Renommage par lots",
-          "Combinez remplacement, numérotation, dates, modèles et expressions régulières. Prévisualisez, détectez les conflits, enregistrez les réglages et annulez un lot terminé."
+          "Combinez remplacement, numérotation, dates, modèles et expressions régulières. Prévisualisez chaque nom, évitez les conflits, enregistrez vos réglages et annulez si besoin."
         ]
       ]
     },
@@ -117,22 +121,22 @@
         [
           "archive",
           "Archives, chiffrement et conversion",
-          "Double-cliquez sur ZIP, TAR ou 7Z pour parcourir et extraire un seul fichier, ou créez des archives ZIP chiffrées. Convertissez des documents en Word/PDF et redimensionnez les images."
+          "Double-cliquez sur une archive pour la parcourir et extraire un seul fichier, ou créez des ZIP chiffrés. Convertissez des documents en Word/PDF et redimensionnez les images."
         ],
         [
           "list",
-          "File de tâches et conflits",
-          "Suivez copies, transferts et extractions en arrière-plan ou dans la fenêtre de progression avec pause et reprise. Comparez les fichiers en conflit côte à côte avant de remplacer ou conserver les deux."
+          "File de tâches et gestion des conflits",
+          "Suivez copies, transferts et extractions en arrière-plan avec pause et reprise. Comparez les fichiers en conflit côte à côte avant de remplacer ou conserver les deux."
         ],
         [
           "server",
           "SFTP, SMB, WebDAV et découverte réseau",
-          "Gérez les fichiers SFTP et renvoyez les modifications automatiquement. Montez SMB et WebDAV via macOS, gérez vos emplacements réseau et découvrez les serveurs du réseau local pour vous y connecter."
+          "Gérez vos fichiers SFTP avec envoi automatique à l’enregistrement. Montez SMB et WebDAV via macOS et découvrez automatiquement les serveurs locaux."
         ],
         [
           "share",
           "LocalSend et AirDrop",
-          "Envoyez fichiers et dossiers depuis le menu contextuel. Vérifiez l’appareil et la liste avant réception, ou partagez via AirDrop."
+          "Envoyez fichiers et dossiers depuis le menu contextuel avec confirmation avant réception, ou partagez directement via AirDrop."
         ]
       ]
     },
@@ -144,22 +148,22 @@
         [
           "folder",
           "Fichiers et zone de dépôt dans la barre des menus",
-          "Parcourez les téléchargements, le bureau, les dossiers et les collections depuis la barre des menus. Déposez des fichiers ou dossiers dans la zone de dépôt pour les prévisualiser, en glisser des copies vers d’autres apps ou vider la liste. Les originaux restent en place ; la zone se vide à la fermeture de l’application."
+          "Accédez aux téléchargements, au bureau et aux favoris depuis la barre des menus. Déposez vos fichiers pour les prévisualiser et glisser des copies vers d’autres apps."
         ],
         [
           "sparkle",
           "Assistant de fichiers Copilot",
-          "Trouvez des fichiers, organisez une sélection, préparez un renommage ou convertissez en langage naturel. Validez le plan avant modification ou partage de contenu."
+          "Trouvez des fichiers, organisez une sélection, préparez un renommage ou convertissez en langage naturel. Validez chaque plan avant toute modification."
         ],
         [
           "code",
           "Git, extensions et commandes Shell",
-          "Consultez différences Git, historique de commits et indexation depuis le menu contextuel. L’édition du site propose aussi catalogue d’extensions, paquets locaux et scripts personnalisés."
+          "Consultez différences Git, historique et indexation depuis le menu contextuel. L’édition du site prend aussi en charge extensions et scripts personnalisés."
         ],
         [
           "settings",
           "Thèmes, dossiers et raccourcis",
-          "Choisissez parmi les thèmes de fond intégrés, verre clair ou sombre et couvertures de dossiers. Redimensionnez et regroupez la barre latérale, personnalisez les raccourcis et les quatre langues."
+          "Choisissez parmi les thèmes de fond intégrés, verre clair ou sombre et couvertures de dossiers. Redimensionnez la barre latérale, personnalisez les raccourcis et maintenez ⌘ pour l’aide."
         ]
       ]
     }
@@ -191,8 +195,11 @@
   },
   "spotlightAlts": [
     "Espace de travail scindé de Mac Explorer avec groupes d’onglets colorés affichant deux dossiers côte à côte",
-    "Aperçu instantané d’image dans Mac Explorer avec barre d’actions flottante en verre pour zoomer, ouvrir ou localiser",
-    "Fenêtre de conflit de fichiers de Mac Explorer comparant taille et date des fichiers entrant et existant",
-    "Zone de dépôt et fichiers dans la barre des menus de Mac Explorer regroupant Téléchargements, Bureau et éléments prêts"
+    "Panneau de recherche rapide globale de Mac Explorer affichant les résultats à gauche, les boutons de localisation et l’aperçu en direct à droite",
+    "Fenêtre de compression de Mac Explorer proposant les formats ZIP, tar.gz et tar.bz2, le niveau de compression et le chiffrement par mot de passe",
+    [
+      "Zone de dépôt et fichiers dans la barre des menus de Mac Explorer regroupant Téléchargements, Bureau et éléments prêts",
+      "Fenêtre d’historique Git et de comparaison côte à côte de Mac Explorer mettant en évidence les modifications"
+    ]
   ]
 }
