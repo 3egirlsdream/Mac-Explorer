@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -23,6 +24,119 @@ namespace MacExplorer.Tests;
 [Trait("Area", "UnifiedTagInteraction")]
 public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
 {
+    [AvaloniaFact(Explicit = true)]
+    public async Task FinderToolbarOverflowsTagsBeforeFileActionsAndRestoresBothOnResize()
+    {
+        var root = Directory.CreateTempSubdirectory("fkfinder-toolbar-layout-").FullName;
+        using var service = new FileTagService(new DatabaseConnectionFactory(Path.Combine(root, "tags.db")));
+        using var vm = CreateViewModel(new FakeFileService(root), fileTagService: service);
+        var toolbar = new FinderToolbar { DataContext = vm };
+        var window = new Window { Width = 1300, Height = 120, Content = toolbar };
+        window.Styles.Add(new FluentTheme());
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
+        window.Show();
+        try
+        {
+            void Resize(double width)
+            {
+                window.Width = width;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+            }
+
+            var tags = toolbar.FindControl<TagToolbar>("ToolbarTags")!;
+            var inlineTags = toolbar.FindControl<Grid>("InlineTagsHost")!;
+            var tagsInMore = toolbar.FindControl<Button>("TagsOverflowButton")!;
+            var copy = toolbar.FindControl<Button>("CopyButton")!;
+            var copyInMore = toolbar.FindControl<Button>("CopyOverflowButton")!;
+            var more = toolbar.FindControl<Button>("MoreBtn")!;
+            Assert.False(inlineTags.IsVisible);
+            Assert.False(tagsInMore.IsVisible);
+            Assert.False(copy.IsEnabled);
+            Assert.False(copyInMore.IsEnabled);
+
+            var file = Path.Combine(root, "example.txt");
+            for (var i = 1; i <= 4; i++)
+            {
+                var tag = await service.CreateTagAsync($"Project folder for delivery {i}");
+                await service.SetTagAsync([file], tag, true);
+            }
+            await WaitUntilAsync(() => vm.SidebarTags.Count(tag => tag.ItemCount > 0) == 4);
+            vm.SelectedEntries.Add(new FileSystemEntry { Name = "example.txt", FullPath = file });
+            Resize(1300);
+            Assert.True(copy.IsEnabled);
+            Assert.True(copyInMore.IsEnabled);
+            Assert.True(inlineTags.IsVisible);
+            Assert.Empty(tags.OverflowTags);
+            var firstTag = tags.GetVisualDescendants().OfType<Button>().First(b => b.Tag is FileTag);
+            var tagMore = tags.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("tag-toolbar-more"));
+            var actionsWidth = Math.Ceiling(toolbar.Bounds.Width - inlineTags.Bounds.Width);
+            var tagsWidth = Math.Ceiling(toolbar.Bounds.Width - tags.Bounds.Width + TagToolbar.OverflowWidth);
+
+            Resize(tagsWidth + firstTag.Bounds.Width + 4);
+            Assert.True(firstTag.IsEffectivelyVisible);
+            Assert.InRange(tags.OverflowTags.Count, 1, 3);
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.True(firstTag.Focus());
+
+            Resize(tagsWidth);
+            Assert.Equal(4, tags.OverflowTags.Count);
+            Assert.True(tagMore.IsEffectivelyVisible);
+            Assert.True(tagMore.IsFocused);
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.False(tagsInMore.IsVisible);
+
+            Resize(tagsWidth - 1);
+            Assert.False(inlineTags.IsVisible);
+            Assert.True(tagsInMore.IsVisible);
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.True(more.IsFocused);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(copyInMore.IsEffectivelyVisible);
+            Assert.True(toolbar.FindControl<Popup>("MoreDropdown")!.IsOpen);
+            Assert.True(tagsInMore.IsFocused);
+            var popupRoot = Assert.IsAssignableFrom<TopLevel>(TopLevel.GetTopLevel(tagsInMore));
+            popupRoot.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Dispatcher.UIThread.RunJobs();
+            var menu = Assert.IsType<ContextMenu>(tags.ActiveMenu);
+            Assert.True(menu.IsOpen);
+            Assert.Equal(4, menu.Items.OfType<MenuItem>().Count(item => item.Tag is FileTag));
+            Assert.True(toolbar.TryCloseDropdown());
+            Assert.True(more.IsFocused);
+
+            Resize(actionsWidth);
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.True(copy.Focus());
+            Resize(actionsWidth - 1);
+            Assert.False(copy.IsEffectivelyVisible);
+            Assert.True(more.IsFocused);
+            toolbar.ToggleMenu(ToolbarMenuKind.More);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(copyInMore.IsEffectivelyVisible);
+            Assert.True(tagsInMore.IsEffectivelyVisible);
+            Assert.True(copyInMore.Focus());
+
+            Resize(actionsWidth);
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.True(more.IsFocused);
+            Resize(tagsWidth);
+            Assert.True(tagMore.IsEffectivelyVisible);
+            Assert.False(tagsInMore.IsVisible);
+            Resize(1300);
+            Assert.True(firstTag.IsEffectivelyVisible);
+            Assert.Empty(tags.OverflowTags);
+
+            vm.ShowToolbarTags = false;
+            Resize(tagsWidth - 1);
+            Assert.False(inlineTags.IsVisible);
+            Assert.False(tagsInMore.IsVisible);
+            Assert.True(copy.IsEffectivelyVisible);
+        }
+        finally { window.Close(); Directory.Delete(root, true); }
+    }
+
     [AvaloniaFact(Explicit = true)]
     public async Task ToolbarActionsRenameSystemAliasAndCreateChildWithoutChangingNavigation()
     {
