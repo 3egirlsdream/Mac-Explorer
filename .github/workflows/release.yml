@@ -200,7 +200,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dotnet restore "$PROJECT_FILE"
           dotnet restore "$TEST_PROJECT"
 
       - name: Run tests
