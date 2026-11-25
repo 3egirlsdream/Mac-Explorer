@@ -10,9 +10,14 @@ bundle_id=$(/usr/bin/plutil -extract websiteBundleIdentifier raw -o - "$script_d
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/macexplorer-website.XXXXXX")
 signing_keychain=
+keychain_search_changed=false
+previous_keychains=()
 mounted_image=
 cleanup() {
     if [[ -n "$mounted_image" ]]; then hdiutil detach "$mounted_image" >&2 || true; fi
+    if $keychain_search_changed; then
+        security list-keychains -d user -s ${previous_keychains[@]+"${previous_keychains[@]}"} || true
+    fi
     if [[ -n "$signing_keychain" ]]; then security delete-keychain "$signing_keychain" || true; fi
     rm -rf "$work_dir"
 }
@@ -28,6 +33,7 @@ else
     : "${WEBSITE_NOTARY_KEY_ID:?Configure the website notary Team API key ID.}"
     : "${WEBSITE_NOTARY_ISSUER_ID:?Configure the website notary Team API issuer ID.}"
 
+    echo 'Preparing temporary website signing keychain.'
     signing_keychain="$work_dir/signing.keychain-db"
     keychain_password=$(openssl rand -hex 32)
     printf '%s' "$WEBSITE_DEVELOPER_ID_P12_BASE64" | /usr/bin/base64 -D > "$work_dir/signing.p12"
@@ -39,6 +45,15 @@ else
         -P "$WEBSITE_DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
     security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
         -k "$keychain_password" "$signing_keychain" >/dev/null
+    keychain_list=$(security list-keychains -d user)
+    while IFS= read -r entry; do
+        [[ "$entry" == *'"'*'"' ]] || continue
+        entry=${entry#*\"}
+        previous_keychains+=("${entry%\"}")
+    done <<< "$keychain_list"
+    security list-keychains -d user -s "$signing_keychain" ${previous_keychains[@]+"${previous_keychains[@]}"}
+    keychain_search_changed=true
+
     signing_identity=$(security find-identity -v -p codesigning "$signing_keychain" | awk '/"Developer ID Application: / { print $2 }')
     if [[ ! "$signing_identity" =~ ^[[:xdigit:]]{40}$ ]]; then
         echo 'The website signing keychain must contain one valid Developer ID Application identity.' >&2
@@ -65,6 +80,7 @@ package_app() {
     local zip="$work_dir/MacExplorer-$version-macos$suffix.zip"
     mkdir "$staging"
     ditto "$source" "$app"
+    echo "Signing $(basename "$dmg") and its application."
     WEBSITE_SIGNING_KEYCHAIN="$signing_keychain" bash "$script_dir/sign-app.sh" "$app" Website "$signing_identity"
     bash "$script_dir/verify-website-signature.sh" "$app"
 
