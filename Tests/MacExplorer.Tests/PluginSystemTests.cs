@@ -15,6 +15,26 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Plugin")]
 public sealed class PluginSystemTests
 {
+    [Fact(Explicit = true)]
+    public async Task TrackingAnAlreadyExitedHelperPreservesItsResultAndDoesNotPublishItsPid()
+    {
+        var start = new ProcessStartInfo("/bin/echo") { RedirectStandardOutput = true, UseShellExecute = false };
+        start.ArgumentList.Add("converted");
+        using var helper = Process.Start(start)!;
+        await helper.WaitForExitAsync(TestContext.Current.CancellationToken);
+        var publishedPids = new List<int>();
+        void OnStarted(int pid, long _) => publishedPids.Add(pid);
+        PluginChildProcesses.Started += OnStarted;
+        try
+        {
+            using var registration = PluginChildProcesses.Track(helper);
+            Assert.Empty(publishedPids);
+            Assert.Equal(0, helper.ExitCode);
+            Assert.Equal("converted", (await helper.StandardOutput.ReadToEndAsync()).TrimEnd());
+        }
+        finally { PluginChildProcesses.Started -= OnStarted; }
+    }
+
     [Theory(Explicit = true)]
     [InlineData("txt", "to-docx")]
     [InlineData("md", "to-docx")]

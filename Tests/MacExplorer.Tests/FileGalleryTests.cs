@@ -60,7 +60,7 @@ public sealed class FileGalleryTests : FileListViewModelTestBase
         fixture.Window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
         Assert.Equal(96, fixture.List.GridIconSize);
         Assert.True(fixture.Labels[2].Classes.Contains("active"));
-        Click(fixture.Window, buttonPoint);
+        ClickZoomButton(fixture);
         Assert.False(fixture.Popup.IsOpen);
 
         fixture.Window.MouseWheel(fixture.List.TranslatePoint(new Point(40, 40), fixture.Window)!.Value,
@@ -81,7 +81,7 @@ public sealed class FileGalleryTests : FileListViewModelTestBase
         Assert.Equal(3, fixture.Slider.Value);
         Assert.Equal(128, fixture.List.GridIconSize);
 
-        Click(fixture.Window, buttonPoint);
+        ClickZoomButton(fixture);
         Assert.True(fixture.Popup.IsOpen);
         fixture.Vm.SetViewMode(ViewMode.List);
         Assert.False(fixture.Popup.IsOpen);
@@ -141,7 +141,7 @@ public sealed class FileGalleryTests : FileListViewModelTestBase
         Dispatcher.UIThread.RunJobs();
 
         var buttonPoint = CenterIn(fixture.Button, fixture.Window);
-        Click(fixture.Window, buttonPoint);
+        ClickZoomButton(fixture);
         Assert.True(fixture.Popup.IsOpen);
 
         var thumb = fixture.Slider.FindDescendantOfType<Thumb>()!;
@@ -432,6 +432,14 @@ public sealed class FileGalleryTests : FileListViewModelTestBase
 
     private static Point CenterIn(Control control, Visual root) =>
         control.TranslatePoint(new Rect(control.Bounds.Size).Center, root)!.Value;
+
+    private static void ClickZoomButton(GalleryFixture fixture)
+    {
+        // Zoom changes can update status-bar content and invalidate the earlier hit point.
+        Dispatcher.UIThread.RunJobs();
+        fixture.Window.UpdateLayout();
+        Click(fixture.Window, CenterIn(fixture.Button, fixture.Window));
+    }
 
     private static void Click(Window window, Point point)
     {

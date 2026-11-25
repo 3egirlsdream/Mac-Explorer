@@ -43,8 +43,11 @@ public sealed partial class LocalSendService
                 udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
             }
             _udp = udp;
+            var announcementPort = DiscoveryUdpPortOverride == 0
+                ? ((IPEndPoint)udp.Client.LocalEndPoint!).Port
+                : DiscoveryUdpPortOverride ?? DiscoveryPort;
             state.ReceiveTask = ReceiveAnnouncementsAsync(state, udp);
-            state.CoordinatorTask = Task.Run(() => RunDiscoveryAsync(state));
+            state.CoordinatorTask = Task.Run(() => RunDiscoveryAsync(state, announcementPort));
             state.ScanTask = Task.Run(() => RunUnknownScanAsync(state));
         }
         catch { udp.Dispose(); throw; }
@@ -160,7 +163,7 @@ public sealed partial class LocalSendService
         }
     }
 
-    private async Task AnnounceAsync(CancellationToken cancellationToken)
+    private async Task AnnounceAsync(int port, CancellationToken cancellationToken)
     {
         if (_udp == null) return;
         var bytes = JsonSerializer.SerializeToUtf8Bytes(SelfInfo() with { Announce = true }, Json);
@@ -171,7 +174,7 @@ public sealed partial class LocalSendService
                 using var sender = new UdpClient(new IPEndPoint(address, 0));
                 sender.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
                     address.GetAddressBytes());
-                await sender.SendAsync(bytes, new IPEndPoint(DiscoveryGroup, DiscoveryUdpPortOverride ?? DiscoveryPort), cancellationToken);
+                await sender.SendAsync(bytes, new IPEndPoint(DiscoveryGroup, port), cancellationToken);
             }
             catch (Exception ex) when (ex is SocketException or ObjectDisposedException or OperationCanceledException)
             { _logger?.LogDebug(ex, "LocalSend multicast announcement failed on {Address}", address); }

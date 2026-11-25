@@ -54,8 +54,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         _service.ListeningPortOverride = 0;
         _service.ScanInterfacesOverride = () => [];
         _service.DiscoveryAddressesOverride = () => [IPAddress.Loopback];
-        using (var availableUdp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)))
-            _service.DiscoveryUdpPortOverride = ((IPEndPoint)availableUdp.Client.LocalEndPoint!).Port;
+        _service.DiscoveryUdpPortOverride = 0;
         _service.ConfirmReceiveAsync = (request, _) => Task.FromResult(new LocalSendReceiveDecision(true, request.DefaultDirectory));
         await _service.StartAsync();
     }
@@ -445,6 +444,8 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
                 "Known peer", ["known-local"], DateTime.UtcNow.Ticks)
         }));
         await using var service = new LocalSendService(settings, new BackgroundTaskManager(), timeProvider: clock);
+        service.ListeningPortOverride = 0;
+        service.DiscoveryUdpPortOverride = 0;
         service.ScanInterfacesOverride = () => [new LocalSendService.ScanInterface("127.0.0.1", 32, "known-local")];
         service.DiscoveryAddressesOverride = () => [IPAddress.Loopback];
         await service.StartAsync();
@@ -611,18 +612,23 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
         oldPort = ports[0];
         var newPort = ports[1];
 
-        using var inbound = await _client.PostAsJsonAsync(Url("register"), new { alias = "Moving peer",
-            version = "2.2", fingerprint, port = oldPort, protocol = "https" });
-        Assert.Equal(HttpStatusCode.OK, inbound.StatusCode);
-        await oldStarted.Task.WaitAsync(TimeSpan.FromSeconds(8));
-        var moved = await _service.ConnectByAddressAsync("127.0.0.1", newPort, TestContext.Current.CancellationToken);
-        Assert.Equal(newPort, moved.Port);
-        releaseOld.TrySetResult();
-        await oldReturned.Task.WaitAsync(TimeSpan.FromSeconds(3));
-        await Task.Delay(300);
-        var matching = (await _service.DiscoverAsync(TestContext.Current.CancellationToken))
-            .Where(device => device.Fingerprint.Equals(fingerprint, StringComparison.OrdinalIgnoreCase)).ToArray();
-        Assert.Equal(newPort, Assert.Single(matching).Port);
+        var token = TestContext.Current.CancellationToken;
+        try
+        {
+            using var inbound = await _client.PostAsJsonAsync(Url("register"), new { alias = "Moving peer",
+                version = "2.2", fingerprint, port = oldPort, protocol = "https" }, token);
+            Assert.Equal(HttpStatusCode.OK, inbound.StatusCode);
+            await oldStarted.Task.WaitAsync(TimeSpan.FromSeconds(8), token);
+            var moved = await _service.ConnectByAddressAsync("127.0.0.1", newPort, token);
+            Assert.Equal(newPort, moved.Port);
+            releaseOld.TrySetResult();
+            await oldReturned.Task.WaitAsync(TimeSpan.FromSeconds(3), token);
+            await TestTime.WaitUntilAsync(() => _service.DiscoveryInFlightCount == 0);
+            var matching = (await _service.DiscoverAsync(token))
+                .Where(device => device.Fingerprint.Equals(fingerprint, StringComparison.OrdinalIgnoreCase)).ToArray();
+            Assert.Equal(newPort, Assert.Single(matching).Port);
+        }
+        finally { releaseOld.TrySetResult(); }
     }
 
     [Fact(Explicit = true)]
@@ -998,6 +1004,7 @@ public sealed class LocalSendServiceTests : IAsyncLifetime
 
     [Fact(Explicit = true)]
     [Trait("Kind", "Integration")]
+    [Trait("Serial", "true")]
     public async Task OccupiedDefaultPortFallsBackToAnAdvertisedDynamicPort()
     {
         await _service.SetEnabledAsync(false);

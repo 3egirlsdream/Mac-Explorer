@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
 using System.Text.Json;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
@@ -24,8 +23,8 @@ public sealed class ReliabilityRecoveryTests : IDisposable
         settings.Set(ILocalSendService.EnabledKey, true);
         await using var service = new LocalSendService(settings, new BackgroundTaskManager());
         service.ScanInterfacesOverride = () => []; service.DiscoveryAddressesOverride = () => [IPAddress.Loopback];
-        using (var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)))
-            service.DiscoveryUdpPortOverride = ((IPEndPoint)udp.Client.LocalEndPoint!).Port;
+        service.ListeningPortOverride = 0;
+        service.DiscoveryUdpPortOverride = 0;
         await service.StartAsync(); var port = service.ListeningPort;
         Assert.True(port > 0); Assert.True(service.DiscoveryUdpPort > 0);
         command.CommandText = "CREATE TRIGGER block BEFORE INSERT ON app_settings WHEN NEW.key = 'localsend_enabled' BEGIN SELECT RAISE(FAIL, 'read-only fixture'); END";

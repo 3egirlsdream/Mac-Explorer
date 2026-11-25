@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
-using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -49,11 +48,11 @@ public sealed class LocalSendReviewTests : IAsyncLifetime
         _service = new LocalSendService(new InMemorySettingsService(), _tasks)
         {
             FileAccessOverride = _testAccess,
+            ListeningPortOverride = 0,
+            DiscoveryUdpPortOverride = 0,
             ScanInterfacesOverride = () => [],
             DiscoveryAddressesOverride = () => [IPAddress.Loopback]
         };
-        using (var udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)))
-            _service.DiscoveryUdpPortOverride = ((IPEndPoint)udp.Client.LocalEndPoint!).Port;
         _service.ConfirmReceiveAsync = (request, _) => Task.FromResult(new LocalSendReceiveDecision(true, request.DefaultDirectory));
         await _service.StartAsync();
     }

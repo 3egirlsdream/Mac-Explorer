@@ -176,14 +176,14 @@ public sealed partial class LocalSendService
         }
     }
 
-    private async Task RunDiscoveryAsync(DiscoveryState state)
+    private async Task RunDiscoveryAsync(DiscoveryState state, int announcementPort)
     {
         try
         {
             foreach (var item in state.History)
                 QueueCandidate(state, new LocalSendDevice(item.Alias, item.Fingerprint, item.Address, item.Port, "https"),
                     item.VerifiedUtcTicks);
-            await AnnounceAsync(state.Token);
+            await AnnounceAsync(announcementPort, state.Token);
             while (!state.Token.IsCancellationRequested)
             {
                 PruneCandidates(state);
@@ -193,7 +193,7 @@ public sealed partial class LocalSendService
                     announce = state.AnnounceRequested;
                     state.AnnounceRequested = false;
                 }
-                if (announce) await AnnounceAsync(state.Token);
+                if (announce) await AnnounceAsync(announcementPort, state.Token);
                 await ProbeDueCandidatesAsync(state);
                 await WaitForDiscoveryAsync(state, TimeSpan.FromSeconds(5));
             }

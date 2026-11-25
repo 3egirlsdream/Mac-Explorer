@@ -465,8 +465,8 @@ public sealed class DistributionCommonTests : IDisposable
         service.FileAccessOverride = access;
         service.ScanInterfacesOverride = () => [];
         service.DiscoveryAddressesOverride = () => [];
-        using (var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0)))
-            service.DiscoveryUdpPortOverride = ((System.Net.IPEndPoint)udp.Client.LocalEndPoint!).Port;
+        service.ListeningPortOverride = 0;
+        service.DiscoveryUdpPortOverride = 0;
         service.ReceiveDirectory = Path.Combine(_root, "received");
         service.ConfirmReceiveAsync = (request, _) => Task.FromResult(new LocalSendReceiveDecision(true, request.DefaultDirectory));
         await service.StartAsync();

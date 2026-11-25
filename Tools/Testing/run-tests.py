@@ -16,23 +16,27 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "Tests/MacExplorer.Tests/MacExplorer.Tests.csproj"
 SHARDABLE_PROFILES = {"fast", "unit", "ui", "integration", "full"}
 MIN_CLASSES_FOR_SHARDING = 4
+DEFAULT_TEST_WEIGHT = 100
+RELEASE_FULL_TEST_WEIGHT = 26  # Calibrated against the wall-clock distribution of the CI shards.
 
-# Approximate duration hints (seconds) for the heaviest classes so LPT sharding
-# spreads them across different workers even when a class has few test methods.
-HEAVY_CLASS_WEIGHTS = {
-    "MacExplorer.Tests.PdfAnalysisTests": 75,
-    "MacExplorer.Tests.LocalSendServiceTests": 75,
-    "MacExplorer.Tests.GitOperationsTests": 45,
-    "MacExplorer.Tests.BackgroundThemeTests": 30,
-    "MacExplorer.Tests.FileConversionTests": 22,
-    "MacExplorer.Tests.TabStripInteractionTests": 22,
-    "MacExplorer.Tests.PluginSystemTests": 16,
-    "MacExplorer.Tests.SearchIndexWriteTests": 15,
-    "MacExplorer.Tests.TabWorkspaceCacheViewModelTests": 13,
-    "MacExplorer.Tests.TabGroupsUiTests": 12,
-    "MacExplorer.Tests.GroupPresetTests": 10,
-    "MacExplorer.Tests.FolderTabRestoreTests": 10,
-    "MacExplorer.Tests.PrivacySecurityFollowupTests": 9,
+# Median summed test times (centiseconds) from November 23–25 Release full XML reports.
+SLOW_CLASS_WEIGHTS = {
+    "MacExplorer.Tests.PdfAnalysisTests": 7791,
+    "MacExplorer.Tests.LocalSendServiceTests": 6979,
+    "MacExplorer.Tests.GitOperationsTests": 2683,
+    "MacExplorer.Tests.BackgroundThemeTests": 2508,
+    "MacExplorer.Tests.FileConversionTests": 1851,
+    "MacExplorer.Tests.PluginSystemTests": 1849,
+    "MacExplorer.Tests.TabWorkspaceCacheViewModelTests": 1604,
+    "MacExplorer.Tests.SearchIndexWriteTests": 1464,
+    "MacExplorer.Tests.TabGroupsUiTests": 981,
+    "MacExplorer.Tests.PrivacySecurityFollowupTests": 936,
+    "MacExplorer.Tests.GroupPresetTests": 909,
+    "MacExplorer.Tests.BatchRenameWorkbenchTests": 683,
+    "MacExplorer.Tests.FolderArtworkTests": 547,
+    "MacExplorer.Tests.BreadcrumbBarViewModelTests": 534,
+    "MacExplorer.Tests.TaskProgressRingTests": 508,
+    "MacExplorer.Tests.FolderTabRestoreTests": 505,
 }
 
 
@@ -42,8 +46,9 @@ def default_jobs(profile):
     return max(1, min(4, os.cpu_count() or 1))
 
 
-def discover_class_weights(executable, expression, explicit):
-    command = [str(executable), "-list", "full/json", "-filter", "/[" + expression + "]", "-explicit", explicit]
+def discover_class_weights(executable, expression, explicit, per_test_weight=DEFAULT_TEST_WEIGHT):
+    command = ["bash", str(ROOT / "Tools/Testing/run-isolated.sh"), str(executable),
+               "-list", "full/json", "-filter", "/[" + expression + "]", "-explicit", explicit]
     try:
         result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
     except OSError:
@@ -55,7 +60,8 @@ def discover_class_weights(executable, expression, explicit):
         if stripped.startswith("["):
             items = json.loads(stripped)
             counts = Counter(item["Class"] for item in items if item.get("Class"))
-            return {cls: max(count, HEAVY_CLASS_WEIGHTS.get(cls, 0)) for cls, count in counts.items()}
+            return {cls: max(count * per_test_weight, SLOW_CLASS_WEIGHTS.get(cls, 0))
+                    for cls, count in counts.items()}
     return {}
 
 
@@ -114,8 +120,9 @@ def merge_assembly_xml(shard_reports, output_report):
     return merged_assembly
 
 
-def run_sharded_project(project, executable, expression, explicit, verbose, jobs, results, serial_expression=None):
-    weights = discover_class_weights(executable, expression, explicit)
+def run_sharded_project(project, executable, expression, explicit, verbose, jobs, results,
+                        serial_expression=None, per_test_weight=DEFAULT_TEST_WEIGHT):
+    weights = discover_class_weights(executable, expression, explicit, per_test_weight)
     if weights is None:
         return None
     serial_weights = None
@@ -128,39 +135,36 @@ def run_sharded_project(project, executable, expression, explicit, verbose, jobs
     if not has_serial and len(shards) <= 1:
         return None
 
-    def run_shard(index, classes):
-        report = results / f"{project}.shard-{index}.xml"
-        log = results / f"{project}.shard-{index}.log"
+    def run_worker(label, filters):
+        name = f"{project}.{label}"
+        report = results / f"{name}.xml"
+        log = results / f"{name}.log"
         command = [
             "bash", str(ROOT / "Tools/Testing/run-isolated.sh"), str(executable),
             "-noColor", "-xml", str(report), "-explicit", explicit, "-parallel", "none",
         ]
-        for cls in classes:
-            command += ["-filter", build_class_filter(project, cls, expression)]
+        for test_filter in filters:
+            command += ["-filter", test_filter]
         if verbose:
             command.append("-verbose")
+        started = time.monotonic()
+        print(f"{name} started ({len(filters)} filters)", flush=True)
         exit_code = run(command, log)
+        print(f"{name} finished in {time.monotonic() - started:.2f}s (exit {exit_code})", flush=True)
         return exit_code, report, log
 
     shard_results = [None] * len(shards)
     if shards:
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(shards)) as pool:
-            futures = {pool.submit(run_shard, i + 1, shard): i for i, shard in enumerate(shards)}
+            futures = {
+                pool.submit(run_worker, f"shard-{i + 1}",
+                            [build_class_filter(project, cls, expression) for cls in shard]): i
+                for i, shard in enumerate(shards)
+            }
             for future in concurrent.futures.as_completed(futures):
                 shard_results[futures[future]] = future.result()
 
-    serial_result = None
-    if has_serial:
-        serial_report = results / f"{project}.serial.xml"
-        serial_log = results / f"{project}.serial.log"
-        serial_command = [
-            "bash", str(ROOT / "Tools/Testing/run-isolated.sh"), str(executable),
-            "-noColor", "-xml", str(serial_report), "-filter", "/[" + serial_expression + "]",
-            "-explicit", explicit, "-parallel", "none",
-        ]
-        if verbose:
-            serial_command.append("-verbose")
-        serial_result = (run(serial_command, serial_log), serial_report, serial_log)
+    serial_result = run_worker("serial", ["/[" + serial_expression + "]"]) if has_serial else None
 
     merged_log = results / f"{project}.log"
     with merged_log.open("w") as out_log:
@@ -178,11 +182,13 @@ def run_sharded_project(project, executable, expression, explicit, verbose, jobs
     code = 0
     shard_reports = []
     all_runs = list(shard_results) + ([serial_result] if serial_result is not None else [])
-    for exit_code, report, _ in all_runs:
+    for exit_code, report, log in all_runs:
         code = code or exit_code
         if not report.exists():
-            return code or 1, None
-        shard_reports.append(report)
+            print(f"Missing test report {report.name}; see {log.name}.", flush=True)
+            code = code or 1
+        else:
+            shard_reports.append(report)
 
     merged_report = results / f"{project}.xml"
     assembly = merge_assembly_xml(shard_reports, merged_report)
@@ -253,18 +259,18 @@ def main():
             if args.profile in ("full", "integration"):
                 shard_expr = "(" + expression + ")&(Serial!=true)"
                 serial_expr = "(" + expression + ")&(Serial=true)"
+                per_test_weight = (RELEASE_FULL_TEST_WEIGHT if args.profile == "full" and not args.area
+                                   else DEFAULT_TEST_WEIGHT)
                 sharded = run_sharded_project(
                     project, executable, shard_expr, explicit,
                     verbose=(args.profile == "full"), jobs=jobs, results=results,
-                    serial_expression=serial_expr)
+                    serial_expression=serial_expr, per_test_weight=per_test_weight)
             else:
                 sharded = run_sharded_project(
                     project, executable, expression, explicit,
                     verbose=False, jobs=jobs, results=results)
         if sharded is not None:
             result, assembly = sharded
-            if assembly is None:
-                return result or 1
         else:
             report = results / (project + ".xml")
             command = ["bash", str(ROOT / "Tools/Testing/run-isolated.sh"), str(executable),

@@ -180,7 +180,7 @@ class ShardingTests(unittest.TestCase):
             weights = {f"MacExplorer.Tests.C{i}": i + 1 for i in range(4)}
             serial_weights = {"MacExplorer.Tests.NativeA": 1}
 
-            def fake_discover(_exe, expr, _exp):
+            def fake_discover(_exe, expr, _exp, _per_test_weight=100):
                 return serial_weights if "Serial=true" in expr else weights
 
             with (patch.object(runner, "ROOT", root),
@@ -197,9 +197,39 @@ class ShardingTests(unittest.TestCase):
             self.assertEqual(4, len(invocations))
             serial_cmd = [cmd for cmd in invocations if any("Serial=true" in a for a in cmd)]
             self.assertEqual(1, len(serial_cmd))
+            self.assertEqual(serial_cmd[0], invocations[-1])
             merged = ET.parse(root / "MacExplorer.Tests.xml").getroot().find("assembly")
             self.assertEqual("6", merged.get("total"))
             self.assertEqual("6", merged.get("passed"))
+
+    def test_missing_worker_report_fails_without_hiding_other_worker_failures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weights = {f"MacExplorer.Tests.C{i}": 1 for i in range(4)}
+
+            def fake_run(command, log):
+                log.write_text("worker log\n")
+                report = log.with_suffix(".xml")
+                if log.name.endswith(".shard-2.log"):
+                    return 0
+                report.write_text(
+                    '<assemblies><assembly total="1" failed="1">'
+                    '<collection><test name="TestA"><failure><message>actual failure</message></failure></test>'
+                    '</collection></assembly></assemblies>'
+                )
+                return 1
+
+            output = io.StringIO()
+            with (patch.object(runner, "discover_class_weights", return_value=weights),
+                  patch.object(runner, "run", fake_run), contextlib.redirect_stdout(output)):
+                code, assembly = runner.run_sharded_project("MacExplorer.Tests", root / "runner",
+                                                            "Kind=UI", "on", False, 2, root)
+                runner.print_failures(assembly)
+
+            self.assertNotEqual(0, code)
+            self.assertIn("Missing test report MacExplorer.Tests.shard-2.xml", output.getvalue())
+            self.assertIn("FAILED: TestA", output.getvalue())
+            self.assertIn("actual failure", output.getvalue())
 
 
 if __name__ == "__main__":

@@ -39,6 +39,8 @@ bash Tools/Testing/run-tests.sh stress
 
 每个测试进程都经过 `run-isolated.sh`，使用独立 `MACEXPLORER_TEST_ROOT`。平台/发行渠道不匹配的用例报告为 Skip；可选 SFTP、真实相机 RAW、签名 Store sandbox 验证仍需要原有环境。
 
+`full` 和 `integration` 按类分配并行进程，较慢的类参考发布 CI 的 XML 耗时，其余按用例数估算。`Serial=true` 用例在并行分片全部结束后运行，包括需要固定端口的 LocalSend 回归。控制台记录每个分片的起止和退出码，原始 XML、日志及合并报告保留在结果目录。分片报告缺失时整次检查失败，并输出其他已完成分片的失败详情。
+
 ## 构建与时间控制
 
 日常入口设置 `SkipMacOSBundle=true`、`SkipMacOSNativeHelpers=true`、`SkipMacOSReleaseDMG=true`，不为逻辑测试重新打包签名；文件路径与访问检查所需的轻量 macOS 平台桥仍按输入/输出增量构建并复制，图片/文档等独立 helper 仅在完整检查中构建。完整检查保留 bundle 构建。原生目标按源文件、共享 helper、脚本及构建配置的输入/输出做增量判断。快速构建跳过常规分析器，仍运行必须的源码生成器；发布 CI 的干净完整构建开启全部分析器。

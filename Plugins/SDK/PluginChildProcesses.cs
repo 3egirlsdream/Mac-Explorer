@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Diagnostics;
 
 namespace MacExplorer.PluginSdk;
@@ -10,9 +11,33 @@ public static class PluginChildProcesses
     private static readonly ConcurrentDictionary<int, Process> Processes = new();
     public static IDisposable Track(Process process)
     {
-        Processes[process.Id] = process;
-        Started?.Invoke(process.Id, process.StartTime.ToUniversalTime().Ticks);
-        return new Registration(process.Id);
+        var pid = process.Id;
+        var registration = new Registration(pid);
+        Processes[pid] = process;
+        try
+        {
+            if (Started is { } started && GetLiveStartTime(process) is { } startTime)
+                started(pid, startTime);
+            return registration;
+        }
+        catch
+        {
+            registration.Dispose();
+            throw;
+        }
+    }
+
+    private static long? GetLiveStartTime(Process process)
+    {
+        try
+        {
+            return process.HasExited ? null : process.StartTime.ToUniversalTime().Ticks;
+        }
+        catch (Exception ex) when (ex is (InvalidOperationException or Win32Exception) && process.HasExited)
+        {
+            // A short-lived helper can exit between the liveness check and macOS's process query.
+            return null;
+        }
     }
     public static void KillAll()
     {
