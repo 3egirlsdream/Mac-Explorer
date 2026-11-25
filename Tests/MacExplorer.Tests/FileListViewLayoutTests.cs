@@ -147,6 +147,52 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
         finally { window.Close(); }
     }
 
+    [AvaloniaFact(Explicit = true)]
+    public async Task HeaderCheckboxPopupCancelsPendingRenameAndConsumesDismissalClick()
+    {
+        using var theme = new FastListTestTheme();
+        using var vm = CreateViewModel(new FakeFileService("/tmp/layout"),
+            sortFilter: new SortFilterViewModel { ViewMode = ViewMode.List });
+        var entry = new FileSystemEntry { Name = "report.pdf", FullPath = "/tmp/layout/report.pdf" };
+        vm.Entries.Add(entry);
+        var view = new FileListView { DataContext = vm };
+        var window = new Window { Width = 1000, Height = 480, Content = view };
+        var cancellationToken = TestContext.Current.CancellationToken;
+        try
+        {
+            window.Show();
+            Settle(window);
+            var list = view.FindControl<FastFileList>("FastList")!;
+            var popup = view.FindControl<Popup>("ColumnVisibilityPopup")!;
+            var button = view.FindControl<AppButton>("ListColumnsButton")!;
+            var kind = view.FindControl<CheckBox>("ShowTypeColumn")!;
+            var name = list.TranslatePoint(list.NameBounds(0).Center, window)!.Value;
+            vm.SelectEntry(entry);
+            Click(window, name);
+            Assert.True(button.Focus());
+            window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            Settle(window);
+            Assert.True(popup.IsOpen);
+            await Task.Delay(500, cancellationToken);
+            Assert.Null(list.EditingPath);
+            Assert.Same(view.FindControl<CheckBox>("ShowModifiedColumn"), window.FocusManager!.GetFocusedElement());
+
+            Click(window, Center(kind, window));
+            Assert.True(popup.IsOpen);
+            Click(window, name);
+            Assert.False(popup.IsOpen);
+            await Task.Delay(500, cancellationToken);
+            Assert.Null(list.EditingPath);
+            Assert.Same(entry, Assert.Single(vm.SelectedEntries));
+
+            Click(window, name);
+            await Task.Delay(500, cancellationToken);
+            Assert.Equal(entry.FullPath, list.EditingPath);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData("Name", 1)]
     [InlineData("Modified", 2)]

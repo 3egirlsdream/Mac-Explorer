@@ -578,6 +578,7 @@ public partial class FileListView : UserControl
         }
         if (_columnLayoutService is not { } service || ViewModel is not { } vm) return;
 
+        CancelSlowRename();
         ColumnFilterPopup.IsOpen = false;
         vm.NotifyTransientInteractionStarted();
         var hidden = service.HiddenColumns;
