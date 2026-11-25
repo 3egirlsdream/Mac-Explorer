@@ -27,6 +27,7 @@
   <ItemGroup>
     <None Update="Languages/Markdown/*.json" TargetPath="I18n/CodeWF.Markdown/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="Assets/PrivacyPolicy.txt" LogicalName="MacExplorer.PrivacyPolicy.txt" />
+    <EmbeddedResource Include="Tools/Distribution/website-signing.requirement" LogicalName="MacExplorer.WebsiteSigningRequirement" />
     <AssemblyMetadata Include="PrivacyPolicyUrl" Value="$(PrivacyPolicyUrl)" />
     <AssemblyMetadata Include="AppStoreSubscriptionProductId" Value="$(AppStoreSubscriptionProductId)" Condition="'$(DistributionChannel)' == 'AppStore'" />
     <AvaloniaResource Include="Assets\**" Exclude="Assets\*.cs;Assets\*.axaml;Assets\FolderArtwork\*.png;Assets\**\*.md;Assets\mac-explorer-*.png;Assets\appicon.svg;Assets\appicon.icns;Assets\PrivacyPolicy.txt;Assets\ConversionNotices.txt;Assets\localsend-*.txt" />
@@ -173,6 +174,8 @@
     <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)" AppHostDestinationPath="$(_MacOSDir)/$(AssemblyName)"
                    AppBinaryName="../Resources/Managed/$(AssemblyName).dll" IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')" Condition="'$(DistributionChannel)' == 'Website'" />
     <Exec Command="python3 Tools/Distribution/configure-apphost-uuid.py '$(_MacOSDir)/$(AssemblyName)' '$(ApplicationId)' '$(TargetPath)'" Condition="'$(DistributionChannel)' == 'Website'" />
+    <Copy SourceFiles="$(_MacOSDir)/$(AssemblyName)" DestinationFiles="$(_MacOSDir)/MacExplorer.PluginWorker" Condition="'$(DistributionChannel)' == 'Website'" />
+    <Exec Command="python3 Tools/Distribution/configure-apphost-uuid.py '$(_MacOSDir)/MacExplorer.PluginWorker' '$(ApplicationId).plugin-worker' '$(TargetPath)'" Condition="'$(DistributionChannel)' == 'Website'" />
     <Exec Command="clang++ -fobjc-arc -std=c++17 -arch $(_NativeArchitecture) -mmacosx-version-min=$(MacOSMinimumVersion) Platforms/MacOS/StoreLauncher.mm -framework AppKit -o '$(_MacOSDir)/$(AssemblyName)'" Condition="'$(DistributionChannel)' == 'AppStore'" />
 
     <!-- Copy Info.plist -->

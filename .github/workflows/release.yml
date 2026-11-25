@@ -223,6 +223,8 @@ jobs:
       - name: Publish application
         if: needs.detect-version.outputs.mode != 'tests_only'
         shell: bash
+        env:
+          SkipMacOSReleaseDMG: 'true'
         run: |
           set -euo pipefail
           dotnet publish "$PROJECT_FILE" -c Release -r osx-arm64 --no-restore
@@ -236,6 +238,11 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ needs.detect-version.outputs.version }}
+          WEBSITE_DEVELOPER_ID_P12_BASE64: ${{ secrets.WEBSITE_DEVELOPER_ID_P12_BASE64 }}
+          WEBSITE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.WEBSITE_DEVELOPER_ID_P12_PASSWORD }}
+          WEBSITE_NOTARY_KEY_BASE64: ${{ secrets.WEBSITE_NOTARY_KEY_BASE64 }}
+          WEBSITE_NOTARY_KEY_ID: ${{ secrets.WEBSITE_NOTARY_KEY_ID }}
+          WEBSITE_NOTARY_ISSUER_ID: ${{ secrets.WEBSITE_NOTARY_ISSUER_ID }}
         run: |
           set -euo pipefail
 
@@ -248,33 +255,29 @@ jobs:
 
           rm -rf "$dist_dir" "$verify_dir"
           mkdir -p "$dist_dir" "$verify_dir"
+          bash Tools/Distribution/package-website-release.sh "$VERSION" "$dist_dir" \
+            'bin/Release/net10.0/osx-arm64/Mac Explorer.app' \
+            'bin/Release/net10.0/osx-x64/Mac Explorer.app'
 
           for rid in osx-arm64 osx-x64; do
             if [[ "$rid" == "osx-arm64" ]]; then
               arch="arm64"
-              package_dmg_name="$dmg_name"
               package_zip_name="$zip_name"
             else
               arch="x86_64"
-              package_dmg_name="$intel_dmg_name"
               package_zip_name="$intel_zip_name"
             fi
 
             build_root="bin/Release/net10.0/${rid}"
             app_path="${build_root}/Mac Explorer.app"
-            dmg_path="${build_root}/${package_dmg_name}"
             test -d "$app_path"
-            test -f "$dmg_path"
 
             plist_path="${app_path}/Contents/Info.plist"
             executable_path="${app_path}/Contents/MacOS/MacExplorer"
             test -f "$plist_path"
             test -x "$executable_path"
-            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist_path")" = "com.thankful.top.macexplorer"
             test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist_path")" = "$VERSION"
-            python3 Tools/Distribution/verify-bundle.py "$app_path" Website
-
-            for binary in MacExplorer MacExplorer.ImageAnalysis MacExplorer.Thumbnail MacExplorer.FileConversion; do
+            for binary in MacExplorer MacExplorer.ImageAnalysis MacExplorer.Thumbnail MacExplorer.FileConversion MacExplorer.PluginWorker; do
               lipo "${app_path}/Contents/MacOS/${binary}" -verify_arch "$arch"
             done
             raw_library="${app_path}/Contents/Frameworks/libraw.dylib"
@@ -288,9 +291,6 @@ jobs:
               lipo "$binary" -verify_arch "$arch"
             done < <(find "${app_path}/Contents/Frameworks" -maxdepth 1 -name '*.dylib' -print0)
 
-            cp "$dmg_path" "${dist_dir}/${package_dmg_name}"
-            ditto -c -k --sequesterRsrc --keepParent "$app_path" "${dist_dir}/${package_zip_name}"
-
             package_verify_dir="${verify_dir}/${rid}"
             mkdir -p "$package_verify_dir"
             ditto -x -k "${dist_dir}/${package_zip_name}" "$package_verify_dir"
@@ -299,7 +299,9 @@ jobs:
             test -f "${zipped_app}/Contents/Frameworks/libraw.dylib"
             test -f "${zipped_app}/Contents/Resources/LibRaw/LICENSE.LGPL"
             lipo "${zipped_app}/Contents/Frameworks/libraw.dylib" -verify_arch "$arch"
-            codesign --verify --deep --strict "$zipped_app"
+            python3 Tools/Distribution/verify-bundle.py "$zipped_app" Website
+            bash Tools/Distribution/verify-website-signature.sh "$zipped_app"
+            xcrun stapler validate "$zipped_app"
 
             plugin_dir="${package_verify_dir}/FileConversion"
             mkdir -p "$plugin_dir"

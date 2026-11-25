@@ -237,6 +237,41 @@ public sealed class AppUpdateTests
         }
     }
 
+    [Fact(Explicit = true)]
+    [Trait("Kind", "Integration")]
+    public async Task UpdateRejectsAdHocSignatureEvenWithTheOfficialBundleIdentifier()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS.");
+
+        var root = Directory.CreateTempSubdirectory("fkfinder-update-signature-");
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var app = Path.Combine(root.FullName, "Mac Explorer.app");
+            var contents = Path.Combine(app, "Contents");
+            Directory.CreateDirectory(Path.Combine(contents, "MacOS"));
+            File.Copy("/usr/bin/true", Path.Combine(contents, "MacOS", "MacExplorer"));
+            await File.WriteAllTextAsync(Path.Combine(contents, "Info.plist"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <plist version="1.0"><dict>
+                <key>CFBundleExecutable</key><string>MacExplorer</string>
+                <key>CFBundleIdentifier</key><string>com.thankful.top.macexplorer</string>
+                <key>CFBundlePackageType</key><string>APPL</string>
+                </dict></plist>
+                """, ct);
+            await RunProcessAsync("/usr/bin/codesign", ["--force", "--sign", "-", app], ct);
+            await RunProcessAsync("/usr/bin/codesign", ["--verify", "--deep", "--strict", app], ct);
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => AppUpdateService.VerifyUpdateSignatureAsync(app, ct));
+            Assert.Contains("test-requirement", error.Message);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
     [AvaloniaFact(Explicit = true)]
     [Trait("Kind", "UI")]
     public void FailedValidationCannotBeOverwrittenByQueuedProgress()
