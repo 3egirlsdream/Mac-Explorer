@@ -22,8 +22,10 @@ namespace MacExplorer.Controls;
 
 public sealed class TagToolbar : UserControl
 {
+    internal const double OverflowWidth = 30;
+
     private readonly StackPanel _strip = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
-    private readonly AppButton _overflow = new() { Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-more" }, Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Classes = { "toolbar-icon" } } };
+    private readonly AppButton _overflow = new() { IsVisible = false, Classes = { "ghost", "compact", "toolbar-btn", "tag-toolbar-more" }, Content = new PathIcon { Data = Geometry.Parse(Icons.MoreHorizontal), Classes = { "toolbar-icon" } } };
     private readonly List<(FileTagNode Node, Control Control, double Width)> _items = [];
     private FileListViewModel? _viewModel;
     private ContextMenu? _menu;
@@ -31,6 +33,7 @@ public sealed class TagToolbar : UserControl
     private bool _attached;
     private bool _rebuildQueued;
     private bool _navigating;
+    private int _visibleCount = -1;
     private IDisposable? _openDelay;
     internal Func<Action, TimeSpan, IDisposable> ScheduleHover { get; set; } = (action, delay) => DispatcherTimer.RunOnce(action, delay);
     private IReadOnlyList<FileTagNode> _hidden = [];
@@ -44,7 +47,7 @@ public sealed class TagToolbar : UserControl
 
     public TagToolbar()
     {
-        ClipToBounds = true; MinWidth = 0; Height = 30;
+        ClipToBounds = true; MinWidth = 0; Height = 30; IsVisible = false;
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         grid.Children.Add(_strip); Grid.SetColumn(_overflow, 1); grid.Children.Add(_overflow);
         Content = grid;
@@ -91,10 +94,15 @@ public sealed class TagToolbar : UserControl
     {
         CloseDropdown();
         _items.Clear(); _strip.Children.Clear();
-        IsVisible = _viewModel?.ShowToolbarTags == true;
-        ToolTip.SetTip(_overflow, LocalizationText.Get("更多标签"));
-        AutomationProperties.SetName(_overflow, LocalizationText.Get("更多标签"));
-        if (_viewModel == null) return;
+        _visibleCount = -1;
+        ToolTip.SetTip(_overflow, LocalizationText.Get("tags.more"));
+        AutomationProperties.SetName(_overflow, LocalizationText.Get("tags.more"));
+        if (_viewModel?.ShowToolbarTags != true)
+        {
+            IsVisible = false;
+            Reflow();
+            return;
+        }
         foreach (var node in FileTagTree.Build(_viewModel.SidebarTags, hideEmpty: true))
         {
             var text = AppTypography.BindFontSize(new TextBlock { Text = node.Tag.DisplayName,
@@ -130,6 +138,7 @@ public sealed class TagToolbar : UserControl
             _strip.Children.Add(surface);
             _items.Add((node, surface, name.Width));
         }
+        IsVisible = _items.Count > 0;
         Reflow();
     }
 
@@ -147,16 +156,31 @@ public sealed class TagToolbar : UserControl
     {
         var width = Math.Max(0, Bounds.Width);
         var total = _items.Sum(i => i.Width) + Math.Max(0, _items.Count - 1) * 2;
-        var remaining = width - (total > width ? 30 : 0);
+        var remaining = width - (total > width ? OverflowWidth : 0);
         var visible = 0;
         foreach (var item in _items)
         {
             if (item.Width > remaining) break;
             remaining -= item.Width + 2; visible++;
         }
-        for (var i = 0; i < _items.Count; i++) _items[i].Control.IsVisible = i < visible;
-        _hidden = _items.Skip(visible).Select(i => i.Node).ToArray();
+        if (_visibleCount == visible) return;
+        _visibleCount = visible;
+
+        var focusOverflow = _items.Skip(visible).Any(item => item.Control.IsKeyboardFocusWithin);
+        for (var i = 0; i < _items.Count; i++)
+            _items[i].Control.IsVisible = i < visible;
+        _hidden = _items.Skip(visible).Select(item => item.Node).ToArray();
+        if (_hidden.Count == 0 && _overflow.IsFocused && _items.FirstOrDefault().Control is Border { Child: AppButton firstTag })
+            firstTag.Focus();
         _overflow.IsVisible = _hidden.Count > 0;
+        if (focusOverflow)
+            _overflow.Focus();
+    }
+
+    internal void OpenAllTags(Control target)
+    {
+        OpenMenu(target, _items.Select(item => item.Node).ToArray(), LocalizationText.Get("收藏夹"));
+        _menu?.Items.OfType<MenuItem>().FirstOrDefault(item => item.Tag is FileTag)?.Focus();
     }
 
     private void OpenMenu(Control target, IReadOnlyList<FileTagNode> nodes, string title)

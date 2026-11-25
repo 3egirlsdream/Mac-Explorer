@@ -244,11 +244,13 @@ public sealed class ExplorerWorkspaceViewTests
     [AvaloniaFact(Explicit = true)]
     public void CompactToolbarKeepsTheFullStyleOfVisibleButtons()
     {
-        var toolbar = new FinderToolbar { IsCompact = true };
-        var window = new Window { Width = 600, Height = 100, Content = toolbar };
+        using var theme = new FastListTestTheme();
+        var toolbar = new FinderToolbar();
+        var window = new Window { Width = 300, Height = 100, Content = toolbar };
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
+        Assert.False(toolbar.FindControl<Control>("InlineActionsHost")!.IsVisible);
         var newLabel = toolbar.GetVisualDescendants().OfType<TextBlock>()
             .Single(text => text.Text == "新建");
         var sortLabel = toolbar.GetVisualDescendants().OfType<TextBlock>()
@@ -292,6 +294,35 @@ public sealed class ExplorerWorkspaceViewTests
 [Trait("Area", "ExplorerWorkspaceView")]
 public sealed class ExplorerWorkspaceViewViewModelTests : FileListViewModelTestBase
 {
+    [AvaloniaFact(Explicit = true)]
+    public void SplitWorkspaceOnlyOverflowsFileActionsWhenTheToolbarRunsOutOfSpace()
+    {
+        using var theme = new FastListTestTheme();
+        using var vm = CreateViewModel(new FakeFileService("/tmp/fkfinder-split-toolbar"));
+        using var tab = new ExplorerTabViewModel(vm) { IsActive = true };
+        using var workspace = new ExplorerWorkspaceView { ForceCompact = true, DataContext = tab };
+        var window = new Window { Width = 720, Height = 500, Content = workspace };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(workspace.IsCompact);
+            var toolbar = workspace.FindControl<FinderToolbar>("ToolbarControl")!;
+            var inlineActions = toolbar.FindControl<Control>("InlineActionsHost")!;
+            Assert.True(inlineActions.IsEffectivelyVisible);
+
+            window.Width = 370;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(inlineActions.IsEffectivelyVisible);
+
+            window.Width = 720;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(workspace.IsCompact);
+            Assert.True(inlineActions.IsEffectivelyVisible);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory(Explicit = true)]
     [InlineData("NewDropdown")]
     [InlineData("SortDropdown")]

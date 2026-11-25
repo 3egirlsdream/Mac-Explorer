@@ -25,9 +25,6 @@ public enum ToolbarMenuKind
 
 public partial class FinderToolbar : UserControl
 {
-    public static readonly StyledProperty<bool> IsCompactProperty =
-        AvaloniaProperty.Register<FinderToolbar, bool>(nameof(IsCompact));
-
     private FileListViewModel? _subscribedViewModel;
     private int _lastViewModeIndex = -1;
     private readonly TranslateTransform _viewModeThumbTransform = new();
@@ -35,16 +32,15 @@ public partial class FinderToolbar : UserControl
     // Callback to open settings dialog via MainWindow
     public Action? OpenSettingsCallback { get; set; }
 
-    public bool IsCompact
-    {
-        get => GetValue(IsCompactProperty);
-        set => SetValue(IsCompactProperty, value);
-    }
-
     public FinderToolbar()
     {
         InitializeComponent();
         ViewModeSliderThumb.RenderTransform = _viewModeThumbTransform;
+        ToolbarTags.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == IsVisibleProperty)
+                InvalidateMeasure();
+        };
         ToolbarTags.Opening += CloseDropdowns;
         ToolbarTags.NewTagRequested += () => ShowTagManagement(create: true);
         ToolbarTags.RenameTagRequested += tag => ShowTagManagement(create: false, target: tag, rename: true);
@@ -79,11 +75,51 @@ public partial class FinderToolbar : UserControl
     private async void ResetDirectoryPreferences(object? sender, RoutedEventArgs e)
     { CloseDropdowns(); if (ViewModel != null) await ViewModel.ResetDirectoryPreferencesAsync(); }
 
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    protected override Size MeasureOverride(Size availableSize)
     {
-        base.OnPropertyChanged(change);
-        if (change.Property == IsCompactProperty)
-            PseudoClasses.Set(":compact", change.GetNewValue<bool>());
+        var naturalSize = new Size(double.PositiveInfinity, availableSize.Height);
+        double Width(Control control)
+        {
+            control.Measure(naturalSize);
+            return control.DesiredSize.Width;
+        }
+
+        // The hosts can be hidden while their children still report their natural widths.
+        var padding = ToolbarChrome.Padding;
+        var widthWithFileActions = padding.Left + padding.Right
+            + (ToolbarLayout.ColumnDefinitions.Count - 1) * ToolbarLayout.ColumnSpacing
+            + Width(NewBtn) + LeadingActions.Spacing + Width(InlineActions)
+            + Width(ActionDivider) + Width(ViewModeControls) + Width(SortButton)
+            + Width(InfoButton) + Width(MoreBtn) + Width(RemoteEditButton)
+            + Width(ArchiveExtractButton);
+        var showActionsInline = availableSize.Width >= widthWithFileActions;
+        var hasTags = ToolbarTags.IsVisible && !ArchiveExtractButton.IsVisible;
+        var showTagsInline = hasTags && availableSize.Width - widthWithFileActions
+            >= Width(TagsDivider) + InlineTagsHost.ColumnSpacing + TagToolbar.OverflowWidth;
+        var showTagsInMore = hasTags && !showTagsInline;
+
+        if ((showActionsInline && OverflowActions.IsKeyboardFocusWithin)
+            || (!showTagsInMore && TagsOverflowButton.IsFocused))
+        {
+            MoreDropdown.IsOpen = false;
+            MoreBtn.Focus();
+        }
+        if (!showActionsInline && InlineActions.IsKeyboardFocusWithin)
+            MoreBtn.Focus();
+        if (!showTagsInline && InlineTagsHost.IsVisible)
+        {
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Visual;
+            var restoreFocus = ToolbarTags.ContainsSource(focused);
+            ToolbarTags.CloseDropdown();
+            if (restoreFocus)
+                MoreBtn.Focus();
+        }
+
+        InlineActionsHost.IsVisible = ActionDividerHost.IsVisible = showActionsInline;
+        OverflowActions.IsVisible = !showActionsInline;
+        InlineTagsHost.IsVisible = showTagsInline;
+        TagsOverflowButton.IsVisible = showTagsInMore;
+        return base.MeasureOverride(availableSize);
     }
 
     private void ToggleNewDropdown(object? sender, RoutedEventArgs e)
@@ -325,6 +361,13 @@ public partial class FinderToolbar : UserControl
         MoreDropdown.IsOpen = shouldOpen;
     }
 
+    private void OpenTagsFromMore(object? sender, RoutedEventArgs e)
+    {
+        MoreDropdown.IsOpen = false;
+        MoreBtn.Focus();
+        ToolbarTags.OpenAllTags(MoreBtn);
+    }
+
     public void CloseDropdowns()
     {
         NewDropdown.IsOpen = false;
@@ -428,6 +471,10 @@ public partial class FinderToolbar : UserControl
         SortButton.Classes.Set("dropdown-open", SortDropdown.IsOpen);
         if (SortDropdown.IsOpen) SyncSortMenu();
         MoreBtn.Classes.Set("dropdown-open", MoreDropdown.IsOpen);
+        if (ReferenceEquals(sender, MoreDropdown) && MoreDropdown.IsOpen && MoreBtn.IsFocused
+            && (OverflowActions.IsVisible || TagsOverflowButton.IsVisible))
+            MoreDropdown.Child?.GetVisualDescendants().OfType<Button>()
+                .FirstOrDefault(button => button.IsEffectivelyVisible && button.IsEffectivelyEnabled)?.Focus();
     }
 
     private async void OnConnectRemoteServer(object? sender, RoutedEventArgs e)

@@ -570,7 +570,6 @@ public partial class ExplorerWorkspaceView : UserControl, ILivePreviewWorkspace,
         {
             IsCompact = layout.IsCompact;
             PseudoClasses.Set(":compact", IsCompact);
-            ToolbarControl.IsCompact = IsCompact;
             SidebarControl.SetSidebarToggleVisible(IsCompact);
             _isPageSearchExpanded = false;
             UpdatePageSearchPresentation();
