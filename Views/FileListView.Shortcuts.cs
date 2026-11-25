@@ -31,7 +31,7 @@ public partial class FileListView
     internal bool CanExecuteShortcut(string id)
     {
         var vm = ViewModel;
-        if (vm == null || ColumnFilterPopup.IsOpen) return false;
+        if (vm == null || HasOpenHeaderPopup) return false;
         if ((vm.IsDirectoryLoading || FastListActive && FastList.IsLoading)
             && id is not (ShortcutIds.Home or ShortcutIds.Up or ShortcutIds.Back or ShortcutIds.Forward or ShortcutIds.Refresh))
             return false;

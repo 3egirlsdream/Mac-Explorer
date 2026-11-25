@@ -60,7 +60,7 @@ public partial class FileListView
             return;
         }
 
-        ColumnFilterPopup.IsOpen = false;
+        CloseHeaderPopups();
         ViewModel.NotifyTransientInteractionStarted();
         _openFilterColumn = field;
         _filterAnchor = anchor;

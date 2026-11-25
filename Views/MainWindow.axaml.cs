@@ -352,6 +352,9 @@ public partial class MainWindow : AppWindow
         if (SuperPreviewControl.IsVisible)
             return;
 
+        if (ActiveWorkspace?.FileListView.IsColumnVisibilityPopupOpen == true)
+            return;
+
         // A Markdown preview can also have focus inside the gallery.
         if (MarkdownPreviewView.OwnsCopyGesture(e))
             return;

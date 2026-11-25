@@ -10,11 +10,13 @@ public sealed record FileDragSessionEvent(FileDragPhase Phase, Point ScreenPoint
 
 public partial class FileListView
 {
-    internal bool HasOpenBrowsePopup => ColumnFilterPopup.IsOpen;
+    internal bool HasOpenBrowsePopup => HasOpenHeaderPopup;
     internal bool DismissBrowsePopup()
     {
-        if (!ColumnFilterPopup.IsOpen) return false;
-        ColumnFilterPopup.IsOpen = false;
+        if (!HasOpenHeaderPopup) return false;
+        var returnFocusToColumns = IsColumnVisibilityPopupOpen;
+        CloseHeaderPopups();
+        if (returnFocusToColumns) ListColumnsButton.Focus();
         return true;
     }
     public event Action<FileDragSessionEvent>? DragSessionChanged;

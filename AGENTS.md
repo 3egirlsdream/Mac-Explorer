@@ -47,7 +47,7 @@ feat: 优化文件夹恢复
 - 首页脚本命令的右键菜单图标在名称左侧通过全局 `ComboBox.icon-picker` 选择，收起时仅显示图标，下拉项显示图标与文字，支持不配置／启动／中断，启动与中断复用 Fluent Play／Stop 图标及 `SuccessBrush`／`DangerBrush` 主题色，配置选项与菜单共用图标渲染；不配置在选择器中显示灰色横线，菜单不显示图标。多行编辑复用 `TextBox.multiline`，文字左上对齐并自动换行。
 - 文件列表的文件名使用 `TextPrimaryBrush`；日期、大小、类型、数量及普通列标题／分组标题使用 `TextMutedBrush`，统一由 FastFileList 绘制，排序／筛选状态保留强调色。
 - 文件列表「种类」与信息面板共用 `FileSystemEntry.KindText`，通过 `FileKindNames` 和四语资源显示格式全名，未知后缀显示「后缀 文件」，无后缀显示「文件」；普通目录、应用和已知项目包分别标识。种类列沿用全局列宽布局与单行省略，默认 230px，悬停显示完整名称。
-- 列表／树形表头最右侧使用全局 `AppButton.ghost.icon-action.small`、Fluent Table 图标与标准 `MenuFlyout` 勾选日期、大小和种类列；文件名常驻。隐藏列在表头与 FastFileList 的布局、命中和绘制前排除，保留用户列宽。列右缘均可双向拖动，默认文件名随窗口伸缩，双击其右缘恢复自动宽度；溢出时表头与文件行同步横向滚动，菜单按钮固定。
+- 列表／树形表头最右侧使用全局 `AppButton.ghost.icon-action.small`、Fluent Table 图标打开与列筛选同样式的 `context-submenu-surface` / `CheckBox.file-filter-option` 面板，勾选日期、大小和种类时即时更新，保持面板打开，点击外部或按 Escape 收起；文件名常驻。隐藏列在表头与 FastFileList 的布局、命中和绘制前排除，保留用户列宽。列右缘均可双向拖动，默认文件名随窗口伸缩，双击其右缘恢复自动宽度；溢出时表头与文件行同步横向滚动，菜单按钮固定。
 - 自定义的组件全局通用，新增或者编辑代码都统一使用全局统一UI库组件，扫描到全局自定义组件样式以简洁语言自动归纳到本文件。
 - 通用按钮使用 `primary`、`secondary`、`ghost`，紧凑操作追加 `compact`；对话框复用 `DialogWindow` / `AppWindow`。
 - 有窗口关闭入口的预览、说明及只读弹窗不再单独添加底部“关闭”按钮或占位，正文铺满可用区域，保留标题栏关闭与 Escape；底部仅保留保存、取消、重试等实际操作，无操作时整组收起并移除分隔线与间距。

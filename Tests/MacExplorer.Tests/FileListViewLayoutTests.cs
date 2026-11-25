@@ -79,7 +79,7 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact(Explicit = true)]
-    public void HeaderMenuHidesColumnAndItsHitTargetsAndRestoresWidth()
+    public void HeaderCheckboxesStayOpenAcrossTogglesAndRestoreColumnWidth()
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/layout"),
@@ -97,21 +97,37 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
             var list = view.FindControl<FastFileList>("FastList")!;
             var header = view.FindControl<Grid>("ListHeaderGrid")!;
             var button = view.FindControl<AppButton>("ListColumnsButton")!;
-            var menu = Assert.IsType<MenuFlyout>(button.Flyout);
-            var kind = Assert.IsType<MenuItem>(menu.Items[2]);
+            var popup = view.FindControl<Popup>("ColumnVisibilityPopup")!;
+            var modified = view.FindControl<CheckBox>("ShowModifiedColumn")!;
+            var size = view.FindControl<CheckBox>("ShowSizeColumn")!;
+            var kind = view.FindControl<CheckBox>("ShowTypeColumn")!;
             var kindPoint = new Point(list.ListRowRight - 185, 15);
             Assert.Same(entry, list.EntryAt(kindPoint, contentOnly: true));
 
             Click(window, Center(button, window));
-            Assert.True(menu.IsOpen);
-            Assert.All(menu.Items.Cast<MenuItem>(), item => Assert.True(item.IsChecked));
-            ClickMenuItem(kind);
-            Settle(window);
+            Assert.True(popup.IsOpen);
+            Assert.All(new[] { modified, size, kind }, item => Assert.True(item.IsChecked));
+            Assert.Same(modified, window.FocusManager!.GetFocusedElement());
+            Click(window, Center(kind, window));
+            Assert.True(popup.IsOpen);
             Assert.Equal(0, header.ColumnDefinitions[4].Width.Value);
             Assert.Equal(0, list.ColumnWidths.Type);
             Assert.False(view.FindControl<Border>("TypeResizeHandle")!.IsVisible);
             Assert.Null(list.EntryAt(kindPoint, contentOnly: true));
 
+            Click(window, Center(size, window));
+            Assert.True(popup.IsOpen);
+            Assert.Equal(0, list.ColumnWidths.Size);
+            window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            Settle(window);
+            Assert.True(popup.IsOpen);
+            Assert.Equal(110, list.ColumnWidths.Size);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Settle(window);
+            Assert.False(popup.IsOpen);
+            Assert.Same(button, window.FocusManager.GetFocusedElement());
             var sizeHandle = view.FindControl<Border>("SizeResizeHandle")!;
             Drag(window, sizeHandle, 20);
             Assert.Equal(130, list.ColumnWidths.Size);
@@ -119,12 +135,14 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
             Assert.Equal(110, list.ColumnWidths.Size);
 
             Click(window, Center(button, window));
-            Assert.True(menu.IsOpen);
+            Assert.True(popup.IsOpen);
             Assert.False(kind.IsChecked);
-            ClickMenuItem(kind);
-            Settle(window);
+            Click(window, Center(kind, window));
+            Assert.True(popup.IsOpen);
             Assert.Equal(190, list.ColumnWidths.Type);
             Assert.Same(entry, list.EntryAt(kindPoint, contentOnly: true));
+            Click(window, new Point(20, 400));
+            Assert.False(popup.IsOpen);
         }
         finally { window.Close(); }
     }
@@ -203,12 +221,6 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
         Assert.Equal(end.X, Center(divider, window).X, 0);
         window.MouseUp(end, MouseButton.Left);
         Settle(window);
-    }
-
-    private static void ClickMenuItem(MenuItem item)
-    {
-        var popup = TopLevel.GetTopLevel(item)!;
-        Click(popup, Center(item, popup));
     }
 
     private static Point Center(Control control, Visual root)

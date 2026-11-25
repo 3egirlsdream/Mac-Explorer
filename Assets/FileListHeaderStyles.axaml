@@ -14,6 +14,7 @@
     </Style>
 
     <Style Selector="CheckBox.file-filter-option">
+        <Setter Property="Background" Value="Transparent"/>
         <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Padding" Value="6,0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>

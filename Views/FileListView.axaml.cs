@@ -208,8 +208,7 @@ public partial class FileListView : UserControl
         _galleryEntry = null;
         CancelActiveRename();
         ResetDragState();
-        ColumnFilterPopup.IsOpen = false;
-        ListColumnsButton.Flyout?.Hide();
+        CloseHeaderPopups();
         UnsubscribeColumnLayoutService();
         if (_subscribedViewModel != null)
         {
@@ -266,8 +265,7 @@ public partial class FileListView : UserControl
         Shortcuts.Changed -= RefreshOpenMenuShortcuts;
         CancelSlowRename();
         ResetDragState();
-        ColumnFilterPopup.IsOpen = false;
-        ListColumnsButton.Flyout?.Hide();
+        CloseHeaderPopups();
         UnsubscribeColumnLayoutService();
         base.OnDetachedFromVisualTree(e);
     }
@@ -304,7 +302,7 @@ public partial class FileListView : UserControl
         if (e.PropertyName is nameof(FileListViewModel.CurrentPath) or nameof(FileListViewModel.ViewMode))
         {
             _typeAhead.Reset();
-            ListColumnsButton.Flyout?.Hide();
+            ColumnVisibilityPopup.IsOpen = false;
             if (_resizingColumn != null)
             {
                 _resizingColumn = null;
@@ -561,18 +559,49 @@ public partial class FileListView : UserControl
         e.Handled = true;
     }
 
-    private void OnListColumnsOpening(object? sender, EventArgs e)
+    internal bool IsColumnVisibilityPopupOpen => ColumnVisibilityPopup.IsOpen;
+    private bool HasOpenHeaderPopup => IsColumnVisibilityPopupOpen || ColumnFilterPopup.IsOpen;
+
+    private void CloseHeaderPopups()
     {
-        var hidden = _columnLayoutService?.HiddenColumns ?? FileListColumns.None;
+        ColumnVisibilityPopup.IsOpen = false;
+        ColumnFilterPopup.IsOpen = false;
+    }
+
+    private void OnListColumnsClicked(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (IsColumnVisibilityPopupOpen)
+        {
+            ColumnVisibilityPopup.IsOpen = false;
+            return;
+        }
+        if (_columnLayoutService is not { } service || ViewModel is not { } vm) return;
+
+        ColumnFilterPopup.IsOpen = false;
+        vm.NotifyTransientInteractionStarted();
+        var hidden = service.HiddenColumns;
         ShowModifiedColumn.IsChecked = (hidden & FileListColumns.Modified) == 0;
         ShowSizeColumn.IsChecked = (hidden & FileListColumns.Size) == 0;
         ShowTypeColumn.IsChecked = (hidden & FileListColumns.Type) == 0;
+        ColumnVisibilityPopup.IsOpen = true;
+        ShowModifiedColumn.Focus();
     }
 
     private void OnListColumnToggled(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { Tag: string tag } item && Enum.TryParse<FileListColumn>(tag, out var column))
-            _columnLayoutService?.SetVisible(column, item.IsChecked);
+        if (sender is CheckBox { Tag: string tag } check && Enum.TryParse<FileListColumn>(tag, out var column))
+            _columnLayoutService?.SetVisible(column, check.IsChecked == true);
+    }
+
+    private void OnColumnVisibilityKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            ColumnVisibilityPopup.IsOpen = false;
+            ListColumnsButton.Focus();
+        }
+        e.Handled = e.Key != Key.Tab;
     }
 
     private void ApplyListColumnWidths()
@@ -2426,6 +2455,7 @@ public partial class FileListView : UserControl
 
     private void OnFileListKeyDown(object? sender, KeyEventArgs e)
     {
+        if (HasOpenHeaderPopup) return;
         if (TryHandleGalleryKey(e)) return;
         TryHandleFileShortcut(e);
         HandleFastListNavigation(e);
@@ -2433,8 +2463,8 @@ public partial class FileListView : UserControl
 
     public bool TryHandleFileShortcut(KeyEventArgs e)
     {
+        if (HasOpenHeaderPopup) return false;
         if (ViewModel?.IsBrowseOnly == true) return TryHandleBrowseShortcut(e);
-        if (ColumnFilterPopup.IsOpen) return false;
         if (ViewModel == null) return false;
         if (e.Handled || IsTextInputSource(e.Source)) return false;
         if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)

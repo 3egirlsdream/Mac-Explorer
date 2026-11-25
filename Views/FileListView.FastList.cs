@@ -73,7 +73,7 @@ public partial class FileListView
         list.TextInput += (_, e) =>
         {
             if (!list.IsKeyboardFocusWithin || !list.IsEffectivelyVisible || _typeAheadShortcut || Shortcuts.IsRecording
-                || _renameEditor != null || ColumnFilterPopup.IsOpen || _openMenu?.IsOpen == true
+                || _renameEditor != null || HasOpenHeaderPopup || _openMenu?.IsOpen == true
                 || ViewModel is not { IsDirectoryLoading: false } vm || _fastRowsPath != vm.CurrentPath
                 || FastList.IsLoading || FastList.Rows.Count == 0
                 || string.IsNullOrWhiteSpace(e.Text) || e.Text.Any(char.IsControl)) return;

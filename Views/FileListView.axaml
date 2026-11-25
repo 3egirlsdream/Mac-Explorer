@@ -114,19 +114,9 @@
                     </Grid>
                 </Canvas>
                 <controls:AppButton Grid.Column="1" x:Name="ListColumnsButton" Classes="ghost icon-action small"
-                                    VerticalAlignment="Center" AutomationProperties.Name="{loc:Loc file_list.columns}"
-                                    ToolTip.Tip="{loc:Loc file_list.columns}">
+                                    VerticalAlignment="Center" Click="OnListColumnsClicked"
+                                    AutomationProperties.Name="{loc:Loc file_list.columns}" ToolTip.Tip="{loc:Loc file_list.columns}">
                     <PathIcon Data="{x:Static icons:Icons.Table}" Width="14" Height="14"/>
-                    <controls:AppButton.Flyout>
-                        <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnListColumnsOpening">
-                            <MenuItem x:Name="ShowModifiedColumn" Header="{loc:Loc ui.003}" Tag="Modified"
-                                      ToggleType="CheckBox" Click="OnListColumnToggled"/>
-                            <MenuItem x:Name="ShowSizeColumn" Header="{loc:Loc ui.013}" Tag="Size"
-                                      ToggleType="CheckBox" Click="OnListColumnToggled"/>
-                            <MenuItem x:Name="ShowTypeColumn" Header="{loc:Loc file_list.kind}" Tag="Type"
-                                      ToggleType="CheckBox" Click="OnListColumnToggled"/>
-                        </MenuFlyout>
-                    </controls:AppButton.Flyout>
                 </controls:AppButton>
             </Grid>
         </Border>
@@ -173,6 +163,21 @@
                         Background="#263B82F6" BorderBrush="{DynamicResource ColorAccent}"
                         BorderThickness="1" CornerRadius="2"/>
         </Grid>
+        <Popup x:Name="ColumnVisibilityPopup" PlacementTarget="{Binding #ListColumnsButton}"
+               Placement="BottomEdgeAlignedRight" HorizontalOffset="12" VerticalOffset="-6"
+               IsLightDismissEnabled="True" ShouldUseOverlayLayer="True" WindowManagerAddShadowHint="False">
+            <Border Classes="context-submenu-surface" MinWidth="160" KeyDown="OnColumnVisibilityKeyDown"
+                    KeyboardNavigation.TabNavigation="Cycle">
+                <StackPanel Margin="6">
+                    <CheckBox x:Name="ShowModifiedColumn" Classes="file-filter-option"
+                              Content="{loc:Loc ui.003}" Tag="Modified" Click="OnListColumnToggled"/>
+                    <CheckBox x:Name="ShowSizeColumn" Classes="file-filter-option"
+                              Content="{loc:Loc ui.013}" Tag="Size" Click="OnListColumnToggled"/>
+                    <CheckBox x:Name="ShowTypeColumn" Classes="file-filter-option"
+                              Content="{loc:Loc file_list.kind}" Tag="Type" Click="OnListColumnToggled"/>
+                </StackPanel>
+            </Border>
+        </Popup>
         <Popup x:Name="ColumnFilterPopup" Placement="BottomEdgeAlignedRight" HorizontalOffset="12" VerticalOffset="-6"
                IsLightDismissEnabled="True" ShouldUseOverlayLayer="True"
                WindowManagerAddShadowHint="False" Closed="OnColumnFilterClosed">

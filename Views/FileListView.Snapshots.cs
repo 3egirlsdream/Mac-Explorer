@@ -98,7 +98,7 @@ public partial class FileListView
     {
         CancelSlowRename();
         CancelActiveRename();
-        ColumnFilterPopup.IsOpen = false;
+        CloseHeaderPopups();
         if (_marqueePointer != null) EndMarquee(_marqueePointer);
     }
 
