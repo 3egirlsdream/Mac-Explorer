@@ -57,9 +57,15 @@ public sealed class MarkdownPreviewTests
                 .ToArray();
             Assert.Equal(2, paragraphs.Length);
 
+            await TestTime.WaitUntilAsync(() =>
+            {
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Dispatcher.UIThread.RunJobs();
+                return ReferenceEquals(window.InputHitTest(AtCharacter(paragraphs[0], 6)), paragraphs[0]);
+            });
+
             var start = AtCharacter(paragraphs[0], 6);
             var end = crossParagraphs ? AtCharacter(paragraphs[1], 7) : AtCharacter(paragraphs[0], 11);
-            Assert.Same(paragraphs[0], window.InputHitTest(start));
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(end, RawInputModifiers.LeftMouseButton);
@@ -82,16 +88,17 @@ public sealed class MarkdownPreviewTests
             var expected = crossParagraphs
                 ? $"Alpha bravo charlie.{Environment.NewLine}{Environment.NewLine}Foxtrot golf hotel."
                 : "bravo";
-            Assert.Equal(expected, await window.Clipboard!.TryGetTextAsync());
+            var clipboard = Assert.IsAssignableFrom<IClipboard>(window.Clipboard);
+            Assert.Equal(expected, await clipboard.TryGetTextAsync());
 
             var clear = AtCharacter(paragraphs[1], 0);
             window.MouseDown(clear, MouseButton.Left);
             window.MouseUp(clear, MouseButton.Left);
             Assert.False(viewer.HasSelection);
             Assert.True(viewer.Focus());
-            await window.Clipboard.SetTextAsync("previous clipboard text");
+            await clipboard.SetTextAsync("previous clipboard text");
             window.KeyPress(Key.C, command, PhysicalKey.C, null);
-            Assert.Equal("previous clipboard text", await window.Clipboard.TryGetTextAsync());
+            Assert.Equal("previous clipboard text", await clipboard.TryGetTextAsync());
 
             Point AtCharacter(SelectableTextBlock block, int position)
             {

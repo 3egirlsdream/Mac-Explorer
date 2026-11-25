@@ -72,23 +72,37 @@ public sealed class FastFileListTests
     }
 
     [AvaloniaFact(Explicit = true)]
-    public void NarrowKindColumnShowsFullKindInTooltip()
+    public async Task NarrowKindColumnShowsFullKindInTooltip()
     {
         using var theme = new FastListTestTheme();
-        var list = new FastFileList { ColumnWidths = FileListColumnLayoutService.Minimums };
+        var list = new FastFileList
+        {
+            Background = Brushes.Transparent,
+            ColumnWidths = FileListColumnLayoutService.Minimums
+        };
         var entry = new FileSystemEntry { Name = "Waveform.pkf", Extension = ".pkf", FullPath = "/test/Waveform.pkf" };
         list.SetRows([entry]);
         var window = new Window { Width = 580, Height = 200, Content = list };
         try
         {
             window.Show();
-            Dispatcher.UIThread.RunJobs();
-            window.MouseMove(list.TranslatePoint(new Point(50, 15), window)!.Value);
+            window.UpdateLayout();
+            var namePoint = list.TranslatePoint(new Point(50, 15), window)!.Value;
+            var kindPoint = new Point(list.ListRowRight - 30, 15);
+            var kindPointInWindow = list.TranslatePoint(kindPoint, window)!.Value;
+            Assert.Same(entry, list.EntryAt(kindPoint));
+            await TestTime.WaitUntilAsync(() =>
+            {
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Dispatcher.UIThread.RunJobs();
+                return ReferenceEquals(window.InputHitTest(namePoint), list)
+                    && ReferenceEquals(window.InputHitTest(kindPointInWindow), list);
+            });
+
+            window.MouseMove(namePoint);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(entry.DisplayName, ToolTip.GetTip(list));
-            var kindPoint = new Point(list.ListRowRight - 30, 15);
-            Assert.Same(entry, list.EntryAt(kindPoint));
-            window.MouseMove(list.TranslatePoint(kindPoint, window)!.Value);
+            window.MouseMove(kindPointInWindow);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(entry.KindText, ToolTip.GetTip(list));
         }
