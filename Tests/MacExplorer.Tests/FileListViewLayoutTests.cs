@@ -186,8 +186,10 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
             Assert.Null(list.EditingPath);
             Assert.Same(entry, Assert.Single(vm.SelectedEntries));
 
-            Click(window, name);
-            await Task.Delay(500, cancellationToken);
+            // Both clicks target the same row, outside Avalonia's double-click area.
+            var renamePoint = name + new Vector(12, 0);
+            Click(window, renamePoint);
+            await TestTime.WaitUntilAsync(() => list.EditingPath != null);
             Assert.Equal(entry.FullPath, list.EditingPath);
         }
         finally { window.Close(); }
