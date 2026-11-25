@@ -352,6 +352,10 @@ public partial class MainWindow : AppWindow
         if (SuperPreviewControl.IsVisible)
             return;
 
+        // A Markdown preview can also have focus inside the gallery.
+        if (MarkdownPreviewView.OwnsCopyGesture(e))
+            return;
+
         if (e.Key == Key.Space
             && e.KeyModifiers == KeyModifiers.None
             && !IsInsideTextInput(e.Source as Visual)

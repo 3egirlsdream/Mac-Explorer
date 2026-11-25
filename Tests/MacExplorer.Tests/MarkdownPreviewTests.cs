@@ -5,6 +5,8 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Input.Raw;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -13,6 +15,7 @@ using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CodeWF.Markdown;
+using CodeWF.Markdown.Controls;
 using MacExplorer.Assets;
 using MacExplorer.Views;
 using Xunit;
@@ -23,6 +26,85 @@ namespace MacExplorer.Tests;
 [Trait("Area", "Markdown")]
 public sealed class MarkdownPreviewTests
 {
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DragCopiesOnlySelectedRenderedText(bool crossParagraphs, bool dark)
+    {
+        var view = new MarkdownPreviewView();
+        var window = new Window
+        {
+            Width = 900,
+            Height = 600,
+            Content = view,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+        };
+        window.Styles.Add(new FluentTheme());
+        try
+        {
+            window.Show();
+            view.SetDocument("Alpha **bravo** charlie.\n\nFoxtrot golf hotel.", "/tmp/markdown-preview.md");
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            var viewer = view.FindControl<MarkdownViewer>("Viewer")!;
+            var paragraphs = viewer.GetVisualDescendants()
+                .OfType<SelectableTextBlock>()
+                .Where(block => block.Classes.Contains(MarkdownStyleKeys.Paragraph))
+                .ToArray();
+            Assert.Equal(2, paragraphs.Length);
+
+            var start = AtCharacter(paragraphs[0], 6);
+            var end = crossParagraphs ? AtCharacter(paragraphs[1], 7) : AtCharacter(paragraphs[0], 11);
+            Assert.Same(paragraphs[0], window.InputHitTest(start));
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(end, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(crossParagraphs, viewer.HasSelection);
+            if (crossParagraphs)
+            {
+                var highlight = Token<SolidColorBrush>(window, "InteractionTextHighlightBrush");
+                Assert.All(paragraphs, block => Assert.Equal(highlight, block.Background));
+            }
+            else
+            {
+                Assert.Equal("bravo", paragraphs[0].SelectedText);
+            }
+
+            var command = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+            window.KeyPress(Key.C, command, PhysicalKey.C, null);
+            var expected = crossParagraphs
+                ? $"Alpha bravo charlie.{Environment.NewLine}{Environment.NewLine}Foxtrot golf hotel."
+                : "bravo";
+            Assert.Equal(expected, await window.Clipboard!.TryGetTextAsync());
+
+            var clear = AtCharacter(paragraphs[1], 0);
+            window.MouseDown(clear, MouseButton.Left);
+            window.MouseUp(clear, MouseButton.Left);
+            Assert.False(viewer.HasSelection);
+            Assert.True(viewer.Focus());
+            await window.Clipboard.SetTextAsync("previous clipboard text");
+            window.KeyPress(Key.C, command, PhysicalKey.C, null);
+            Assert.Equal("previous clipboard text", await window.Clipboard.TryGetTextAsync());
+
+            Point AtCharacter(SelectableTextBlock block, int position)
+            {
+                var glyph = block.TextLayout.HitTestTextPosition(position);
+                return block.TranslatePoint(new Point(glyph.X + 0.5, glyph.Center.Y), window)!.Value;
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact(Explicit = true)]
     public void CodeBlockCopyButtonUsesTheAppIconButton()
     {

@@ -72,6 +72,8 @@ feat: 优化文件夹恢复
 
 - 滚动条统一复用 `Assets/ScrollBarStyles.axaml` 与 `AppScrollBarTheme`，沿用 Fluent 原生交互、8px 尺寸、透明无描边轨道和圆角滑块；Markdown 等第三方预览在局部主题之后引用同一全局样式，避免替换模板。PDF／Office 的原生滚动条由 `DocumentPreviewHost` 传入同一组全局尺寸与浅深色资源；Office 网页预览铺满宿主，滚动条位于预览最右侧，不保留居中的纸张宽度滚动视口，也不增加右侧命中面板。
 
+- Markdown 渲染预览共用 `MarkdownPreviewView`。段内沿用 Avalonia 字符选区，跨段复用渲染器的块选区和全局 `InteractionTextHighlightBrush`；预览取得焦点时，复制快捷键将选区纯文本写入剪贴板。空格预览在渲染区两侧为可用的翻页悬停区留出空间。
+
 - 同名冲突、编辑同步、正文命中和 Git 差异弹窗直接继承 `DialogWindow`，复用 `WindowTitleBar`、全局 `AppButton` / `AppSplitButton` 与 `SettingsStyles.axaml`，不增加中间弹窗基类。冲突和编辑同步保留紧凑分组、滚动正文与固定底部操作；按钮区按按钮自然宽度与间距独立换行，不复用正文分栏断点，恢复宽窗口时重新测量自然宽度；正文命中和 Git 差异由预览填满正文区域，不限制预览的固定高度，滚动由预览控件处理。正文命中使用 `ContentMatchDialog` / `DocumentPreviewHost` 的整页预览，沿用原搜索入口，不追加右侧命中片段面板，也不自动展开信息面板；信息面板保持原有单选展示，多选时回到选择提示。Git 差异复用双栏 Diff 预览。
 - 显示独立标题的弹窗由 `WindowTitleBar` 统一在底部绘制 1px `DialogDividerBrush` 细线，标题和内容更新时同步显隐；主窗口页签通过 `ShowTitleBarDivider=False` 保留原衔接。编辑同步使用居中标题、全局 `dialog-status-*` 状态图标与单层文件信息分组；本地副本通过 `Button.dialog-location` 定位，长路径按段省略，技术错误可选择复制；底部仅保留处理操作，窄窗口按操作实际宽度自动纵排，多文件通过全局 `AppComboBox` 切换。重试仅禁用当前文件的重复请求，停止、定位及其他会话继续可用。
 - 目录偏好保存排序、筛选、列宽、列可见性和面板状态，默认视图与分组沿用原逻辑；工作组和会话通过可选 `ViewStates` 保存每个页签的视图、分组及目录偏好，同路径页签也独立恢复，包含未显示的组内页签，不反写全局或目录偏好；旧 `Preferences` 快照继续兼容，预设仅在显式保存时更新。

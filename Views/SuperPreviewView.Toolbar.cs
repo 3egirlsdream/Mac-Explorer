@@ -217,13 +217,20 @@ public partial class SuperPreviewView
         if (_isCompactPreview) return;
 
         var native = HasNativePreview;
+        PreviewPreviousSlot.IsVisible = !native && _previousPreviewIndex >= 0;
+        PreviewNextSlot.IsVisible = !native && _nextPreviewIndex >= 0;
+
         // Match FileGalleryView: reserve bottom breathing room so AppKit previews
         // never overlap the in-page glass toolbar (no floating Popup windows needed).
         PreviewHost.Margin = native && PreviewToolbar.IsVisible
             ? new Thickness(0, 0, 0, 68)
             : default;
-        PreviewPreviousSlot.IsVisible = !native && _previousPreviewIndex >= 0;
-        PreviewNextSlot.IsVisible = !native && _nextPreviewIndex >= 0;
+
+        // The transparent hover zones must sit outside the selectable document.
+        _markdownPreview?.SetNavigationGutters(ArrowGutter(PreviewPreviousSlot), ArrowGutter(PreviewNextSlot));
+
+        static double ArrowGutter(Border slot)
+            => slot.IsVisible ? slot.Width + slot.Margin.Left + slot.Margin.Right : 0;
     }
 
     private void OnPreviewCardSizeChanged(object? sender, SizeChangedEventArgs e)
