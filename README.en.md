@@ -1,11 +1,11 @@
-<p align="center"><strong>English</strong> · <a href="README.md">简体中文</a></p>
+<p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 
 <p align="center">
   <img src="Assets/appicon.svg" width="112" alt="Mac Explorer icon">
 </p>
 
 <h1 align="center">Mac Explorer</h1>
-<p align="center">A file workspace for macOS: browse, find, preview, organize, and share.</p>
+<p align="center">A file workspace for macOS — browse, search, preview, organize, and share in one window.</p>
 
 <p align="center">
   <a href="https://github.com/3egirlsdream/Mac-Explorer/releases/latest"><img src="https://img.shields.io/github/v/release/3egirlsdream/Mac-Explorer?color=3b82f6&label=Download" alt="Latest release"></a>
@@ -22,151 +22,129 @@
   <a href="https://github.com/3egirlsdream/Mac-Explorer/issues">Feedback</a>
 </p>
 
-Mac Explorer brings everyday file work into one macOS app. Keep folders side by side, gather files without moving them, search names and analyzed content, preview before opening, and handle local files, archives, and SFTP connections from the same workspace.
+Finding Finder a bit cramped? Mac Explorer brings split panes, instant previews, full-text and image OCR search, batch renaming, and remote/LAN file transfers into a single macOS workspace. It is a standalone app that **never modifies or replaces Finder**, so you can try it alongside Finder without affecting your files.
 
 ![Mac Explorer workspace with tab groups and side-by-side list and icon views](.github/assets/readme-workspace.png)
 
-*Tab groups and split panes with list and icon views side by side.*
+<p align="center"><sub>Tab groups and split panes: list view on one side, icon grid on the other, without juggling windows.</sub></p>
+
+## Performance vs Finder
+
+Measured across 8 everyday benchmarks comparing Mac Explorer 2.0.3 against macOS Finder (Apple M5 · 32 GB):
+
+- **Faster on large folders**: 0.10 s for 1,000 files (Finder: 0.93 s), and 0.59 s for 100,000 files (Finder: 1.69 s).
+- **Near-instant Space preview**: 0.09 s for a 12 MP JPEG and 0.07 s for a 20-page PDF (Finder: ~0.5–0.6 s).
+- **Lower memory footprint**: 727 MiB physical footprint after organizing tasks, nearly half of Finder's 1,279 MiB.
+
+![Benchmark overview comparing Mac Explorer 2.0.3 and Finder across folder open times, JPEG and PDF preview times, photo organization steps, and memory footprint](.github/assets/readme-finder-benchmark.png)
 
 ## Features
 
-### Tabs, split panes, and navigation
+### 1. Multi-Folder Workspace: Split Panes, Groups & Workbench
 
-- Keep multiple locations open in tabs, each with its own navigation history, sorting, and view.
-- Choose horizontal or vertical splits, three- or four-pane layouts, or a larger main pane beside smaller panes. Browse source and destination together when organizing files.
-- Jump through clickable breadcrumbs, searchable subfolder menus, or direct path entry. Use Back, Forward, and Up to navigate.
-- Reach pinned folders, recent locations, local volumes, and the Trash from the sidebar. Drag its right edge to resize it. Mac Explorer remembers the width.
+- **Split panes and tab groups**: Work across 2 to 4 panes (or a main-plus-side layout) with top tabs or a hover-to-expand **vertical tab bar**. Group related folders by project and save presets to restore an entire layout in one click.
+- **Four views, instant filtering**: Switch between list, icon grid, tree list, and gallery views. Narrow large folders quickly with grouping, multi-column filters, and type-to-jump navigation.
+- **Workbench & organization without moving files**: Start from a Workbench showing disks, tab groups, frequent folders, and recent files. Collect scattered items with nested tags, favorites, and star ratings while leaving source files where they are.
+- **File details & disk management**: Check camera EXIF metadata or copy a local file's SHA-256 hash in the info panel, and open Disk Management right from the sidebar to check mounted volumes and eject drives.
 
-### Flexible file views
+### 2. Find Fast, See Clearly: Global Search & Instant Preview
 
-- Switch between list, icon grid, and tree list views; expand local folders directly in the tree list.
-- Sort and group files by properties such as type, date, and size. Choose files first, folders first, or mixed sorting.
-- Combine column filters to narrow a directory. Multiple choices in one column match any selected value; filters across columns apply together.
-- Browse image thumbnails and choose Default, Frosted, or Skeuomorphic folder icons, with optional photo covers. Camera RAW thumbnails use a fallback when the system preview cannot decode supported files.
-- Inspect paths, sizes, dates, image dimensions, camera and other photo metadata in the information panel. Calculate and copy SHA-256 hashes for local files.
+![Global quick search panel showing keyword search and live Markdown preview on the right](.github/assets/readme-search.webp)
 
-### Home, favorites, tags, and ratings
+<p align="center"><sub>Press <code>⌘ K</code> for global search with live side-by-side preview — no need to open another app first.</sub></p>
 
-- Start from a home dashboard with recent files and folders, frequent locations, favorites, and shortcuts to the home folder, desktop, and disks.
-- Organize favorites in resizable grids and expand larger collections for browsing.
-- Apply Finder tags and browse tagged files together from the sidebar. Tagging or adding to favorites keeps files in their original locations; removing a tag or favorite does not delete the source file.
-- Assign star ratings to help organize and find important files.
+- **Search names and contents with `⌘ K`**: Find indexed filenames, PDF text, and OCR text inside images. Preview any selected result right beside the list or jump straight to its folder.
+- **On-device photo analysis**: Browse photos by people, recognized text, scenes, dates, and places, and name people groups — all analyzed locally on your Mac.
+- **Preview in place with `Space`**: Inspect images, PDFs, Office documents, native video, folders, and nested archives without leaving the window. Edit Markdown with live rendering and compare code changes with a side-by-side Diff view.
 
-### Search and local image analysis
+### 3. Clean Up Effortlessly: Batch Rename, Archives & Conversion
 
-- Search within the current workspace or open global search with `⌘ K`. Preview selected results beside the search field and reveal them in their folder.
-- Search indexed filenames and existing PDF text, image OCR, and analysis results.
-- Use on-device image analysis to browse people, recognized text, scene categories, and photo dates and locations. Name people groups to make them easier to find.
-- Browse popular recognized words and the files containing them. Photo place-name lookup is optional and may use an online service.
-- Control automatic analysis and search scope in Settings. Content search depends on the files already indexed or analyzed.
+![Batch rename workbench showing the rule sequence on the left and highlighted before/after filenames on the right](.github/assets/readme-batch-rename.webp)
 
-### Preview without opening another app
+<p align="center"><sub>Batch rename workbench: stack rules on the left and inspect every filename diff before applying.</sub></p>
 
-- Press `Space` to preview a selected file or folder in the current window.
-- Preview images, PDFs, text, and supported documents and media. Browse folder and archive contents, including subfolders and nested archives.
-- Read Markdown with formatted preview, or open the built-in editor to edit it and see the rendered result.
-- Preview coverage depends on the file format and macOS Quick Look support; RAW coverage also depends on the camera format.
+- **Batch rename workbench**: Rename local files and folders across directories by combining replace, regex, numbering, date, case, cleanup, and template rules. Preview every diff, catch name conflicts upfront, save presets, and undo an entire batch if needed.
+- **Browse archives like folders**: Double-click ZIP, TAR, or 7Z archives to inspect contents and extract just the single file you need, or create password-protected ZIP, TAR.GZ, and TAR.BZ2 archives.
+- **Right-click file conversion**: Convert Markdown, text, or Word documents to PDF or Word, and batch-convert SVG, WebP, ICO, or ICNS images to PNG or JPG at custom sizes.
+- **Controllable background tasks**: Copies, moves, and extractions run in a dedicated queue with pause and resume. When names collide, compare file sizes and timestamps side by side before choosing to skip, replace, or keep both.
 
-### File operations and batch rename
+### 4. Remote & Cross-Device: Servers, LocalSend & File Delivery
 
-- Create files and folders, copy, move, rename, drag and drop, use Open With, copy paths, and move items to the Trash. Undo supported file operations.
-- Track longer operations in the background task panel, with progress and cancellation where supported.
-- Rename selected local files and folders across directories in the batch rename workbench. Combine replacement, regular expressions, insertion, removal, case changes, cleanup, numbering, dates, templates, and extension rules.
-- Reorder rules, save presets, inspect each step, compare old and new names, exclude items, or adjust target names manually.
-- Check conflicts before execution, resolve duplicate names, inspect results, and undo a completed batch.
+<p align="center">
+  <img src=".github/assets/readme-localsend.webp" width="760" alt="Right-click to send local files via LocalSend to a phone or computer on the same network">
+</p>
 
-### Archives and file conversion
+<p align="center"><sub>Send files or folders straight from the context menu to nearby phones and computers via LocalSend.</sub></p>
 
-- Browse and extract ZIP, TAR, 7Z, and other supported archive formats. Extract into the current folder or a separate folder.
-- Create ZIP, TAR.GZ, and TAR.BZ2 archives, including password-protected ZIP files.
-- Convert Markdown and supported text files to Word or PDF, and Word documents to PDF.
-- Convert SVG, ICO, ICNS, and WebP to PNG or JPG, with image size options. Available conversion actions depend on the selected file.
+- **Local and remote in one place**: Built-in SFTP client (password, private key, and fingerprint verification) that automatically uploads changes when you edit a remote file locally, plus macOS-mounted SMB and WebDAV with LAN server discovery.
+- **Git-aware browsing**: See Git status badges beside repository files, and view diffs, commit history, or stage changes right from the context menu.
+- **Quick LAN & Apple sharing**: Send files and folders via **LocalSend** (auto-discovery or direct IP, with incoming confirmation) or share anytime with **AirDrop**.
+- **Menu bar File Delivery & Staging**: Pull down Downloads, Desktop, or custom folders from the macOS menu bar even when the main window is closed. Drop scattered files into **Staging** to preview them together and drag them out to chat, email, or web uploads.
 
-### SFTP and Git status
+<p align="center">
+  <img src=".github/assets/readme-delivery-en.webp" width="520" alt="Menu bar File Delivery and Staging panel showing Downloads, Desktop, and staged items">
+</p>
 
-- Save SFTP connections and authenticate with a password or private key. Review the server fingerprint when establishing trust.
-- Browse and manage remote files, upload and download, or edit a remote file in a local app and upload the changes automatically.
-- See Git status alongside files when a compatible Git installation and repository are available.
+<p align="center"><sub>Menu bar File Delivery & Staging: keep downloads, desktop, and staged files one click away.</sub></p>
 
-### LocalSend sharing
+### 5. Copilot File Assistant
 
-- Send selected local files and folders to discovered LocalSend devices from the context menu.
-- Review the sending device and file list before accepting incoming files, and choose where to save them.
-- Configure your device name, receive folder, and additional discovery subnets, or connect directly by IP when discovery cannot find a device.
-- Follow send and receive progress in the task panel. Device discovery requires network reachability.
+- **Work with files in plain language**: Ask Copilot to find files by combining metadata/OCR/tag criteria, organize selections, draft batch-rename rules, convert formats, or summarize approved documents. Attach file or folder paths directly and reuse workflows with built-in or custom skills.
+- **Always asks before acting**: Before changing files or sending document contents to a model, Copilot shows its plan for your approval. Rename proposals can also open straight in the batch-rename workbench for fine-tuning.
+- Turn it on in **Settings → Copilot** using your own OpenAI-compatible API endpoint, model name, and API key (disabled by default).
 
-### File Delivery from the menu bar
-
-- Open a compact panel from the macOS menu bar to access downloads, desktop, and your own folder or favorite tabs.
-- Browse in list or icon view, preview files, and drag out copies to another app or location.
-- Each entry remembers its browsing location. The panel remains available after the main window closes, until you quit the app.
-- Remove panel entries without deleting their folders or favorites.
-
-### Copilot file assistant
-
-- Use natural language to find files, inspect metadata, organize selections, prepare rename rules, convert files, or summarize approved content through the app's available capabilities.
-- Combine existing name, PDF/OCR, camera, location, date, people, tag, rating, and file-property filters to find candidates.
-- Attach file or folder paths to a conversation, revisit local conversation history, and use built-in or custom skills for repeated workflows.
-- Review a plan before file changes or sending file contents to the model. Rename proposals can open in the workbench for further editing.
-
-To use Copilot, enter an OpenAI-compatible API endpoint, model name, and API key in **Settings → Copilot**, then open it from the main window. A model service must be configured by the user; its usage is subject to that provider's terms and pricing.
-
-### Background themes
-
-Under **Settings → Appearance**, turn on **More themes** to use one of nine built-in patterns or import your own image. Adjust the background transparency and pick a color for each built-in pattern. The background carries across the main window, with frosted glass on the sidebar, toolbar, and information panel.
+### 6. Make It Yours: Themes, Shortcuts & Extensions
 
 ![Five Mac Explorer windows in different background themes, with a file conversion menu open in front](.github/assets/readme-themes.webp)
 
-### Customization and extensions
+<p align="center"><sub>Nine built-in background themes with frosted glass surfaces, shown with the right-click conversion menu.</sub></p>
 
-- Use English, Simplified Chinese, Traditional Chinese, or French. Choose light or dark appearance, adjust interaction colors, and pick a typography size.
-- Customize keyboard shortcuts, check conflicts, restore defaults, and hold `⌘` to show available shortcut hints.
-- In the website edition, configure named commands for home-page scripts, including their icons, shell, and working directory, and run them through your terminal.
-- Install and manage file-processing extensions through the plugin market or local `.mexplug` packages in the website edition. Developers can build and publish extensions with the [plugin SDK](docs/plugins.md) and [developer center](https://macexplorer.top/developers/).
+- **Themes & folder styles**: Enable **More themes** under **Settings → Appearance** to pick from nine tintable patterns or your own wallpaper with adjustable opacity, paired with light/dark frosted glass and Default, Frosted, Skeuomorphic, or photo-cover folders.
+- **Localization, shortcuts & plugins**: Available in English, Simplified Chinese, Traditional Chinese, and French. Customize shortcuts with conflict checks and hold `⌘` for an on-screen cheat sheet. The website edition also supports the **plugin market**, local `.mexplug` packages (see the [plugin SDK](docs/plugins.md) and [developer center](https://macexplorer.top/developers/)), and custom Workbench scripts.
 
-## Installation and editions
+## Installation & Editions
 
-Requires **macOS 14 or later**, on **Apple Silicon or Intel**. Downloads include the runtime; no separate .NET installation is needed.
+Requires **macOS 14 or later** on **Apple Silicon or Intel**. Downloads bundle the runtime — no separate .NET installation is required.
 
 1. Open the [latest release](https://github.com/3egirlsdream/Mac-Explorer/releases/latest).
-2. Choose the Apple Silicon DMG (`macos`) or Intel DMG (`macos-intel`) for your Mac. ZIP downloads are also available when included in the release.
-3. Open the DMG and drag **Mac Explorer** into **Applications**, then launch it.
+2. Download the Apple Silicon DMG (`macos`) or Intel DMG (`macos-intel`) for your Mac (ZIP builds are also listed when available).
+3. Open the DMG and drag **Mac Explorer** into **Applications**.
 
-This overview describes the current source. Check the [changelog](CHANGELOG.md) and release notes for the features included in your installed version.
+> This overview reflects the current source code. See the [changelog](CHANGELOG.md) for what is included in each published release.
 
-| Area | Website edition | App Store edition |
+| Area | Website edition (Free & Open Source) | App Store edition |
 | --- | --- | --- |
-| File access | Uses macOS file permissions | Browse folders authorized through the system picker; manage authorization in Settings |
+| File access | Standard macOS file permissions | Authorize folders via the system picker; manage in Settings |
 | Updates | In-app update checks and downloads | Managed through the App Store |
-| Extensions and scripts | Plugin market, external plugins, scripts, and terminal actions | Built-in file conversion; external plugins, arbitrary scripts, and terminal actions are unavailable |
-| Git status | Uses an available system Git | Available only when Git and the repository are accessible within the authorized scope; some repository configurations are unsupported |
+| Extensions & scripts | Plugin market, external plugins, scripts, and terminal actions | Built-in file conversion; no external plugins, arbitrary scripts, or terminal actions |
+| Git status | Uses your installed system Git | Available when Git and the repository are within authorized scope; some setups unsupported |
 
-## Privacy and control
-
-File indexes, tags, ratings, settings, analysis results, and Copilot history are stored locally. Image recognition runs on the device. Optional photo location lookup, a configured AI provider, SFTP connections, and LocalSend transfers use their respective services or selected peers.
-
-Copilot confirms the AI recipient before sharing file information and asks for approval before sending file contents or changing files. Saved Copilot API keys, SFTP passwords, and private-key passphrases are stored in the local application database without additional encryption. See the [privacy policy](https://macexplorer.top/privacy/) for details and available controls.
-
-## Default shortcuts
+## Default Shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| `⌘ T` / `⌘ W` | Open / close a tab |
+| `⌘ T` / `⌘ W` | New / close tab |
 | `Control Tab` / `Control Shift Tab` | Next / previous tab |
-| `⌘ L` | Focus the path input |
-| `⌘ F` | Toggle search in the active workspace |
+| `⌘ L` | Focus the path bar |
+| `⌘ F` | Search in the active folder |
 | `⌘ K` / `⌘ Shift F` | Open global search |
-| `Space` | Preview a selected file or folder |
-| `Esc` | Dismiss a preview or popup |
-| `⌘ Z` | Undo a supported operation |
-| Hold `⌘` | Show shortcut hints, when enabled |
+| `Space` | Preview the selected file or folder |
+| `Esc` | Close a preview or popup |
+| `⌘ Z` | Undo a supported file operation |
+| Hold `⌘` | Show shortcut hints (when enabled) |
 
-Customize supported commands in **Settings → Shortcuts**.
+Rebind supported commands anytime in **Settings → Shortcuts**.
 
-## Development and feedback
+## Privacy & Security
 
-For building, packaging, signing, and notarization, see the [build guide](doc/BUILD.md). For isolated application testing, see [testing instructions](AGENTS.md#自动测试). Report bugs or request features through [GitHub Issues](https://github.com/3egirlsdream/Mac-Explorer/issues), including your macOS version, app version, and steps to reproduce.
+File indexes, tags, ratings, settings, image analysis results, and Copilot history stay local on your Mac, and image recognition runs on-device. External connections are only made when you opt into photo place-name lookup, configure your own AI provider, connect to a remote server, or transfer files with LocalSend.
+
+Copilot asks for confirmation before sharing file details, sending file contents, or modifying files. For full transparency: saved Copilot API keys, SFTP passwords, and private-key passphrases are currently stored in the local application database without additional encryption. See the [privacy policy](https://macexplorer.top/privacy/) for full details.
+
+## Development & Feedback
+
+See the [build guide](doc/BUILD.md) for compiling, packaging, signing, and notarization, and [testing instructions](AGENTS.md#自动测试) for isolated app tests. To report a bug or suggest a feature, open a [GitHub Issue](https://github.com/3egirlsdream/Mac-Explorer/issues) with your macOS version, app version, and steps to reproduce.
 
 ## License
 
-Mac Explorer is licensed under [GNU GPL v3.0 or later](LICENSE). Third-party license notices are collected in [ThirdParty/Notices](ThirdParty/Notices/README.md).
+Mac Explorer is licensed under [GNU GPL v3.0 or later](LICENSE). Third-party notices are listed in [ThirdParty/Notices](ThirdParty/Notices/README.md).
