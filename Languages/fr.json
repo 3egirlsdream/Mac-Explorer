@@ -189,6 +189,7 @@
     "file_gallery.copied_image": "Image copiée",
     "file_gallery.action.more": "Plus d’actions",
     "file_gallery.action.more_tip": "Afficher dans le Finder, Copier le chemin",
+    "file_list.columns": "Choisir les colonnes",
     "file_list.kind": "Type",
     "file_kind.generic": "Fichier",
     "file_kind.unknown_extension": "Fichier {0}",

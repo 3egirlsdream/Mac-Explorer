@@ -1,9 +1,13 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
 using MacExplorer.Controls;
 using MacExplorer.Models;
+using MacExplorer.Services.Impl;
 using MacExplorer.ViewModels;
 using MacExplorer.Views;
 using Xunit;
@@ -72,6 +76,157 @@ public sealed class FileListViewLayoutViewModelTests : FileListViewModelTestBase
             }
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
+    public void HeaderMenuHidesColumnAndItsHitTargetsAndRestoresWidth()
+    {
+        using var theme = new FastListTestTheme();
+        using var vm = CreateViewModel(new FakeFileService("/tmp/layout"),
+            sortFilter: new SortFilterViewModel { ViewMode = ViewMode.List });
+        var entry = new FileSystemEntry { Name = "report.pdf", Extension = ".pdf", FullPath = "/tmp/layout/report.pdf" };
+        vm.Entries.Add(entry);
+        vm.ColumnLayoutService.Preview(FileListColumn.Name, 320);
+        vm.ColumnLayoutService.Preview(FileListColumn.Type, 190);
+        var view = new FileListView { DataContext = vm };
+        var window = new Window { Width = 1000, Height = 480, Content = view };
+        try
+        {
+            window.Show();
+            Settle(window);
+            var list = view.FindControl<FastFileList>("FastList")!;
+            var header = view.FindControl<Grid>("ListHeaderGrid")!;
+            var button = view.FindControl<AppButton>("ListColumnsButton")!;
+            var menu = Assert.IsType<MenuFlyout>(button.Flyout);
+            var kind = Assert.IsType<MenuItem>(menu.Items[2]);
+            var kindPoint = new Point(list.ListRowRight - 185, 15);
+            Assert.Same(entry, list.EntryAt(kindPoint, contentOnly: true));
+
+            Click(window, Center(button, window));
+            Assert.True(menu.IsOpen);
+            Assert.All(menu.Items.Cast<MenuItem>(), item => Assert.True(item.IsChecked));
+            ClickMenuItem(kind);
+            Settle(window);
+            Assert.Equal(0, header.ColumnDefinitions[4].Width.Value);
+            Assert.Equal(0, list.ColumnWidths.Type);
+            Assert.False(view.FindControl<Border>("TypeResizeHandle")!.IsVisible);
+            Assert.Null(list.EntryAt(kindPoint, contentOnly: true));
+
+            var sizeHandle = view.FindControl<Border>("SizeResizeHandle")!;
+            Drag(window, sizeHandle, 20);
+            Assert.Equal(130, list.ColumnWidths.Size);
+            Drag(window, sizeHandle, -20);
+            Assert.Equal(110, list.ColumnWidths.Size);
+
+            Click(window, Center(button, window));
+            Assert.True(menu.IsOpen);
+            Assert.False(kind.IsChecked);
+            ClickMenuItem(kind);
+            Settle(window);
+            Assert.Equal(190, list.ColumnWidths.Type);
+            Assert.Same(entry, list.EntryAt(kindPoint, contentOnly: true));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData("Name", 1)]
+    [InlineData("Modified", 2)]
+    [InlineData("Size", 3)]
+    [InlineData("Type", 4)]
+    public void HeaderDividersMoveBothWaysAndStayAlignedWithFileRows(string name, int index)
+    {
+        using var theme = new FastListTestTheme();
+        using var vm = CreateViewModel(new FakeFileService("/tmp/layout"),
+            sortFilter: new SortFilterViewModel { ViewMode = ViewMode.List });
+        var entry = new FileSystemEntry { Name = "Quarterly project report.pdf", FullPath = "/tmp/layout/report.pdf" };
+        vm.Entries.Add(entry);
+        var view = new FileListView { DataContext = vm };
+        var window = new Window { Width = 1100, Height = 480, Content = view };
+        try
+        {
+            window.Show();
+            Settle(window);
+            var list = view.FindControl<FastFileList>("FastList")!;
+            var host = view.FindControl<ScrollViewer>("FastListHost")!;
+            var handle = view.FindControl<Border>(name + "ResizeHandle")!;
+            var last = view.FindControl<Border>("TypeResizeHandle")!;
+            var header = view.FindControl<Grid>("ListHeaderGrid")!;
+            var button = view.FindControl<AppButton>("ListColumnsButton")!;
+            var originalWidth = header.ColumnDefinitions[index].Width.Value;
+            var originalNamePosition = list.NameBounds(0).X;
+            var originalButtonPosition = Center(button, window);
+            Assert.True(list.NameBounds(0).Width > 140);
+            Assert.Equal(0, host.Offset.X);
+
+            Drag(window, handle, -25);
+            Assert.Equal(originalWidth - 25, header.ColumnDefinitions[index].Width.Value, 1);
+            Drag(window, handle, 45);
+            Assert.Equal(originalWidth + 20, header.ColumnDefinitions[index].Width.Value, 1);
+            Assert.True(list.Extent.Width > list.Viewport.Width);
+
+            host.Offset = new Vector(10000, 0);
+            Settle(window);
+            Assert.True(list.Offset.X > 0);
+            Assert.Equal(originalNamePosition - list.Offset.X, list.NameBounds(0).X, 1);
+            var lastRight = last.TranslatePoint(new Point(last.Bounds.Width, last.Bounds.Height / 2), window)!.Value;
+            var rowRight = list.TranslatePoint(new Point(list.ListRowRight, 15), window)!.Value;
+            Assert.Equal(rowRight.X, lastRight.X, 0);
+            Assert.Equal(originalButtonPosition, Center(button, window));
+
+            host.Offset = default;
+            Settle(window);
+            if (index == 1)
+            {
+                var nameDivider = Center(handle, window);
+                Click(window, nameDivider);
+                Click(window, nameDivider);
+                Assert.Equal(originalWidth, list.ColumnWidths.Name, 1);
+            }
+            var oldLast = Center(last, window);
+            window.Width += 150;
+            Settle(window);
+            Assert.Equal(oldLast.X + 150, Center(last, window).X, 0);
+            Assert.Equal(originalButtonPosition.X + 150, Center(button, window).X, 0);
+        }
+        finally { window.Close(); }
+    }
+
+    private static void Drag(Window window, Border divider, double delta)
+    {
+        var start = Center(divider, window);
+        var end = start + new Vector(delta, 0);
+        window.MouseMove(start);
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Settle(window);
+        Assert.Equal(end.X, Center(divider, window).X, 0);
+        window.MouseUp(end, MouseButton.Left);
+        Settle(window);
+    }
+
+    private static void ClickMenuItem(MenuItem item)
+    {
+        var popup = TopLevel.GetTopLevel(item)!;
+        Click(popup, Center(item, popup));
+    }
+
+    private static Point Center(Control control, Visual root)
+        => control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), root)!.Value;
+
+    private static void Click(TopLevel root, Point point)
+    {
+        root.MouseMove(point);
+        root.MouseDown(point, MouseButton.Left);
+        root.MouseUp(point, MouseButton.Left);
+        Settle(root);
+    }
+
+    private static void Settle(TopLevel root)
+    {
+        Dispatcher.UIThread.RunJobs();
+        root.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
     }
 
 }

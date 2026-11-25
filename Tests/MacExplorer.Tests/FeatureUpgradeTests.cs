@@ -188,14 +188,27 @@ public sealed partial class FeatureUpgradeTests : IDisposable
     [Fact]
     public async Task DirectoryPreferencesAndLegacySessionStatesRoundTripWithoutViewOrGroup()
     {
-        var service = new DirectoryPreferencesService(Database());
+        var database = Database();
+        var service = new DirectoryPreferencesService(database);
         var a = new DirectoryPreferences(SortField.Size, false, SortPriority.Files, FileListFilterState.Empty with { FileName = "invoice" }, [300, 160, 100, 230], true, false, true);
-        var b = a with { Sort = SortField.Name, Filters = FileListFilterState.Empty };
+        var b = a with { Sort = SortField.Name, Filters = FileListFilterState.Empty,
+            HiddenColumns = FileListColumns.Modified | FileListColumns.Type, ResizedColumns = FileListColumns.All };
         await service.SaveAsync("/a", a); await service.SaveAsync("__remote:server:/a", b);
-        Assert.Equal(SortField.Size, (await service.ReadAsync("/a"))!.Sort); Assert.Equal(SortField.Name, (await service.ReadAsync("__remote:server:/a"))!.Sort);
+        var reopened = new DirectoryPreferencesService(database);
+        var legacy = (await reopened.ReadAsync("/a"))!;
+        Assert.Equal(SortField.Size, legacy.Sort);
+        Assert.Equal(FileListColumns.None, legacy.HiddenColumns);
+        Assert.Null(legacy.ResizedColumns);
+        var current = (await reopened.ReadAsync("__remote:server:/a"))!;
+        Assert.Equal(SortField.Name, current.Sort);
+        Assert.Equal(b.HiddenColumns, current.HiddenColumns);
+        Assert.Equal(b.ResizedColumns, current.ResizedColumns);
+        Assert.Equal(b.Columns, current.Columns);
         var session = FolderTabSession.Capture(["/a", null, "/b"], 2, preferences: new() { [0] = a, [2] = b });
         var json = JsonSerializer.Serialize(session); var copy = JsonSerializer.Deserialize<FolderTabSession>(json)!;
         Assert.Equal("invoice", copy.Preferences[0].Filters.FileName); Assert.Equal(SortField.Name, copy.Preferences[1].Sort);
+        Assert.Equal(b.HiddenColumns, copy.Preferences[1].HiddenColumns);
+        Assert.Equal(b.ResizedColumns, copy.Preferences[1].ResizedColumns);
         Assert.DoesNotContain("ViewMode", json); Assert.DoesNotContain("GroupField", json);
     }
     public void Dispose() { _directoryScope.Dispose(); _directories.Dispose(); _access.Dispose(); if (Directory.Exists(_root)) Directory.Delete(_root, true); }

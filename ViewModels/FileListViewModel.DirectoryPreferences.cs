@@ -21,7 +21,8 @@ public partial class FileListViewModel
     {
         var widths = _columnLayoutService.PreferredWidths;
         return new(SortField, SortAscending, SortPriority, ColumnFilters,
-            [widths.Name, widths.Modified, widths.Size, widths.Type], IsPreviewPaneVisible, IsMetadataPanelVisible, IsInfoPanelVisible);
+            [widths.Name, widths.Modified, widths.Size, widths.Type], IsPreviewPaneVisible, IsMetadataPanelVisible, IsInfoPanelVisible,
+            _columnLayoutService.HiddenColumns, _columnLayoutService.ResizedColumnsOverride);
     }
     internal FolderTabViewState CaptureTabViewState()
     {
@@ -74,7 +75,7 @@ public partial class FileListViewModel
             _sortFilter.SortAscending = state.Ascending;
             if (Enum.IsDefined(state.Priority)) _sortFilter.SortPriority = state.Priority;
             _sortFilter.ColumnFilters = state.Filters ?? Models.FileListFilterState.Empty;
-            _columnLayoutService.Restore(state.Columns ?? []);
+            _columnLayoutService.Restore(state.Columns ?? _directoryDefaults?.Columns ?? [], state.HiddenColumns, state.ResizedColumns);
             IsPreviewPaneVisible = state.PreviewPane; IsMetadataPanelVisible = state.MetadataPanel; IsInfoPanelVisible = state.InfoPanel;
             OnPropertyChanged(nameof(ColumnFilters)); OnPropertyChanged(nameof(FileNameFilter)); OnPropertyChanged(nameof(HasFileListFilters));
         }

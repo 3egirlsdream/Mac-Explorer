@@ -188,6 +188,7 @@
     "file_gallery.copied_image": "已拷贝图片",
     "file_gallery.action.more": "更多操作",
     "file_gallery.action.more_tip": "在访达中显示、复制路径",
+    "file_list.columns": "选择显示的列",
     "file_list.kind": "种类",
     "file_kind.generic": "文件",
     "file_kind.unknown_extension": "{0} 文件",

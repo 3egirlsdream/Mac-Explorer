@@ -22,92 +22,112 @@
                 Background="{DynamicResource WorkspaceContentBrush}"
                 BorderBrush="{DynamicResource WorkspaceDividerBrush}"
                 BorderThickness="0,0,0,1"
-                CornerRadius="0" Margin="0,0,0,6" Height="38" Padding="12,0">
-            <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,230,*">
-                <Grid Grid.Column="1" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <controls:AppButton x:Name="NameSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Name}"
-                            Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.080}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock x:Name="NameHeader" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
-                            <PathIcon x:Name="NameSortIcon" Classes="file-header-sort-icon"
-                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
-                        </StackPanel>
-                    </controls:AppButton>
-                    <controls:AppButton Grid.Column="1" x:Name="NameFilterButton" Classes="file-header-button file-header-filter"
-                            Tag="{x:Static vm:SortField.Name}" Click="OnColumnFilterClicked"
-                            AutomationProperties.Name="{loc:Loc ui.090}" ToolTip.Tip="{loc:Loc ui.090}">
-                        <PathIcon x:Name="NameFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </controls:AppButton>
-                </Grid>
-                <Grid Grid.Column="2" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <controls:AppButton x:Name="ModifiedSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Modified}"
-                            Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.079}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock x:Name="ModifiedHeader" Text="{loc:Loc ui.003}" VerticalAlignment="Center"/>
-                            <PathIcon x:Name="ModifiedSortIcon" Classes="file-header-sort-icon"
-                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
-                        </StackPanel>
-                    </controls:AppButton>
-                    <controls:AppButton Grid.Column="1" x:Name="ModifiedFilterButton" Classes="file-header-button file-header-filter"
-                            Tag="{x:Static vm:SortField.Modified}" Click="OnColumnFilterClicked"
-                            AutomationProperties.Name="{loc:Loc ui.089}" ToolTip.Tip="{loc:Loc ui.089}">
-                        <PathIcon x:Name="ModifiedFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </controls:AppButton>
-                </Grid>
-                <Grid Grid.Column="3" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <controls:AppButton x:Name="SizeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Size}"
-                            Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.081}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock x:Name="SizeHeader" Text="{loc:Loc ui.013}" VerticalAlignment="Center"/>
-                            <PathIcon x:Name="SizeSortIcon" Classes="file-header-sort-icon"
-                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
-                        </StackPanel>
-                    </controls:AppButton>
-                    <controls:AppButton Grid.Column="1" x:Name="SizeFilterButton" Classes="file-header-button file-header-filter"
-                            Tag="{x:Static vm:SortField.Size}" Click="OnColumnFilterClicked"
-                            AutomationProperties.Name="{loc:Loc ui.091}" ToolTip.Tip="{loc:Loc ui.091}">
-                        <PathIcon x:Name="SizeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </controls:AppButton>
-                </Grid>
-                <Grid Grid.Column="4" ColumnDefinitions="*,24" Margin="6,0,4,0" ClipToBounds="True">
-                    <controls:AppButton x:Name="TypeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Type}"
-                            Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.082}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock x:Name="TypeHeader" Text="{loc:Loc file_list.kind}" VerticalAlignment="Center"/>
-                            <PathIcon x:Name="TypeSortIcon" Classes="file-header-sort-icon"
-                                      Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
-                        </StackPanel>
-                    </controls:AppButton>
-                    <controls:AppButton Grid.Column="1" x:Name="TypeFilterButton" Classes="file-header-button file-header-filter"
-                            Tag="{x:Static vm:SortField.Type}" Click="OnColumnFilterClicked"
-                            AutomationProperties.Name="{loc:Loc ui.092}" ToolTip.Tip="{loc:Loc ui.092}">
-                        <PathIcon x:Name="TypeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
-                    </controls:AppButton>
-                </Grid>
-                <Border Grid.Column="2" Tag="1" Width="8" HorizontalAlignment="Left"
-                        Background="Transparent" Cursor="SizeWestEast"
-                        PointerPressed="OnColumnResizePressed"
-                        PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"
-                        DoubleTapped="OnColumnResizeDoubleTapped"/>
-                <Border Grid.Column="3" Tag="2" Width="8" HorizontalAlignment="Left"
-                        Background="Transparent" Cursor="SizeWestEast"
-                        PointerPressed="OnColumnResizePressed"
-                        PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"
-                        DoubleTapped="OnColumnResizeDoubleTapped"/>
-                <Border Grid.Column="4" Tag="3" Width="8" HorizontalAlignment="Left"
-                        Background="Transparent" Cursor="SizeWestEast"
-                        PointerPressed="OnColumnResizePressed"
-                        PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"
-                        DoubleTapped="OnColumnResizeDoubleTapped"/>
-                <Border Grid.Column="5" Tag="4" Width="8" HorizontalAlignment="Left"
-                        Background="Transparent" Cursor="SizeWestEast"
-                        PointerPressed="OnColumnResizePressed"
-                        PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"
-                        DoubleTapped="OnColumnResizeDoubleTapped"/>
+                CornerRadius="0" Margin="0,0,0,6" Height="38" Padding="13,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <Canvas x:Name="ListHeaderViewport" ClipToBounds="True">
+                    <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,230"
+                          Height="{Binding Bounds.Height, ElementName=ListHeaderViewport}">
+                        <Grid Grid.Column="1" x:Name="NameHeaderCell" ColumnDefinitions="*,24" Margin="6,0,6,0" ClipToBounds="True">
+                            <controls:AppButton x:Name="NameSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Name}"
+                                    Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.080}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock x:Name="NameHeader" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
+                                    <PathIcon x:Name="NameSortIcon" Classes="file-header-sort-icon"
+                                              Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                                </StackPanel>
+                            </controls:AppButton>
+                            <controls:AppButton Grid.Column="1" x:Name="NameFilterButton" Classes="file-header-button file-header-filter"
+                                    Tag="{x:Static vm:SortField.Name}" Click="OnColumnFilterClicked"
+                                    AutomationProperties.Name="{loc:Loc ui.090}" ToolTip.Tip="{loc:Loc ui.090}">
+                                <PathIcon x:Name="NameFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                            </controls:AppButton>
+                        </Grid>
+                        <Grid Grid.Column="2" x:Name="ModifiedHeaderCell" ColumnDefinitions="*,24" Margin="6,0,6,0" ClipToBounds="True">
+                            <controls:AppButton x:Name="ModifiedSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Modified}"
+                                    Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.079}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock x:Name="ModifiedHeader" Text="{loc:Loc ui.003}" VerticalAlignment="Center"/>
+                                    <PathIcon x:Name="ModifiedSortIcon" Classes="file-header-sort-icon"
+                                              Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                                </StackPanel>
+                            </controls:AppButton>
+                            <controls:AppButton Grid.Column="1" x:Name="ModifiedFilterButton" Classes="file-header-button file-header-filter"
+                                    Tag="{x:Static vm:SortField.Modified}" Click="OnColumnFilterClicked"
+                                    AutomationProperties.Name="{loc:Loc ui.089}" ToolTip.Tip="{loc:Loc ui.089}">
+                                <PathIcon x:Name="ModifiedFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                            </controls:AppButton>
+                        </Grid>
+                        <Grid Grid.Column="3" x:Name="SizeHeaderCell" ColumnDefinitions="*,24" Margin="6,0,6,0" ClipToBounds="True">
+                            <controls:AppButton x:Name="SizeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Size}"
+                                    Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.081}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock x:Name="SizeHeader" Text="{loc:Loc ui.013}" VerticalAlignment="Center"/>
+                                    <PathIcon x:Name="SizeSortIcon" Classes="file-header-sort-icon"
+                                              Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                                </StackPanel>
+                            </controls:AppButton>
+                            <controls:AppButton Grid.Column="1" x:Name="SizeFilterButton" Classes="file-header-button file-header-filter"
+                                    Tag="{x:Static vm:SortField.Size}" Click="OnColumnFilterClicked"
+                                    AutomationProperties.Name="{loc:Loc ui.091}" ToolTip.Tip="{loc:Loc ui.091}">
+                                <PathIcon x:Name="SizeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                            </controls:AppButton>
+                        </Grid>
+                        <Grid Grid.Column="4" x:Name="TypeHeaderCell" ColumnDefinitions="*,24" Margin="6,0,6,0" ClipToBounds="True">
+                            <controls:AppButton x:Name="TypeSortButton" Classes="file-header-button" Tag="{x:Static vm:SortField.Type}"
+                                    Click="OnHeaderSortClicked" AutomationProperties.Name="{loc:Loc ui.082}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock x:Name="TypeHeader" Text="{loc:Loc file_list.kind}" VerticalAlignment="Center"/>
+                                    <PathIcon x:Name="TypeSortIcon" Classes="file-header-sort-icon"
+                                              Data="{x:Static icons:FileListHeaderIcons.Sort}"/>
+                                </StackPanel>
+                            </controls:AppButton>
+                            <controls:AppButton Grid.Column="1" x:Name="TypeFilterButton" Classes="file-header-button file-header-filter"
+                                    Tag="{x:Static vm:SortField.Type}" Click="OnColumnFilterClicked"
+                                    AutomationProperties.Name="{loc:Loc ui.092}" ToolTip.Tip="{loc:Loc ui.092}">
+                                <PathIcon x:Name="TypeFilterIcon" Data="{x:Static icons:FileListHeaderIcons.ChevronDown}" Width="12" Height="12"/>
+                            </controls:AppButton>
+                        </Grid>
+                        <Border Grid.Column="1" x:Name="NameResizeHandle" Width="8" HorizontalAlignment="Right"
+                                Background="Transparent" Cursor="SizeWestEast"
+                                PointerPressed="OnColumnResizePressed"
+                                PointerMoved="OnColumnResizeMoved"
+                                PointerReleased="OnColumnResizeReleased" PointerCaptureLost="OnColumnResizeCaptureLost"
+                                DoubleTapped="OnColumnResizeDoubleTapped"/>
+                        <Border Grid.Column="2" x:Name="ModifiedResizeHandle" Width="8" HorizontalAlignment="Right"
+                                Background="Transparent" Cursor="SizeWestEast"
+                                PointerPressed="OnColumnResizePressed"
+                                PointerMoved="OnColumnResizeMoved"
+                                PointerReleased="OnColumnResizeReleased" PointerCaptureLost="OnColumnResizeCaptureLost"
+                                DoubleTapped="OnColumnResizeDoubleTapped"/>
+                        <Border Grid.Column="3" x:Name="SizeResizeHandle" Width="8" HorizontalAlignment="Right"
+                                Background="Transparent" Cursor="SizeWestEast"
+                                PointerPressed="OnColumnResizePressed"
+                                PointerMoved="OnColumnResizeMoved"
+                                PointerReleased="OnColumnResizeReleased" PointerCaptureLost="OnColumnResizeCaptureLost"
+                                DoubleTapped="OnColumnResizeDoubleTapped"/>
+                        <Border Grid.Column="4" x:Name="TypeResizeHandle" Width="8" HorizontalAlignment="Right"
+                                Background="Transparent" Cursor="SizeWestEast"
+                                PointerPressed="OnColumnResizePressed"
+                                PointerMoved="OnColumnResizeMoved"
+                                PointerReleased="OnColumnResizeReleased" PointerCaptureLost="OnColumnResizeCaptureLost"
+                                DoubleTapped="OnColumnResizeDoubleTapped"/>
+                    </Grid>
+                </Canvas>
+                <controls:AppButton Grid.Column="1" x:Name="ListColumnsButton" Classes="ghost icon-action small"
+                                    VerticalAlignment="Center" AutomationProperties.Name="{loc:Loc file_list.columns}"
+                                    ToolTip.Tip="{loc:Loc file_list.columns}">
+                    <PathIcon Data="{x:Static icons:Icons.Table}" Width="14" Height="14"/>
+                    <controls:AppButton.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnListColumnsOpening">
+                            <MenuItem x:Name="ShowModifiedColumn" Header="{loc:Loc ui.003}" Tag="Modified"
+                                      ToggleType="CheckBox" Click="OnListColumnToggled"/>
+                            <MenuItem x:Name="ShowSizeColumn" Header="{loc:Loc ui.013}" Tag="Size"
+                                      ToggleType="CheckBox" Click="OnListColumnToggled"/>
+                            <MenuItem x:Name="ShowTypeColumn" Header="{loc:Loc file_list.kind}" Tag="Type"
+                                      ToggleType="CheckBox" Click="OnListColumnToggled"/>
+                        </MenuFlyout>
+                    </controls:AppButton.Flyout>
+                </controls:AppButton>
             </Grid>
         </Border>
 
@@ -126,7 +146,7 @@
                 </StackPanel>
 
                 <ScrollViewer x:Name="FastListHost" IsVisible="False"
-                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <controls:FastFileList x:Name="FastList"
                         IsVisible="False"
                         Background="{DynamicResource WorkspaceContentBrush}"

@@ -195,6 +195,7 @@
     "file_gallery.copied_image": "已拷貝圖片",
     "file_gallery.action.more": "更多動作",
     "file_gallery.action.more_tip": "在 Finder 中顯示、複製路徑",
+    "file_list.columns": "選擇顯示的欄位",
     "file_list.kind": "種類",
     "file_kind.generic": "檔案",
     "file_kind.unknown_extension": "{0} 檔案",
