@@ -197,6 +197,7 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
         await File.WriteAllTextAsync(source, "原文 / sidebar file move");
         using var vm = CreateViewModel(files);
         await vm.NavigateToAsync(sourceFolder.FullName);
+        Assert.Contains(vm.Entries, entry => entry.FullPath == source);
         using var services = new ServiceCollection().AddSingleton<IFileService>(files).BuildServiceProvider();
         var previousServices = App.Services;
         App.Services = services;
@@ -225,9 +226,9 @@ public sealed class SidebarFileDropViewModelTests : FileListViewModelTestBase
             Assert.False(File.Exists(target));
             var drop = new DragEventArgs(DragDrop.DropEvent, data, sidebar, point, KeyModifiers.None) { DragEffects = DragDropEffects.Copy | DragDropEffects.Move };
             sidebar.RaiseEvent(drop);
-            await WaitForIssue11Async(() => File.Exists(target) && !File.Exists(source) && !vm.IsDirectoryLoading);
-            if (hoverFirst)
-                await WaitForIssue11Async(() => vm.Entries.Any(entry => entry.FullPath == target));
+            await WaitForIssue11Async(() => File.Exists(target) && !File.Exists(source) && !vm.IsDirectoryLoading
+                && !vm.Entries.Any(entry => entry.FullPath == source)
+                && (!hoverFirst || vm.Entries.Any(entry => entry.FullPath == target)));
             Assert.Equal("原文 / sidebar file move", await File.ReadAllTextAsync(target));
             Assert.Equal(DragDropEffects.Move, drop.DragEffects);
             Assert.DoesNotContain(vm.Entries, entry => entry.FullPath == source);
