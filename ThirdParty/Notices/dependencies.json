@@ -1855,6 +1855,13 @@
       }
     },
     {
+      "name": "libzip 1.12.1",
+      "notices": {
+        "LibZip/LICENSE": "84a3444c82344fe8e6e13e5745a3e74dc13abd714d307aa0eb41ae26e51f9ae7",
+        "LibZip/SOURCE.md": "eae3bbcf8b951ae2fe204265702844d34859ebe64eff22d819c81f6aa610c07a"
+      }
+    },
+    {
       "name": "LibRaw 0.22.1 and source download notice",
       "notices": {
         "LibRaw/COPYRIGHT": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",

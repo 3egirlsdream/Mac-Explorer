@@ -5,6 +5,15 @@ namespace MacExplorer.Services;
 public interface IClipboardService
 {
     void CopyFiles(string[] paths);
+
+    Task<bool>? PendingFileCopy => null;
+
+    async Task<bool> CopyFilesAsync(Func<Task<string[]>> prepare)
+    {
+        var paths = await prepare();
+        CopyFiles(paths);
+        return true;
+    }
     void CutFiles(string[] paths, FileTag? sourceTag = null);
     Task CopyTextAsync(string text);
     Task CopyImageAsync(byte[] pngBytes) => Task.CompletedTask;

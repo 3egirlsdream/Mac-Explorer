@@ -135,7 +135,7 @@ public sealed class TypographyService : ITypographyService
     };
 
     private static double RoundFont(double value) =>
-        Math.Round(value * 2, MidpointRounding.AwayFromZero) / 2;
+        Math.Round(value, MidpointRounding.AwayFromZero);
 
     private static double RoundMetric(double value) =>
         Math.Round(value, MidpointRounding.AwayFromZero);

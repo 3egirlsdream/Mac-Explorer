@@ -118,6 +118,7 @@ public class AppWindow : Window
         Focusable = true;
         Background = Brushes.Transparent;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+        AppTypography.ApplyTextOptions(this);
         TransparencyBackgroundFallback = Brushes.Transparent;
 
         // WindowOpenedEvent runs before the initial layout and native Show, including ShowDialog.

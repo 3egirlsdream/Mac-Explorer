@@ -482,17 +482,7 @@ public partial class FileOpsViewModel : ObservableObject
     private async Task<string> CreateNewFileCoreAsync(string currentPath, IReadOnlyList<FileSystemEntry> rawEntries, string? extension)
     {
         var ext = extension ?? ".txt";
-        var baseName = ext.ToLowerInvariant() switch
-        {
-            ".docx" => "未命名文稿.docx",
-            ".xlsx" => "未命名表格.xlsx",
-            ".pptx" => "未命名演示文稿.pptx",
-            ".pages" => "未命名文稿.pages",
-            ".numbers" => "未命名表格.numbers",
-            ".key" => "未命名演示文稿.key",
-            ".txt" => "未命名.txt",
-            _ => $"未命名{ext}"
-        };
+        var baseName = DefaultNewFileName(ext);
         var name = GetUniqueNameInCurrentDir(baseName, isDirectory: false, rawEntries);
 
         var template = FileTemplateProvider.GetTemplate(ext);
@@ -503,6 +493,18 @@ public partial class FileOpsViewModel : ObservableObject
         if (_fileOperationHistoryService != null) await _fileOperationHistoryService.RecordCreatedAsync(fullPath);
         return fullPath;
     }
+
+    internal static string DefaultNewFileName(string ext) => ext.ToLowerInvariant() switch
+    {
+        ".docx" => "未命名文稿.docx",
+        ".xlsx" => "未命名表格.xlsx",
+        ".pptx" => "未命名演示文稿.pptx",
+        ".pages" => "未命名文稿.pages",
+        ".numbers" => "未命名表格.numbers",
+        ".key" => "未命名演示文稿.key",
+        ".txt" => "未命名.txt",
+        _ => $"未命名{ext}"
+    };
 
     public async Task PasteImageAsync(string currentPath, ClipboardImageData image, Action<string>? setStatus = null, Func<string, Task>? refreshCallback = null)
     {

@@ -157,7 +157,7 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
         {
             try
             {
-                await _fileIndexWriter.InvalidateDirectoriesAsync(directoryPaths);
+                await _fileIndexWriter.InvalidateDirectoriesAsync(directoryPaths.Where(path => !ArchivePathHelper.IsArchivePath(path)).ToArray());
             }
             catch (Exception ex)
             {
@@ -194,7 +194,8 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
                 if (vm.IsHomePage) continue;
                 if (string.IsNullOrEmpty(vm.CurrentPath)) continue;
                 var currentPath = NormalizeDirectoryPath(vm.CurrentPath);
-                if (dirs.Contains(currentPath) && !excluded.Contains(vm))
+                if (!excluded.Contains(vm) && (dirs.Contains(currentPath)
+                    || (vm.IsArchiveView && vm.CurrentArchivePath is { } archive && dirs.Contains(ArchivePathHelper.Build(archive, "")))))
                 {
                     // Root refresh reloads open branches; avoid submitting those paths twice.
                     targets.Add((vm, currentPath));

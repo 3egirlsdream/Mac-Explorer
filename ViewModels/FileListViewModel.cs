@@ -1081,6 +1081,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
         {
+            SetWritableZipRevision(null);
+            OnPropertyChanged(nameof(CanModifyArchive));
+            OnPropertyChanged(nameof(CanCreateItems));
             OnPropertyChanged(nameof(IsNetworkPage));
             OnPropertyChanged(nameof(IsDiskManagementPage));
             OnTreeLocationChanged();
@@ -1223,12 +1226,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task RefreshFromNotification()
     {
         if (_disposed || _directoryNotificationsPaused || _isRefreshingFromNotification || IsDeliveryStaging) return;
-        if (!_navigation.NeedsRefreshFromNotification(IsArchiveView, IsAiView)) return;
+        if (!IsArchiveView && !_navigation.NeedsRefreshFromNotification(IsArchiveView, IsAiView)) return;
         _isRefreshingFromNotification = true;
         try
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            if (IsRemoteView)
+            if (IsArchiveView)
+                await RefreshAsync();
+            else if (IsRemoteView)
                 await RefreshRemoteDirectoryAsync();
             else
                 await LoadDirectoryContentsAsync(forceRefresh: true);
@@ -1799,6 +1804,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         ClearSelection();
         try
         {
+            var probe = ProbeWritableZipAsync(archivePath);
             var opened = await _archive.NavigateToArchiveAsync(
                 archivePath, internalPath,
                 _ => { }, () => { },
@@ -1807,7 +1813,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 _ => { },
                 () => IsCurrentDirectoryWork(work) ? PromptPasswordAsync() : Task.FromResult<string?>(null));
             if (!IsCurrentDirectoryWork(work)) return;
-            if (opened) _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+            if (opened)
+            {
+                await UpdateZipCapabilitiesAsync(archivePath, work, probe);
+                if (IsCurrentDirectoryWork(work)) _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+            }
             else
             {
                 ReadErrorMessage = string.IsNullOrEmpty(StatusText) ? "无法读取归档" : StatusText;
@@ -2062,25 +2072,32 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (IsArchiveView && _navigation.CurrentArchivePath != null)
+        if (IsArchiveView && _navigation.CurrentArchivePath is { } archivePath)
         {
+            var work = BeginDirectoryWork();
             IsLoading = true;
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             try
             {
-                await _archive.NavigateToArchiveAsync(
-                    _navigation.CurrentArchivePath!,
-                    _navigation.CurrentArchiveInternalPath,
-                    path => { },
-                    () => { },
-                    e => ApplyEntries(e),
-                    msg => StatusText = msg,
-                    loading => { },
-                    PromptPasswordAsync
-                );
+                var probe = ProbeWritableZipAsync(archivePath);
+                var opened = await _archive.NavigateToArchiveAsync(archivePath, _navigation.CurrentArchiveInternalPath,
+                    _ => { }, () => { },
+                    entries => { if (IsCurrentDirectoryWork(work)) ApplyEntriesPreservingSelection(entries); },
+                    message => { if (IsCurrentDirectoryWork(work)) StatusText = message; },
+                    _ => { },
+                    () => IsCurrentDirectoryWork(work) ? PromptPasswordAsync() : Task.FromResult<string?>(null));
+                if (!IsCurrentDirectoryWork(work)) return;
+                if (opened) await UpdateZipCapabilitiesAsync(archivePath, work, probe);
+                else SetWritableZipRevision(null);
             }
-            catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("刷新失败: {0}", ex.Message); }
-            finally { IsLoading = false; }
+            catch (Exception ex)
+            {
+                if (IsCurrentDirectoryWork(work)) StatusText = LocalizationText.Get("刷新失败: {0}", ex.Message);
+            }
+            finally
+            {
+                if (IsCurrentDirectoryWork(work)) IsLoading = IsDirectoryLoading = false;
+            }
             return;
         }
 
@@ -2380,6 +2397,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             if (contextEntries.Count > 1 || entry.IsDirectory)
                 actions.Add(new() { Label = LocalizationText.Get("archive.extract_selected"), IconSvg = AppIcons.Extract,
                     Execute = () => ExtractArchiveSelectionAsync(contextEntries) });
+            if (CanModifyArchive)
+            {
+                actions.Add(new() { Label = LocalizationText.Get("拷贝"), IconSvg = Icons.Copy, ShortcutId = ShortcutIds.Copy,
+                    IsQuickAction = true, Execute = () => CopyArchiveSelectionAsync(contextEntries) });
+                actions.Add(BuildArchivePasteAction());
+                actions.Add(new() { Label = LocalizationText.Get("ui.006"), IconSvg = Icons.Delete,
+                    ShortcutId = ShortcutIds.Trash, IsQuickAction = true, Execute = () => RequestDeleteEntriesAsync(contextEntries) });
+            }
             ContextMenuActions = new(actions);
         }
         else
@@ -2406,10 +2431,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         else if (IsArchiveView)
         {
-            ContextMenuActions = new ObservableCollection<ContextMenuAction>(new[]
-            {
-                new ContextMenuAction { Label = MacExplorer.Services.Impl.LocalizationText.Get("刷新"), IconSvg = Icons.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) }
-            });
+            if (CanModifyArchive) await LoadNewItemActionsAsync();
+            ContextMenuActions = new(BuildArchiveBackgroundActions());
         }
         else if (IsTagView)
         {
@@ -3545,10 +3568,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // ── File Operations ──
 
     [RelayCommand]
-    public void CopySelected()
+    public void CopySelected() => _ = CopySelectedAsync();
+
+    internal async Task CopySelectedAsync()
     {
-        if (IsBrowseOnly) return;
-        if (SelectedEntries.Count == 0) return;
+        if (!CanCopySelection) return;
+        if (IsArchiveView)
+        {
+            await CopyArchiveSelectionAsync(SelectedEntries.ToArray());
+            return;
+        }
         var entries = NormalizeTreeOperationEntries(SelectedEntries);
         _fileOps.CopySelectedCommand.Execute(entries);
         StatusText = MacExplorer.Services.Impl.LocalizationText.Get("已拷贝 {0} 项", entries.Count);
@@ -3582,6 +3611,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly || IsNetworkPage || IsDiskManagementPage) return;
         if (_clipboardService == null) return;
+        var destination = CurrentPath;
+        if (_clipboardService.PendingFileCopy is { } copy)
+        {
+            try { if (!await copy || CurrentPath != destination || _disposed) return; }
+            catch { return; } // The copy action reports preparation errors.
+        }
+        if (IsArchiveView)
+        {
+            await PasteIntoZipAsync();
+            return;
+        }
 
         if (CurrentTag is { } tag)
         {
@@ -3597,7 +3637,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (IsArchiveView || IsHomePage || IsNetworkPage || IsDiskManagementPage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
+        if (IsHomePage || IsNetworkPage || IsDiskManagementPage || string.IsNullOrWhiteSpace(_navigation.CurrentPath)) return;
 
         var kind = _clipboardService.GetPasteKind();
         if (kind == ClipboardPasteKind.None) return;
@@ -3690,6 +3730,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public int DeleteConfirmItemCount { get; private set; }
     public string DeleteConfirmFirstItemName { get; private set; } = "";
     public bool DeleteConfirmIncludesRemoteFiles => _pendingDeleteEntries?.Any(entry => VirtualPath.IsRemotePath(entry.FullPath)) == true;
+    public bool DeleteConfirmIncludesArchiveEntries => _pendingArchiveDeleteRevision != null;
     private FileSystemEntry[]? _pendingDeleteEntries;
     private bool _deleteInProgress;
     public FileTag? PendingDeleteTag { get; private set; }
@@ -3701,11 +3742,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     // All existing menu/toolbar/keyboard entry points use the wrapper above.
     // Capture the selection before displaying a dialog or starting any I/O.
-    public async Task RequestDeleteSelectedAsync()
+    public Task RequestDeleteSelectedAsync() => RequestDeleteEntriesAsync(SelectedEntries);
+
+    private async Task RequestDeleteEntriesAsync(IEnumerable<FileSystemEntry> selection)
     {
-        if (IsBrowseOnly) return;
-        if (_deleteInProgress || IsDeleteConfirmDialogVisible || IsArchiveView || SelectedEntries.Count == 0) return;
-        var entries = NormalizeTreeOperationEntries(SelectedEntries.Where(entry => !entry.IsVirtual)).ToArray();
+        if (IsBrowseOnly || _deleteInProgress || IsDeleteConfirmDialogVisible || (IsArchiveView && !CanModifyArchive)) return;
+        var entries = NormalizeTreeOperationEntries(selection.Where(entry => !entry.IsVirtual)).ToArray();
         if (entries.Length == 0) return;
         IsContextMenuVisible = false;
         if (CurrentTag is { } tag)
@@ -3717,12 +3759,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         // SFTP ignores moveToTrash and deletes permanently. Never let a preference
         // intended for recoverable local Trash operations silence that warning.
-        if (!ConfirmBeforeTrash && !IsTrashActive && !entries.Any(entry => VirtualPath.IsRemotePath(entry.FullPath)))
+        if (!IsArchiveView && !ConfirmBeforeTrash && !IsTrashActive && !entries.Any(entry => VirtualPath.IsRemotePath(entry.FullPath)))
         {
             await ExecuteDeleteSelectedAsync(entries);
             return;
         }
 
+        _pendingArchiveDeleteRevision = IsArchiveView ? _writableZipRevision : null;
         _pendingDeleteEntries = entries;
         DeleteConfirmItemCount = entries.Length;
         DeleteConfirmFirstItemName = entries[0].Name;
@@ -3734,14 +3777,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsBrowseOnly) return;
         var entries = _pendingDeleteEntries;
+        var zipRevision = _pendingArchiveDeleteRevision;
         CancelDeleteConfirmDialog();
-        if (entries != null) await ExecuteDeleteSelectedAsync(entries);
+        if (entries != null) await ExecuteDeleteSelectedAsync(entries, zipRevision);
     }
 
     [RelayCommand]
     public void CancelDeleteConfirmDialog()
     {
         _pendingDeleteEntries = null;
+        _pendingArchiveDeleteRevision = null;
         IsDeleteConfirmDialogVisible = false;
         DeleteConfirmItemCount = 0;
         DeleteConfirmFirstItemName = "";
@@ -3774,14 +3819,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         PendingDeleteTag = null;
     }
 
-    private async Task ExecuteDeleteSelectedAsync(IReadOnlyList<FileSystemEntry> entries)
+    private async Task ExecuteDeleteSelectedAsync(IReadOnlyList<FileSystemEntry> entries, ZipRevision? zipRevision = null)
     {
         if (_deleteInProgress || entries.Count == 0) return;
         _deleteInProgress = true;
         try
         {
-            await DeleteEntriesCheckedAsync(entries);
+            if (zipRevision is { } expected) await DeleteZipEntriesAsync(entries, expected);
+            else await DeleteEntriesCheckedAsync(entries);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { StatusText = MacExplorer.Services.Impl.LocalizationText.Get("删除失败: {0}", ex.Message); }
         finally { _deleteInProgress = false; }
     }
@@ -3801,6 +3848,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task CreateNewFolderAsync()
     {
         if (IsBrowseOnly || IsNetworkPage || IsDiskManagementPage) return;
+        if (IsArchiveView)
+        {
+            await CreateZipItemAsync(null, folder: true);
+            return;
+        }
         try
         {
             var rawEntries = Entries.ToList();
@@ -3831,6 +3883,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task CreateNewFileAsync(string? extension = null)
     {
         if (IsBrowseOnly || IsNetworkPage || IsDiskManagementPage) return;
+        if (IsArchiveView)
+        {
+            await CreateZipItemAsync(extension, folder: false);
+            return;
+        }
         try
         {
             var rawEntries = Entries.ToList();
@@ -3946,6 +4003,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task<bool> RenameEntryAsync(FileSystemEntry entry, string newName)
     {
         if (IsBrowseOnly) return false;
+        if (ArchivePathHelper.IsArchivePath(entry.FullPath)) return await RenameNewZipItemAsync(entry, newName);
         // Virtual face cluster rename
         if (entry.IsVirtual && entry.VirtualFolderType == "face")
         {

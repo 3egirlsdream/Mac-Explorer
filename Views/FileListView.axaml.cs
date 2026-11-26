@@ -916,17 +916,18 @@ public partial class FileListView : UserControl
         ItemsControl menu,
         System.Collections.Generic.IList<ContextMenuAction> actions,
         int requestVersion,
-        FileSystemEntry? markdownEntry = null)
+        FileSystemEntry? textEntry = null)
     {
         if (menu is ContextMenu) { CancelMenuLoads(); _asyncSubmenus.Clear(); }
         menu.Items.Clear();
 
         // Quick actions bar — vertical icon+text buttons at top, evenly distributed
         var quickActions = actions.Where(a => a.IsQuickAction).ToList();
-        var editAction = menu is ContextMenu ? CreateMarkdownEditAction(markdownEntry) : null;
-        if (editAction != null)
+        var editAction = menu is ContextMenu ? CreateTextEditAction(textEntry) : null;
+        if (editAction != null) quickActions.Insert(0, editAction);
+        var fitQuickActions = editAction != null || ViewModel?.IsArchiveView == true;
+        if (fitQuickActions && quickActions.Count > 0)
         {
-            quickActions.Insert(0, editAction);
             // Preserve the existing 44x44 button surfaces; grow the menu instead of squeezing them.
             menu.Width = double.NaN;
             menu.MaxWidth = double.PositiveInfinity;
@@ -936,7 +937,7 @@ public partial class FileListView : UserControl
         {
             var quickGrid = new Grid
             {
-                MinWidth = editAction != null ? quickActions.Count * 44 : 0,
+                MinWidth = fitQuickActions ? quickActions.Count * 44 : 0,
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
             };
             for (int i = 0; i < quickActions.Count; i++)
@@ -991,6 +992,7 @@ public partial class FileListView : UserControl
                     Child = btn
                 };
                 buttonSurface.Classes.Add("menu-quick-surface");
+                Avalonia.Automation.AutomationProperties.SetName(btn, qa.Label);
                 ToolTip.SetTip(btn, string.IsNullOrEmpty(qa.ShortcutText) ? qa.Label : $"{qa.Label} {qa.ShortcutText}");
                 btn.Tag = qa;
                 if (qa.Execute != null)
@@ -1934,8 +1936,8 @@ public partial class FileListView : UserControl
     {
         if (ViewModel?.IsBrowseOnly == true) { e.DragEffects = DragDropEffects.None; e.Handled = true; return; }
         var incomingContent = Platforms.MacOS.MacNativeFileDrop.HasIncomingContent;
-        var paths = incomingContent ? [] : GetDroppedPaths(e.DataTransfer);
-        if ((!incomingContent && paths.Length == 0) || ViewModel == null || ViewModel.IsHomePage || ViewModel.IsArchiveView)
+        var paths = !incomingContent || ViewModel?.IsArchiveView == true ? GetDroppedPaths(e.DataTransfer) : [];
+        if ((!incomingContent && paths.Length == 0) || ViewModel == null || ViewModel.IsHomePage)
         {
             ClearDragOverVisual();
             e.DragEffects = DragDropEffects.None;
@@ -1943,6 +1945,17 @@ public partial class FileListView : UserControl
         }
 
         var target = FindDropTarget(e);
+        if (ViewModel.IsArchiveView)
+        {
+            var canAdd = paths.Length > 0 && paths.All(Path.IsPathFullyQualified)
+                && ViewModel.TryGetZipDestination(target, out _, out _)
+                && (!FastListActive || !FastList.IsLoading);
+            e.DragEffects = canAdd ? e.DragEffects & DragDropEffects.Copy : DragDropEffects.None;
+            if (e.DragEffects != DragDropEffects.None && FastListActive) FastList.DropTargetPath = target?.FullPath;
+            else ClearDragOverVisual();
+            e.Handled = true;
+            return;
+        }
         if (target == null && ViewModel?.IsTagView == true)
         {
             _dragOverTargetEntry = null;
@@ -1995,9 +2008,20 @@ public partial class FileListView : UserControl
         if (viewModel == null) return;
         e.Handled = true;
         e.DragEffects = DragDropEffects.None;
-        if (viewModel.IsHomePage || viewModel.IsArchiveView || viewModel.IsRemoteLocationDisconnected) return;
+        if (viewModel.IsHomePage || viewModel.IsRemoteLocationDisconnected) return;
         try
         {
+            if (viewModel.IsArchiveView)
+            {
+                if ((allowedEffects & DragDropEffects.Copy) == 0 || FastListActive && FastList.IsLoading
+                    || !viewModel.TryGetZipDestination(target, out var path, out var directory)) return;
+                using var access = Platforms.MacOS.MacNativeFileDrop.AcquireAccess();
+                var dropped = GetDroppedPaths(e.DataTransfer);
+                if (dropped.Length == 0 || !dropped.All(Path.IsPathFullyQualified)) return;
+                e.DragEffects = DragDropEffects.Copy;
+                await viewModel.AddFilesToZipAsync(path, directory, dropped);
+                return;
+            }
             // File promises must be called in synchronously while AppKit's drop
             // pasteboard is current, before any await or file lookup.
             if (Platforms.MacOS.MacNativeFileDrop.HasIncomingContent)
@@ -2478,8 +2502,7 @@ public partial class FileListView : UserControl
         if (e.Key == Key.Delete)
         {
             DismissContextMenu();
-            if (!ViewModel.IsArchiveView)
-                ViewModel.ShowDeleteConfirmDialog();
+            ViewModel.ShowDeleteConfirmDialog();
             e.Handled = true;
             return true;
         }

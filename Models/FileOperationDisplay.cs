@@ -1,6 +1,6 @@
 namespace MacExplorer.Models;
 
-internal enum FileOperationPresentation { Copy, Paste, Move, Trash, Delete, EmptyTrash }
+internal enum FileOperationPresentation { Copy, Paste, Move, Trash, Delete, EmptyTrash, ArchiveUpdate }
 
 /// <summary>Progress for one user gesture, including time spent waiting for an execution slot.</summary>
 internal sealed class FileOperationDisplay(FileOperationPresentation kind, TimeProvider? time = null)

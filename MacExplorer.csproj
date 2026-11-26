@@ -11,7 +11,7 @@
     <AppStoreBundleId Condition="'$(AppStoreBundleId)' == ''">com.thankful.top.macexplorer.store</AppStoreBundleId>
     <AppStoreSubscriptionProductId Condition="'$(DistributionChannel)' == 'AppStore' and '$(AppStoreSubscriptionProductId)' == ''">001</AppStoreSubscriptionProductId>
     <ApplicationId Condition="'$(DistributionChannel)' == 'AppStore'">$(AppStoreBundleId)</ApplicationId>
-    <Version>2.0.14</Version>
+    <Version>2.0.15</Version>
     <MacOSBuildNumber Condition="'$(MacOSBuildNumber)' == ''">$(Version)</MacOSBuildNumber>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
@@ -55,6 +55,7 @@
     <None Update="ThirdParty/Vex/NOTICE.md" TargetPath="Markdown/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="ThirdParty/Vex/FluentIcons.LICENSE.txt" TargetPath="Markdown/FluentIcons.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="ThirdParty/LibRaw/$(RuntimeIdentifier)/libraw.dylib" TargetPath="libraw.dylib" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="ThirdParty/LibZip/$(RuntimeIdentifier)/libzip.dylib" TargetPath="libzip.dylib" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="$([MSBuild]::IsOSPlatform('osx'))" />
     <None Update="Copilot/Skills/**/SKILL.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
@@ -67,6 +68,7 @@
     <Error Condition="'$(_LibRawArchitecture)' == ''" Text="Unsupported LibRaw runtime identifier: $(RuntimeIdentifier)" />
     <Error Condition="!Exists('$(_LibRawPath)')" Text="Missing LibRaw library for $(RuntimeIdentifier): $(_LibRawPath)" />
     <Exec Command="lipo '$(_LibRawPath)' -verify_arch $(_LibRawArchitecture)" />
+    <Exec Command="lipo '$(MSBuildProjectDirectory)/ThirdParty/LibZip/$(RuntimeIdentifier)/libzip.dylib' -verify_arch $(_LibRawArchitecture)" />
   </Target>
 
   <ItemGroup>
@@ -202,6 +204,8 @@
     <Copy SourceFiles="ThirdParty/Avalonia.TextShaping/LICENSE;ThirdParty/Avalonia.TextShaping/NOTICE.md" DestinationFolder="$(_ResourcesDir)/TextShaping" />
     <Copy SourceFiles="ThirdParty/Vex/LICENSE;ThirdParty/Vex/NOTICE.md;ThirdParty/Vex/FluentIcons.LICENSE.txt" DestinationFolder="$(_ResourcesDir)/Markdown" />
     <Copy SourceFiles="ThirdParty/LibRaw/COPYRIGHT;ThirdParty/LibRaw/LICENSE.LGPL;ThirdParty/LibRaw/LICENSE.CDDL;ThirdParty/LibRaw/SOURCE.md" DestinationFolder="$(_ResourcesDir)/LibRaw" />
+
+    <Copy SourceFiles="ThirdParty/LibZip/LICENSE;ThirdParty/LibZip/SOURCE.md" DestinationFolder="$(_ResourcesDir)/LibZip" />
 
     <!-- Keep managed assemblies in resources and actual native code in Frameworks. -->
     <ItemGroup>

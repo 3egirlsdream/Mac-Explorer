@@ -70,7 +70,9 @@ feat: 优化文件夹恢复
 
 - 信息面板使用单页分区；标题、字段行统一复用全局 `info-section-title` / `info-field-row` / `info-field-label` / `info-field-value`，字段值右对齐，行底部使用主题细分割线。
 
-- 滚动条统一复用 `Assets/ScrollBarStyles.axaml` 与 `AppScrollBarTheme`，沿用 Fluent 原生交互、8px 尺寸、透明无描边轨道和圆角滑块；Markdown 等第三方预览在局部主题之后引用同一全局样式，避免替换模板。PDF／Office 的原生滚动条由 `DocumentPreviewHost` 传入同一组全局尺寸与浅深色资源；Office 网页预览铺满宿主，滚动条位于预览最右侧，不保留居中的纸张宽度滚动视口，也不增加右侧命中面板。
+- 滚动条统一复用 `Assets/ScrollBarStyles.axaml` 与 `AppScrollBarTheme`，沿用 Fluent 原生交互、默认 8px 尺寸、透明无描边轨道和圆角滑块；Markdown 等第三方预览在局部主题之后引用同一全局样式，避免替换模板。PDF／Office 的原生滚动条由 `DocumentPreviewHost` 传入同一组全局尺寸与浅深色资源；Office 网页预览铺满宿主，滚动条位于预览最右侧，不保留居中的纸张宽度滚动视口，也不增加右侧命中面板。
+
+- 文本与 Markdown 编辑器共用 `MarkdownEditorStyles.axaml` 与全局按钮、分段控件及 Fluent 滚动条。纯文本搜索放在文件信息栏，Markdown 工具栏按功能分四组；未保存时文件名旁显示蓝点，保存按钮高亮。编辑器内的 Markdown 预览使用独立排版配置，源码和预览共用 6px 滚动条，行号与正文保留留白。
 
 - Markdown 渲染预览共用 `MarkdownPreviewView`。段内沿用 Avalonia 字符选区，跨段复用渲染器的块选区和全局 `InteractionTextHighlightBrush`；预览取得焦点时，复制快捷键将选区纯文本写入剪贴板。空格预览在渲染区两侧为可用的翻页悬停区留出空间。
 
@@ -243,3 +245,5 @@ feat: 优化文件夹恢复
 - 文件复制、粘贴、移动和删除共用独立非模态 `FileOperationWindow`，操作复用全局 `AppButton.secondary.small`，以 24px 按钮高度换算附件比例，默认宽 617px；横条随屏幕逐帧过渡至已完成量，失败时直接显示错误与逐项结果。操作超过 800ms 才显示进度窗，等待同名确认的时间单独扣除；整批递归预检后复用现有同名弹窗，完成全部确认后才写入。
 
 - 收藏夹配置与嵌套编辑统一进入独立单栏大纲弹窗 `CollectionManagerDialog`（继承 `DialogWindow`、透明标题栏与 `SettingsStyles.axaml`），复用 `Border.collection-tree-row`、`PathIcon.collection-drag-grip`、`StackPanel.collection-row-actions` 与全局 `TextBox.inline-rename-editor.bordered`，支持树内拖拽排序／嵌套／空白区移回顶层、键盘 `Tab`／`Shift+Tab` 缩进、原地对齐行内重命名及草稿式新建，展开收起保持滚动位置不跳动；顶栏通过 `FileTagTree.BuildForToolbar` 保留自定义与置顶收藏夹，图标按 `FileTagTree.IconGeometry` 统一（有子项用文件夹、叶子项用标签）；文件右键「标签」菜单使用 `CollectionAssignmentMenu` 的无限级联标准二级菜单（无搜索框），顶部标题栏（`TagMenuHeader`）右侧统一为管理齿轮按钮，点击打开 `CollectionManagerDialog`。
+
+- 本地未加密 ZIP 的包内文件列表复用全局新建、复制、粘贴、拖放、删除确认与文件操作进度窗。普通文本和 ZIP 包内文本共用内置编辑器与右键「编辑」快速操作，Markdown 保留双栏预览。ZIP 修改后台流式写入，成功后替换原包并刷新相关页签。

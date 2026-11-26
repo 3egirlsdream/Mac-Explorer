@@ -1,3 +1,6 @@
+using System.Text;
+using System.Text.RegularExpressions;
+using MacExplorer.Controls;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using Avalonia;
@@ -16,6 +19,8 @@ namespace MacExplorer.Views;
 
 public partial class MarkdownEditorView : UserControl, IDisposable
 {
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
     private readonly ILocalizationService? _language;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly CancellationToken _lifetimeToken;
@@ -29,7 +34,8 @@ public partial class MarkdownEditorView : UserControl, IDisposable
     private bool _saving;
     private bool _dirty;
     private bool _disposed;
-    private string _mode = "Split";
+    private bool _isMarkdown = true;
+    private string _mode = "Source";
 
     private enum CloseChoice { Cancel, Discard, Save }
     public event EventHandler? RequestClose;
@@ -42,6 +48,9 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         _lifetimeToken = _lifetime.Token;
         InitializeComponent();
         Editor.Options.ConvertTabsToSpaces = true;
+        Editor.Options.LineHeightFactor = 1.4;
+        Editor.TextArea.LeftMargins.Add(new EditorLineNumberMargin());
+        Editor.TextArea.TextView.Classes.Add("editor-text");
         Editor.Options.IndentationSize = 4;
         Editor.TextArea.IndentationStrategy = new MarkdownIndentationStrategy();
         Editor.TextChanged += OnTextChanged;
@@ -52,28 +61,41 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, (_, e) => { e.DragEffects = DragDropEffects.None; e.Handled = true; });
         AddHandler(DragDrop.DropEvent, (_, e) => e.Handled = true);
-        if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
+        ActualThemeVariantChanged += OnThemeChanged;
         ApplyHighlighting();
-        SetMode("Split");
+        SetMode("Source");
     }
 
-    public async Task OpenAsync(string path)
+    public Task OpenAsync(string path) => OpenAsync(path, null);
+
+    internal async Task OpenAsync(string path, Func<byte[], byte[], CancellationToken, Task>? writeArchive)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _loading = true;
-        TitleText.Text = Path.GetFileName(path);
-        PathText.Text = path;
+        var (archivePath, key) = ArchivePathHelper.Parse(path);
+        var fileName = writeArchive == null ? Path.GetFileName(path) : Path.GetFileName(key);
+        TitleText.Text = DecodeDisplayPath(fileName);
+        PathText.Text = DecodeDisplayPath(writeArchive == null ? path : $"{Path.GetFileName(archivePath)} / {key}");
+        _isMarkdown = MarkdownDocument.IsMarkdown(fileName);
+        MarkdownToolbar.IsVisible = _isMarkdown;
+        TextFindButton.IsVisible = !_isMarkdown;
+        Editor.Options.ConvertTabsToSpaces = _isMarkdown;
+        Editor.TextArea.IndentationStrategy = _isMarkdown ? new MarkdownIndentationStrategy() : null;
+        ApplyHighlighting();
+        SetMode(_isMarkdown ? "Split" : "Source");
         ErrorBanner.IsVisible = false;
         UpdateChrome();
         try
         {
-            var document = await MarkdownDocument.OpenAsync(path, _lifetimeToken);
+            var document = writeArchive == null
+                ? await MarkdownDocument.OpenTextAsync(path, _lifetimeToken)
+                : await MarkdownDocument.OpenArchiveAsync(path, writeArchive, _lifetimeToken);
             if (_disposed) return;
             _document = document;
             Editor.Document = new TextDocument(document.Text);
             _dirty = false;
             Editor.IsReadOnly = false;
-            Preview.SetDocument(document.Text, document.FilePath);
+            RefreshPreview();
             Editor.Focus();
         }
         catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested) { }
@@ -88,6 +110,25 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             if (!_disposed) UpdateChrome();
         }
     }
+
+    private static string DecodeDisplayPath(string path)
+    {
+        if (!path.Contains('%')) return path;
+        try
+        {
+            return PercentEscapes().Replace(path, match =>
+            {
+                if (match.Length == 1) throw new FormatException();
+                var bytes = Convert.FromHexString(match.Value.Replace("%", string.Empty, StringComparison.Ordinal));
+                return StrictUtf8.GetString(bytes);
+            });
+        }
+        catch (FormatException) { return path; }
+        catch (DecoderFallbackException) { return path; }
+    }
+
+    [GeneratedRegex(@"(?:%[0-9a-fA-F]{2})+|%")]
+    private static partial Regex PercentEscapes();
 
     // Called from the main window's tunnel handler. Normal typing, Enter and Escape
     // continue to the editor/IME before the editor's bubble handler gets a chance to act.
@@ -138,9 +179,9 @@ public partial class MarkdownEditorView : UserControl, IDisposable
                 e.Handled = true;
                 Editor.Paste();
                 break;
-            case Key.B when IsEditorInput(e.Source):
-            case Key.I when IsEditorInput(e.Source):
-            case Key.K when IsEditorInput(e.Source):
+            case Key.B when _isMarkdown && IsEditorInput(e.Source):
+            case Key.I when _isMarkdown && IsEditorInput(e.Source):
+            case Key.K when _isMarkdown && IsEditorInput(e.Source):
                 e.Handled = true;
                 ApplyFormat(e.Key == Key.B ? "Bold" : e.Key == Key.I ? "Italic" : "Link");
                 break;
@@ -188,13 +229,14 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             {
                 var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
                 if (storage?.CanSave != true) throw new IOException(LocalizationText.Get("当前环境不支持选择保存位置。"));
+                var extension = Path.GetExtension(document.Name);
                 var file = await storage.SaveAuthorizedFilePickerAsync(new FilePickerSaveOptions
                 {
-                    Title = MacExplorer.Services.Impl.LocalizationText.Get("Markdown 另存为"),
-                    SuggestedFileName = Path.GetFileName(document.FilePath),
-                    DefaultExtension = "md",
+                    Title = LocalizationText.Get("ui.286"),
+                    SuggestedFileName = document.Name,
+                    DefaultExtension = extension.TrimStart('.'),
                     ShowOverwritePrompt = true,
-                    FileTypeChoices = [new FilePickerFileType("Markdown") { Patterns = ["*.md"] }]
+                    FileTypeChoices = extension.Length == 0 ? null : [new FilePickerFileType(extension) { Patterns = ["*" + extension] }]
                 });
                 if (file == null) return false;
                 using (file)
@@ -208,7 +250,11 @@ public partial class MarkdownEditorView : UserControl, IDisposable
             _document = saved;
             // Edits made while disk I/O was in flight remain dirty; only the captured text was saved.
             _dirty = !string.Equals(Editor.Text, saved.Text, StringComparison.Ordinal);
-            PathText.Text = saved.FilePath;
+            if (!saved.IsArchiveEntry)
+            {
+                TitleText.Text = DecodeDisplayPath(saved.Name);
+                PathText.Text = DecodeDisplayPath(saved.FilePath);
+            }
             RefreshPreview();
             return true;
         }
@@ -302,11 +348,13 @@ public partial class MarkdownEditorView : UserControl, IDisposable
     private void UpdateChrome()
     {
         SaveButton.IsEnabled = !_saving && _document != null;
+        SaveButton.Classes.Set("dirty", _dirty);
+        DirtyIndicator.IsVisible = _dirty;
         SaveAsButton.IsEnabled = !_saving && _document != null;
         FormatTools.IsEnabled = _document != null;
+        TextFindButton.IsEnabled = _document != null;
         if (_document != null)
         {
-            TitleText.Text = Path.GetFileName(_document.FilePath) + (_dirty ? " •" : string.Empty);
             var lineEnding = _document.NewLine == "\r\n" ? "CRLF" : _document.NewLine == "\r" ? "CR" : "LF";
             StatusText.Text = $"{LocalizationText.Get(_saving ? "正在保存…" : _dirty ? "未保存" : "已保存")}  ·  {_document.EncodingName}  ·  {lineEnding}  ·  {LocalizationText.Get("{0} 行", Editor.Document.LineCount.ToString("N0", _language?.Culture))}";
         }
@@ -322,7 +370,8 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         _mode = mode;
         SourcePane.IsVisible = mode != "Preview";
         PreviewPane.IsVisible = mode != "Source";
-        Divider.IsVisible = mode == "Split";
+        Divider.IsVisible = DividerLine.IsVisible = mode == "Split";
+        SourcePane.Classes.Set("split", mode == "Split");
         Grid.SetColumnSpan(SourcePane, mode == "Source" ? 3 : 1);
         Grid.SetColumn(PreviewPane, mode == "Preview" ? 0 : 2);
         Grid.SetColumnSpan(PreviewPane, mode == "Preview" ? 3 : 1);
@@ -450,7 +499,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
 
     private void OnThemeChanged(object? sender, EventArgs e) => ApplyHighlighting();
     private void ApplyHighlighting() => Editor.SyntaxHighlighting =
-        MarkdownHighlighting.Create(Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+        _isMarkdown ? MarkdownHighlighting.Create(ActualThemeVariant == ThemeVariant.Dark) : null;
 
     public void Dispose()
     {
@@ -463,7 +512,7 @@ public partial class MarkdownEditorView : UserControl, IDisposable
         _refreshTimer.Tick -= OnRefresh;
         Editor.TextChanged -= OnTextChanged;
         Editor.TextArea.Caret.PositionChanged -= OnCaretChanged;
-        if (Application.Current != null) Application.Current.ActualThemeVariantChanged -= OnThemeChanged;
+        ActualThemeVariantChanged -= OnThemeChanged;
         _closeChoice?.TrySetResult(CloseChoice.Cancel);
         Preview.Clear();
         Editor.ContextMenu?.Close();

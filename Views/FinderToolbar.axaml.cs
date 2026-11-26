@@ -90,10 +90,9 @@ public partial class FinderToolbar : UserControl
             + (ToolbarLayout.ColumnDefinitions.Count - 1) * ToolbarLayout.ColumnSpacing
             + Width(NewBtn) + LeadingActions.Spacing + Width(InlineActions)
             + Width(ActionDivider) + Width(ViewModeControls) + Width(SortButton)
-            + Width(InfoButton) + Width(MoreBtn) + Width(RemoteEditButton)
-            + Width(ArchiveExtractButton);
+            + Width(InfoButton) + Width(MoreBtn) + Width(RemoteEditButton);
         var showActionsInline = availableSize.Width >= widthWithFileActions;
-        var hasTags = ToolbarTags.IsVisible && !ArchiveExtractButton.IsVisible;
+        var hasTags = ToolbarTags.IsVisible && ViewModel?.IsArchiveView != true;
         var showTagsInline = hasTags && availableSize.Width - widthWithFileActions
             >= Width(TagsDivider) + InlineTagsHost.ColumnSpacing + TagToolbar.OverflowWidth;
         var showTagsInMore = hasTags && !showTagsInline;
@@ -137,15 +136,6 @@ public partial class FinderToolbar : UserControl
     }
 
     private void CutSelected(object? sender, RoutedEventArgs e) => ViewModel?.CutSelected();
-    private async void ExtractEntireArchive(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel is { } vm) await vm.ExtractEntireArchiveAsync();
-    }
-
-    private async void ExtractArchiveSelection(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel is { } vm) await vm.ExtractArchiveSelectionAsync(vm.SelectedEntries.ToArray());
-    }
     private void CopySelected(object? sender, RoutedEventArgs e) => ViewModel?.CopySelected();
     private async void PasteItems(object? sender, RoutedEventArgs e) { if (ViewModel != null) await ViewModel.PasteAsync(); }
     private void DeleteSelected(object? sender, RoutedEventArgs e) => ViewModel?.ShowDeleteConfirmDialog();
@@ -171,6 +161,7 @@ public partial class FinderToolbar : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         SubscribeToViewModel(ViewModel);
+        InvalidateMeasure();
         _ = ViewModel?.LoadNewItemActionsAsync();
         SyncViewModeToggles(animate: false);
     }
@@ -190,13 +181,16 @@ public partial class FinderToolbar : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is null or "" or nameof(FileListViewModel.IsArchiveView))
+            InvalidateMeasure();
         if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(FileListViewModel.ViewMode))
             Dispatcher.UIThread.Post(SyncViewModeToggles);
         if (e.PropertyName is nameof(FileListViewModel.SortField) or nameof(FileListViewModel.SortAscending)
             or nameof(FileListViewModel.SortPriority) or nameof(FileListViewModel.GroupField))
             Dispatcher.UIThread.Post(SyncSortMenu);
         if (e.PropertyName is nameof(FileListViewModel.StatusSummaryText) or nameof(FileListViewModel.CutPaths)
-            or nameof(FileListViewModel.IsHomePage) or nameof(FileListViewModel.CurrentPath))
+            or nameof(FileListViewModel.IsHomePage) or nameof(FileListViewModel.CurrentPath)
+            or nameof(FileListViewModel.CanModifyArchive) or nameof(FileListViewModel.HasPasteableContent))
             Dispatcher.UIThread.Post(UpdateActionAvailability);
     }
 
@@ -249,11 +243,12 @@ public partial class FinderToolbar : UserControl
     {
         var hasSelection = ViewModel?.SelectedEntries.Count > 0;
         BatchRenameButton.IsEnabled = ViewModel?.CanBatchRename == true;
-        CutButton.IsEnabled = CutOverflowButton.IsEnabled = hasSelection;
-        CopyButton.IsEnabled = CopyOverflowButton.IsEnabled = hasSelection;
-        DeleteButton.IsEnabled = DeleteOverflowButton.IsEnabled = hasSelection;
-        PasteButton.IsEnabled = PasteOverflowButton.IsEnabled = ViewModel != null
-            && (App.Services?.GetService<IClipboardService>()?.HasPasteableContent ?? false);
+        var archive = ViewModel?.IsArchiveView == true;
+        var canModify = !archive || ViewModel?.CanModifyArchive == true;
+        CutButton.IsEnabled = CutOverflowButton.IsEnabled = hasSelection && !archive;
+        CopyButton.IsEnabled = CopyOverflowButton.IsEnabled = ViewModel?.CanCopySelection == true;
+        DeleteButton.IsEnabled = DeleteOverflowButton.IsEnabled = hasSelection && canModify;
+        PasteButton.IsEnabled = PasteOverflowButton.IsEnabled = canModify && ViewModel?.HasPasteableContent == true;
     }
 
     private async void ToggleSortDirection(object? sender, RoutedEventArgs e)

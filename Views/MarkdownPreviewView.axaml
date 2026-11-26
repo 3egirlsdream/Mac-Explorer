@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:md="https://codewf.com"
+             xmlns:views="using:MacExplorer.Views"
              x:Class="MacExplorer.Views.MarkdownPreviewView">
     <UserControl.Styles>
         <!-- Scoped to Markdown; do not install Vex/Semi styles over the file manager. -->
@@ -22,19 +23,68 @@
         <Style Selector="Border.MdSelectedBlock > StackPanel">
             <Setter Property="Background" Value="{DynamicResource InteractionTextHighlightBrush}"/>
         </Style>
+        <Style Selector="md|MarkdownViewer">
+            <Setter Property="Margin" Value="20,14"/>
+            <Setter Property="TextBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderLineBrush" Value="{DynamicResource ColorBorderSubtle}"/>
+            <Setter Property="QuoteBackgroundBrush" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose md|MarkdownViewer">
+            <Setter Property="Margin" Value="40,28"/>
+            <Setter Property="MaxWidth" Value="760"/>
+            <Setter Property="DocumentBottomPadding" Value="0"/>
+            <Setter Property="TextBrush" Value="{DynamicResource EditorProseBrush}"/>
+            <Setter Property="BorderLineBrush" Value="{DynamicResource EditorDividerBrush}"/>
+            <Setter Property="QuoteBackgroundBrush" Value="{DynamicResource EditorSubtleBrush}"/>
+            <Setter Property="ParagraphFontSize" Value="15"/>
+            <Setter Property="ParagraphLineHeight" Value="26.25"/>
+            <Setter Property="ParagraphMargin" Value="0,0,0,12"/>
+            <Setter Property="Heading1FontSize" Value="24"/>
+            <Setter Property="Heading2FontSize" Value="19"/>
+            <Setter Property="HeadingMargin" Value="0,0,0,12"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose Border.MdH1Border">
+            <Setter Property="views:EditorProse.Part" Value="Title"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="0,0,0,10"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose SelectableTextBlock.MdH1">
+            <Setter Property="LineHeight" Value="32.4"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose Border.MdH2Border">
+            <Setter Property="views:EditorProse.Part" Value="Section"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose SelectableTextBlock.MdH2">
+            <Setter Property="views:EditorProse.Part" Value="Section"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose StackPanel.MdList">
+            <Setter Property="Spacing" Value="12"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose Border.MdQuote">
+            <Setter Property="views:EditorProse.Part" Value="Quote"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="0,16"/>
+            <Setter Property="CornerRadius" Value="0,6,6,0"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose StackPanel.MdQuoteContent > SelectableTextBlock.MdParagraph">
+            <Setter Property="views:EditorProse.Part" Value="Quote"/>
+        </Style>
+        <Style Selector="views|MarkdownPreviewView.editor-prose StackPanel.MdQuoteContent">
+            <Setter Property="Spacing" Value="12"/>
+        </Style>
     </UserControl.Styles>
     <ScrollViewer x:Name="Scroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <md:MarkdownViewer x:Name="Viewer" Margin="20,14" TypographyTheme="Basic" TypographySize="Small"
+        <md:MarkdownViewer x:Name="Viewer" TypographyTheme="Basic" TypographySize="Small"
                            ContentFontFamily="{StaticResource FontFamilyUi}"
                            CodeFontFamily="{StaticResource FontFamilyMono}"
-                           TextBrush="{DynamicResource TextPrimaryBrush}"
                            MutedTextBrush="{DynamicResource TextMutedBrush}"
                            AccentBrush="{DynamicResource AccentBrush}"
                            AccentForegroundBrush="{DynamicResource ButtonPrimaryForegroundBrush}"
-                           BorderLineBrush="{DynamicResource ColorBorderSubtle}"
                            CodeBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
                            InlineCodeBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
-                           QuoteBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"
                            TableHeaderBackgroundBrush="{DynamicResource SurfaceElevatedBrush}"/>
     </ScrollViewer>
 </UserControl>

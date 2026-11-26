@@ -1,0 +1,62 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:rendering="using:AvaloniaEdit.Rendering"
+        xmlns:controls="using:MacExplorer.Controls">
+    <Style Selector="Separator.editor-tool-divider">
+        <Setter Property="Width" Value="1"/>
+        <Setter Property="Height" Value="14"/>
+        <Setter Property="Margin" Value="6,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource EditorDividerBrush}"/>
+    </Style>
+    <Style Selector="Border.editor-mode-track">
+        <Setter Property="Background" Value="{DynamicResource EditorHoverBrush}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Padding" Value="2"/>
+    </Style>
+    <Style Selector="Border.editor-source">
+        <Setter Property="Background" Value="{DynamicResource EditorSurfaceBrush}"/>
+    </Style>
+    <Style Selector="Border.editor-source.split">
+        <Setter Property="Background" Value="{DynamicResource EditorSubtleBrush}"/>
+    </Style>
+    <Style Selector="rendering|TextView.editor-text">
+        <Setter Property="Margin" Value="{DynamicResource EditorTextInset}"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+    </Style>
+    <Style Selector="controls|EditorLineNumberMargin">
+        <Setter Property="TextBlock.FontFamily" Value="{StaticResource FontFamilyMono}"/>
+        <Setter Property="TextBlock.FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource EditorMutedBrush}"/>
+        <Setter Property="ActiveForeground" Value="{DynamicResource EditorTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource EditorSubtleBrush}"/>
+        <Setter Property="DividerBrush" Value="{DynamicResource EditorGutterDividerBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.editor-status-text">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource EditorMutedBrush}"/>
+        <Setter Property="FontFeatures" Value="tnum"/>
+    </Style>
+    <Style Selector="ScrollBar">
+        <Setter Property="MinWidth" Value="{DynamicResource EditorScrollBarSize}"/>
+        <Setter Property="MinHeight" Value="{DynamicResource EditorScrollBarSize}"/>
+    </Style>
+    <Style Selector="ScrollBar:vertical">
+        <Setter Property="Width" Value="{DynamicResource EditorScrollBarSize}"/>
+    </Style>
+    <Style Selector="ScrollBar:horizontal">
+        <Setter Property="Height" Value="{DynamicResource EditorScrollBarSize}"/>
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ Thumb">
+        <Setter Property="MaxWidth" Value="{DynamicResource EditorScrollBarSize}"/>
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ Thumb">
+        <Setter Property="MaxHeight" Value="{DynamicResource EditorScrollBarSize}"/>
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb, ScrollBar[IsExpanded=True] /template/ Thumb">
+        <Setter Property="Background" Value="{DynamicResource EditorScrollThumbBrush}"/>
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb:pointerover /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource EditorScrollThumbHoverBrush}"/>
+    </Style>
+</Styles>

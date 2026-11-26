@@ -23,6 +23,9 @@ public class MacClipboardService : IClipboardService
 
     private ClipboardEntry? _entry;
     private long _entryChangeCount = -1;
+    private long _fileCopyVersion;
+
+    public Task<bool>? PendingFileCopy { get; private set; }
     private long _probeChangeCount = -1;
     private ClipboardPasteKind _probeKind = ClipboardPasteKind.None;
     private static bool _appKitLoaded;
@@ -34,6 +37,31 @@ public class MacClipboardService : IClipboardService
     public void CopyFiles(string[] paths)
     {
         SetClipboardEntry(paths, ClipboardOperation.Copy);
+    }
+
+    public Task<bool> CopyFilesAsync(Func<Task<string[]>> prepare)
+    {
+        if (OperatingSystem.IsMacOS() && !Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.InvokeAsync(() => CopyFilesAsync(prepare));
+        var version = ++_fileCopyVersion;
+        var changeCount = CurrentChangeCount();
+        return PendingFileCopy = PublishAsync();
+
+        async Task<bool> PublishAsync()
+        {
+            await Task.Yield();
+            try
+            {
+                var paths = await prepare();
+                if (_fileCopyVersion != version || CurrentChangeCount() != changeCount) return false;
+                CopyFiles(paths);
+                return true;
+            }
+            finally
+            {
+                if (_fileCopyVersion == version) PendingFileCopy = null;
+            }
+        }
     }
 
     public void CutFiles(string[] paths, FileTag? sourceTag = null)
@@ -151,7 +179,7 @@ public class MacClipboardService : IClipboardService
 
     public bool HasClipboardFiles => _entry is { IsEmpty: false };
 
-    public bool HasPasteableContent => GetPasteKind() != ClipboardPasteKind.None;
+    public bool HasPasteableContent => PendingFileCopy != null || GetPasteKind() != ClipboardPasteKind.None;
 
     public ClipboardPasteKind GetPasteKind()
     {
@@ -247,6 +275,8 @@ public class MacClipboardService : IClipboardService
 
     public void Clear()
     {
+        _fileCopyVersion++;
+        PendingFileCopy = null;
         _entry = null;
         _entryChangeCount = -1;
         _probeChangeCount = -1;
@@ -259,6 +289,8 @@ public class MacClipboardService : IClipboardService
             Dispatcher.UIThread.InvokeAsync(() => SetClipboardEntry(paths, operation, sourceTag)).GetAwaiter().GetResult();
             return;
         }
+        _fileCopyVersion++;
+        PendingFileCopy = null;
         // Existence and access checks belong to the background file task, including offline volumes and dangling links.
         var selectedPaths = paths
             .Where(Path.IsPathFullyQualified)

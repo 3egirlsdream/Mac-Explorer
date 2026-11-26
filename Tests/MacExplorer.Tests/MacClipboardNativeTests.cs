@@ -33,6 +33,32 @@ public sealed class MacClipboardNativeTests
     }
 
     [AvaloniaFact(Explicit = true)]
+    public async Task DelayedFileCopyDoesNotReplaceNewClipboardContents()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS AppKit.");
+        var root = Directory.CreateTempSubdirectory("clipboard-delayed-");
+        try
+        {
+            var name = "MacExplorer.ClipboardTest." + Guid.NewGuid().ToString("N");
+            var clipboard = new MacClipboardService(name);
+            var external = new MacClipboardService(name);
+            var source = new TaskCompletionSource<string[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var copy = clipboard.CopyFilesAsync(() => source.Task);
+            Assert.Same(copy, clipboard.PendingFileCopy);
+            Assert.True(clipboard.HasPasteableContent);
+            var newer = Path.Combine(root.FullName, "new.txt");
+            external.CopyFiles([newer]);
+            source.SetResult([Path.Combine(root.FullName, "old.txt")]);
+            Assert.False(await copy);
+            Assert.Null(clipboard.PendingFileCopy);
+            Assert.Equal(ClipboardPasteKind.ExternalFiles, clipboard.GetPasteKind());
+            Assert.True(clipboard.TryAdoptExternalFiles());
+            Assert.Equal(newer, Assert.Single(clipboard.GetClipboardEntry()!.SourcePaths));
+        }
+        finally { root.Delete(true); }
+    }
+
+    [AvaloniaFact(Explicit = true)]
     public async Task ExternalFilesReplaceOldTagCutAndTextInvalidatesAdoptedFiles()
     {
         Assert.SkipWhen(!OperatingSystem.IsMacOS(), "Requires macOS AppKit.");

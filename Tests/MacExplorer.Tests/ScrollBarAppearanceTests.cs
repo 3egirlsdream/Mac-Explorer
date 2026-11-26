@@ -65,7 +65,7 @@ public sealed class ScrollBarAppearanceTests
             foreach (var bar in bars)
             {
                 Assert.Same(shared, bar.Theme);
-                Assert.Equal(8, bar.Bounds.Width);
+                Assert.Equal(kind == "editor" ? 6 : 8, bar.Bounds.Width);
                 var thumbs = bar.GetVisualDescendants().OfType<Thumb>().ToArray(); Assert.NotEmpty(thumbs);
                 Assert.All(thumbs, thumb => Assert.Equal(new CornerRadius(999), thumb.CornerRadius));
                 var track = bar.GetVisualDescendants().OfType<Rectangle>().Single(rectangle => rectangle.Name == "TrackRect");
@@ -73,7 +73,7 @@ public sealed class ScrollBarAppearanceTests
                 Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(track.Stroke).Color);
                 var point = bar.TranslatePoint(new Point(4, 30), window)!.Value;
                 window.MouseMove(point); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-                Assert.Equal(8, bar.Bounds.Width);
+                Assert.Equal(kind == "editor" ? 6 : 8, bar.Bounds.Width);
             }
         }
         finally { window.Close(); (content as IDisposable)?.Dispose(); }

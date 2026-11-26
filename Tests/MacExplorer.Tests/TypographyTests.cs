@@ -40,7 +40,7 @@ public sealed class TypographyTests
         AssertResource("TypographyListRowMinHeight", 32);
 
         service.SetPreset(FontSizePreset.Small);
-        AssertResource("FontSizeBody", 11.5);
+        AssertResource("FontSizeBody", 12);
         AssertResource("FontSizeLabel", 11);
         AssertResource("LineHeightBody", 18);
         AssertResource("TypographyListRowMinHeight", 28);
@@ -78,7 +78,9 @@ public sealed class TypographyTests
 
         var application = Assert.IsAssignableFrom<Application>(Application.Current);
         Assert.True(application.TryGetResource("FontFamilyUi", application.ActualThemeVariant, out var fontResource));
-        Assert.Equal("PingFang SC", Assert.IsType<FontFamily>(fontResource).Name);
+        Assert.Equal("System Font", Assert.IsType<FontFamily>(fontResource).Name);
+        Assert.True(application.TryGetResource("FontFamilyButton", application.ActualThemeVariant, out var buttonFontResource));
+        Assert.Equal("System Font", Assert.IsType<FontFamily>(buttonFontResource).Name);
 
         var fileList = new FileListView();
         var fileName = fileList.FindControl<MacExplorer.Controls.FastFileList>("FastList")!;
@@ -112,13 +114,15 @@ public sealed class TypographyTests
             .Single(button => button.Classes.Contains("sidebar-item-action"));
 
         Assert.Equal(13, fileName.FontSize);
-        Assert.Equal("PingFang SC", fileName.FontFamily.Name);
+        Assert.Equal("System Font", fileName.FontFamily.Name);
+        Assert.Equal(TextRenderingMode.Antialias, TextOptions.GetTextRenderingMode(window));
+        Assert.Equal(TextHintingMode.Strong, TextOptions.GetTextHintingMode(window));
         Assert.True(window.TryFindResource("TextPrimaryBrush", window.ActualThemeVariant, out var primaryBrush));
         Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(primaryBrush).Color,
             Assert.IsAssignableFrom<ISolidColorBrush>(fileName.Foreground).Color);
         Assert.Equal(12, fileName.DetailFontSize);
         Assert.Equal(11, sidebarTitle.FontSize);
-        Assert.Equal("PingFang SC", sidebarTitle.FontFamily.Name);
+        Assert.Equal("System Font", sidebarTitle.FontFamily.Name);
         Assert.Equal(FontWeight.Medium, sidebarTitle.FontWeight);
         Assert.Equal(FontWeight.Normal, sidebarItemText.FontWeight);
         Assert.Equal(sidebarItemText.FontWeight, fileName.FontWeight);
@@ -135,7 +139,7 @@ public sealed class TypographyTests
 
         Assert.Equal(15, fileName.FontSize);
         Assert.Equal(14, fileName.DetailFontSize);
-        Assert.Equal(12.5, sidebarTitle.FontSize);
+        Assert.Equal(13, sidebarTitle.FontSize);
         Assert.Equal(sidebarItemText.FontSize, remoteAddress.FontSize);
         Assert.Equal(32, sidebarItem.MinHeight);
         Assert.Equal(39, textBox.MinHeight);
@@ -167,7 +171,7 @@ public sealed class TypographyTests
             var price = subscription.FindControl<TextBlock>("PriceText")!;
             Assert.Equal("Menlo", command.FontFamily.Name);
             Assert.Equal(FontWeight.Normal, command.FontWeight);
-            Assert.Equal("PingFang SC", toolTitle.FontFamily.Name);
+            Assert.Equal("System Font", toolTitle.FontFamily.Name);
             Assert.Equal(FontWeight.SemiBold, toolTitle.FontWeight);
             Assert.Equal(FontWeight.SemiBold, price.FontWeight);
             Assert.Equal(12, command.FontSize);
@@ -178,7 +182,7 @@ public sealed class TypographyTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(14, command.FontSize);
             Assert.Equal(14, toolTitle.FontSize);
-            Assert.Equal(27.5, price.FontSize);
+            Assert.Equal(28, price.FontSize);
             Assert.Equal(FontWeight.SemiBold, toolTitle.FontWeight);
         }
         finally { window.Close(); }

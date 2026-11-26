@@ -4,6 +4,7 @@ public sealed record FileTaskRequest(BackgroundTaskKind Kind, string Label,
     IReadOnlyList<string> Sources, string? Destination = null, string? DisplayName = null)
 {
     internal FileOperationDisplay? Operation { get; init; }
+    internal bool AllowRetry { get; init; } = true;
     internal Services.Subscriptions.PremiumFeature RequiredFeatures { get; init; }
 }
 

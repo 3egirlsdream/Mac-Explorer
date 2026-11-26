@@ -39,9 +39,11 @@ public partial class FileListView
             or ShortcutIds.Back or ShortcutIds.Forward or ShortcutIds.Open)) return false;
         return id switch
         {
-            ShortcutIds.Copy or ShortcutIds.Cut or ShortcutIds.Trash => !vm.IsArchiveView && vm.SelectedEntries.Count > 0,
-            ShortcutIds.Paste => !vm.IsArchiveView && vm.HasPasteableContent,
-            ShortcutIds.NewFile or ShortcutIds.NewFolder => !vm.IsArchiveView,
+            ShortcutIds.Copy => vm.CanCopySelection,
+            ShortcutIds.Cut => !vm.IsArchiveView && vm.SelectedEntries.Count > 0,
+            ShortcutIds.Trash => (!vm.IsArchiveView || vm.CanModifyArchive) && vm.SelectedEntries.Count > 0,
+            ShortcutIds.Paste => (!vm.IsArchiveView || vm.CanModifyArchive) && vm.HasPasteableContent,
+            ShortcutIds.NewFile or ShortcutIds.NewFolder => vm.CanCreateItems,
             ShortcutIds.Open => vm.SelectedEntries.Count >= 1,
             ShortcutIds.Info => vm.SelectedEntries.Count == 1,
             ShortcutIds.BatchRename => vm.CanBatchRename,

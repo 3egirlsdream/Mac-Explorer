@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Layout;
 using LiquidGlassAvaloniaUI;
+using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using MacExplorer.Services.Markdown;
 
 namespace MacExplorer.Views;
@@ -11,9 +13,12 @@ public partial class MainWindow
     private long _markdownOpenGeneration;
     private bool IsMarkdownEditorOpen => _markdownEditor?.IsVisible == true;
 
-    public async Task OpenMarkdownEditorAsync(string path)
+    public Task OpenMarkdownEditorAsync(string path)
+        => MarkdownDocument.IsMarkdown(path) ? OpenTextEditorAsync(path) : Task.CompletedTask;
+
+    internal async Task OpenTextEditorAsync(string path, Func<byte[], byte[], CancellationToken, Task>? writeArchive = null)
     {
-        if (_shutdownStarted || IsModalInteractionBlocked || !MarkdownDocument.IsMarkdown(path)) return;
+        if (_shutdownStarted || IsModalInteractionBlocked || !TextFileTypes.IsText(writeArchive == null ? path : ArchivePathHelper.Parse(path).internalPath)) return;
         var generation = ++_markdownOpenGeneration;
         if (IsMarkdownEditorOpen)
         {
@@ -50,11 +55,11 @@ public partial class MainWindow
             // Native live-preview surfaces must not float above the Markdown editor.
             await _livePreviewCoordinator.ActivateAsync(null);
             if (ReferenceEquals(_markdownEditor, editor) && editor.IsVisible)
-                await editor.OpenAsync(path);
+                await editor.OpenAsync(path, writeArchive);
         }
         catch (Exception ex)
         {
-            if (ReferenceEquals(_markdownEditor, editor)) editor.ShowError("无法打开编辑器：" + ex.Message);
+            if (ReferenceEquals(_markdownEditor, editor)) editor.ShowError(LocalizationText.Get("打开失败：{0}", ex.Message));
         }
     }
 

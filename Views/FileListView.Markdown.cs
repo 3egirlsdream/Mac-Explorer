@@ -1,22 +1,27 @@
 using Avalonia.Controls;
 using MacExplorer.Models;
-using MacExplorer.Services.Markdown;
+using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Views;
 
 public partial class FileListView
 {
-    private ContextMenuAction? CreateMarkdownEditAction(FileSystemEntry? entry)
+    private ContextMenuAction? CreateTextEditAction(FileSystemEntry? entry)
     {
-        if (entry == null || entry.IsDirectory || entry.IsVirtual || !MarkdownDocument.IsMarkdown(entry.Name)
-            || !Path.IsPathFullyQualified(entry.FullPath)
-            || ViewModel == null || ViewModel.SelectedEntries.Count != 1
-            || ViewModel.IsArchiveView || ViewModel.IsRemoteView)
+        if (entry == null || entry.IsDirectory || entry.IsVirtual || !TextFileTypes.IsText(entry.Name)
+            || ViewModel is not { } vm || vm.SelectedEntries.Count != 1 || vm.IsRemoteView
+            || vm.IsTrashActive || VirtualPath.IsRemotePath(entry.FullPath))
             return null;
-        var path = entry.FullPath; // Capture the clicked file, not a later mutable selection.
+
+        var path = entry.FullPath;
+        var archiveWriter = vm.IsArchiveView ? vm.GetArchiveTextWriter(entry) : null;
+        if (vm.IsArchiveView ? archiveWriter == null : !Path.IsPathFullyQualified(path) || !entry.IsWritable)
+            return null;
+
         return new ContextMenuAction
         {
-            Label = MacExplorer.Services.Impl.LocalizationText.Get("编辑"),
+            Label = LocalizationText.Get("编辑"),
             IconSvg = Assets.Icons.Edit,
             IsQuickAction = true,
             Execute = async () =>
@@ -24,11 +29,8 @@ public partial class FileListView
                 var window = TopLevel.GetTopLevel(this) as MainWindow;
                 DismissContextMenu();
                 if (window == null) return;
-                try { await window.OpenMarkdownEditorAsync(path); }
-                catch (Exception ex)
-                {
-                    if (ViewModel != null) ViewModel.StatusText = MacExplorer.Services.Impl.LocalizationText.Get("无法打开 Markdown 编辑器：") + ex.Message;
-                }
+                try { await window.OpenTextEditorAsync(path, archiveWriter); }
+                catch (Exception ex) { vm.StatusText = LocalizationText.Get("打开失败：{0}", ex.Message); }
             }
         };
     }

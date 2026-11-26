@@ -71,7 +71,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         if (FileTaskContext.Current is { } parent) return await execute(parent);
         cancellationToken.ThrowIfCancellationRequested();
         var info = new BackgroundTaskInfo { Kind = request.Kind, Label = request.Label,
-            State = BackgroundTaskState.Waiting, IsQueuedFileTask = true, Request = request, CanRetry = true, TotalItems = request.Sources.Count };
+            State = BackgroundTaskState.Waiting, IsQueuedFileTask = true, Request = request, CanRetry = request.AllowRetry, TotalItems = request.Sources.Count };
         Entry? entry = null;
         var context = new FileTaskContext(info, () => PauseAtCheckpointAsync(entry!), RaiseTasksChanged, features);
         entry = new Entry { Info = info, Request = request, Context = context,
@@ -134,7 +134,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         object? result = null; Exception? failure = null;
         try { result = await entry.Execute(); }
         catch (Exception ex) { failure = ex; }
-        var retainedBytes = failure != null || entry.Info.ErrorMessage != null
+        var retainedBytes = entry.Request.AllowRetry && (failure != null || entry.Info.ErrorMessage != null)
             ? entry.Context.EstimateRetainedBytes(FailedRetryByteLimit) : 0;
         Func<Task>? callback = null;
         lock (_lock)
@@ -161,7 +161,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         }
         if (entry.Info.State is BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention)
             RecordFailure(entry.Info, failure);
-        if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+        if (!entry.Request.AllowRetry || entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
         {
             entry.Info.RetainedRetryBytes = 0;
             entry.Context.ReleaseExecutionState();
@@ -172,7 +172,7 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
             entry.Slot = entry.Claimed = entry.Executing = false;
             entry.Resume = null;
             entry.Registration.Unregister();
-            if (entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
+            if (!entry.Request.AllowRetry || entry.Info.State is BackgroundTaskState.Completed or BackgroundTaskState.Cancelled)
                 _queue.Remove(entry);
             TrimCompletedTasks();
         }

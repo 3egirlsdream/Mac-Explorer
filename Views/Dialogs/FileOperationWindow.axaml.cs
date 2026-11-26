@@ -57,6 +57,7 @@ internal partial class FileOperationWindow : DialogWindow
         {
             FileOperationPresentation.Paste => L("operation.to", Path.GetFileName(destination)),
             FileOperationPresentation.EmptyTrash => L("operation.trash-location"),
+            FileOperationPresentation.ArchiveUpdate => Path.GetFileName(destination),
             _ when deletion => L("operation.cleaning", name),
             _ => name + " → " + Path.GetFileName(destination)
         };
@@ -113,7 +114,8 @@ internal partial class FileOperationWindow : DialogWindow
         var done = _display.ByItems ? _display.DoneItems : _display.DoneBytes;
         var total = _display.ByItems ? _display.TotalItems : _display.TotalBytes;
         Bar.IsIndeterminate = uncertain && state is BackgroundTaskState.Running or BackgroundTaskState.Waiting;
-        var progress = total > 0 ? Math.Clamp(done * 100d / total, 0, 100) : 0;
+        var archiveUpdate = _display.Kind == FileOperationPresentation.ArchiveUpdate;
+        var progress = archiveUpdate ? _task.Progress : total > 0 ? Math.Clamp(done * 100d / total, 0, 100) : 0;
         UpdateProgress(progress, !uncertain && state == BackgroundTaskState.Running);
         Percent.Text = uncertain ? "" : $"{Math.Round(progress)}%";
         Current.Text = failure ? _task.CurrentFile : state switch
@@ -124,10 +126,10 @@ internal partial class FileOperationWindow : DialogWindow
             _ => string.IsNullOrEmpty(_task.CurrentFile) ? "" : L("operation.current", Path.GetFileName(_task.CurrentFile))
         };
         ToolTip.SetTip(Current, _task.CurrentFile);
-        Amount.Text = _display.Preparing || _display.FinderRunning ? "" : _display.ByItems
+        Amount.Text = archiveUpdate || _display.Preparing || _display.FinderRunning ? "" : _display.ByItems
             ? L("operation.processed", done, total)
             : FileTaskPanelPresenter.FormatBytes(done) + " / " + FileTaskPanelPresenter.FormatBytes(total);
-        UpdateRate(done, total, !uncertain && state == BackgroundTaskState.Running);
+        UpdateRate(done, total, !archiveUpdate && !uncertain && state == BackgroundTaskState.Running);
         Pause.IsVisible = _task.Kind != BackgroundTaskKind.Delete && !failure;
         Pause.IsEnabled = state is BackgroundTaskState.Running or BackgroundTaskState.Waiting or BackgroundTaskState.Paused or BackgroundTaskState.Pausing;
         Pause.Content = L(state is BackgroundTaskState.Paused or BackgroundTaskState.Pausing ? "operation.resume" : "operation.pause");

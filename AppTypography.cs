@@ -1,5 +1,7 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 
 namespace MacExplorer;
 
@@ -17,6 +19,31 @@ internal static class AppTypography
     public const string Heading = "FontSizeHeading";
     public const string Title = "FontSizeTitle";
     public const string Display = "FontSizeDisplay";
+
+    private static int _globalTextOptionsRegistered;
+
+    /// <summary>
+    /// Grayscale antialiasing with macOS CoreText font smoothing enabled so 1x displays stay crisp and solid.
+    /// </summary>
+    public static TextOptions DefaultTextOptions { get; } = new()
+    {
+        TextRenderingMode = TextRenderingMode.Antialias,
+        TextHintingMode = TextHintingMode.Strong,
+    };
+
+    public static void RegisterGlobalTextOptions()
+    {
+        if (Interlocked.Exchange(ref _globalTextOptionsRegistered, 1) != 0) return;
+        Control.LoadedEvent.AddClassHandler<TopLevel>((topLevel, _) => ApplyTextOptions(topLevel));
+    }
+
+    public static void ApplyTextOptions(Visual visual)
+    {
+        var current = TextOptions.GetTextOptions(visual);
+        if (current.TextRenderingMode == TextRenderingMode.Unspecified
+            && current.TextHintingMode == TextHintingMode.Unspecified)
+            TextOptions.SetTextOptions(visual, DefaultTextOptions);
+    }
 
     public static TextBlock BindFontSize(TextBlock control, string resourceKey)
     {

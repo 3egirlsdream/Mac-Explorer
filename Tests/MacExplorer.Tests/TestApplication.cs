@@ -14,6 +14,7 @@ public sealed class TestApplication : Application
     {
         // Mirror App startup so Markdown rendering resolves its translations.
         MarkdownLocalization.Register();
+        AppTypography.RegisterGlobalTextOptions();
         Lang.Avalonia.I18nManager.Instance.Culture =
             MacExplorer.Services.Impl.LocalizationService.Current?.Culture
             ?? System.Globalization.CultureInfo.GetCultureInfo("zh-CN");

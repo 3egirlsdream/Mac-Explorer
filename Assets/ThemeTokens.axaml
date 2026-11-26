@@ -143,12 +143,12 @@
                     <SolidColorBrush x:Key="ComboBoxBackgroundBorderBrushFocused" Color="#2463D4"/>
                     <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxBackgroundUnfocused" Color="#F3F4F6"/>
-                    <SolidColorBrush x:Key="ComboBoxForeground" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxForegroundFocusedPressed" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#565D67"/>
-                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#565D67"/>
-                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocusedPressed" Color="#565D67"/>
+                    <SolidColorBrush x:Key="ComboBoxForeground" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundFocused" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundFocusedPressed" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#4A505A"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#4A505A"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocusedPressed" Color="#4A505A"/>
                     <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#E1E4E9"/>
                     <BoxShadows x:Key="ComboBoxDropDownShadow">0 4 16 -8 #26000000</BoxShadows>
@@ -156,12 +156,12 @@
                     <Thickness x:Key="ComboBoxDropdownBorderPadding">6</Thickness>
                     <Thickness x:Key="ComboBoxDropdownContentMargin">0</Thickness>
                     <Thickness x:Key="ComboBoxItemThemePadding">10,6</Thickness>
-                    <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxItemForegroundPointerOver" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxItemForegroundPressed" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="#252830"/>
-                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed" Color="#252830"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundPointerOver" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundPressed" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPressed" Color="#1D1D1F"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackground" Color="Transparent"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#ECEEF2"/>
@@ -170,9 +170,9 @@
                     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="Transparent"/>
                     <SolidColorBrush x:Key="ControlHoverBrush" Color="#ECEEF2"/>
                     <SolidColorBrush x:Key="SelectionBrush" Color="#E5EEFC"/>
-                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#252830"/>
-                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#565D67"/>
-                    <SolidColorBrush x:Key="TextMutedBrush" Color="#646B76"/>
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1D1D1F"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4A505A"/>
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#59606B"/>
                     <SolidColorBrush x:Key="TextSubtleBrush" Color="#737A86"/>
                     <SolidColorBrush x:Key="TextDisabledBrush" Color="#A0A5AF"/>
                     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>

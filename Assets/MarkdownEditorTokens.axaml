@@ -1,0 +1,44 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+    <SolidColorBrush x:Key="EditorOnAccentBrush" Color="#FFFFFF"/>
+    <CornerRadius x:Key="EditorButtonRadius">6</CornerRadius>
+    <Thickness x:Key="EditorTextInset">20,16</Thickness>
+    <sys:Double x:Key="EditorScrollBarSize">6</sys:Double>
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="EditorSurfaceBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="EditorSubtleBrush" Color="#FAFAFB"/>
+            <SolidColorBrush x:Key="EditorHoverBrush" Color="#F2F2F7"/>
+            <SolidColorBrush x:Key="EditorDividerBrush" Color="#EBECEF"/>
+            <SolidColorBrush x:Key="EditorGutterDividerBrush" Color="#F0F0F2"/>
+            <SolidColorBrush x:Key="EditorTextBrush" Color="#1D1D1F"/>
+            <SolidColorBrush x:Key="EditorSecondaryBrush" Color="#6E6E73"/>
+            <SolidColorBrush x:Key="EditorMutedBrush" Color="#98989D"/>
+            <SolidColorBrush x:Key="EditorAccentBrush" Color="#007AFF"/>
+            <SolidColorBrush x:Key="EditorAccentHoverBrush" Color="#0066D6"/>
+            <SolidColorBrush x:Key="EditorProseBrush" Color="#2C2C2E"/>
+            <SolidColorBrush x:Key="EditorQuoteLineBrush" Color="#D1D1D6"/>
+            <SolidColorBrush x:Key="EditorQuoteTextBrush" Color="#515154"/>
+            <SolidColorBrush x:Key="EditorScrollThumbBrush" Color="#1F000000"/>
+            <SolidColorBrush x:Key="EditorScrollThumbHoverBrush" Color="#40000000"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="EditorSurfaceBrush" Color="#232325"/>
+            <SolidColorBrush x:Key="EditorSubtleBrush" Color="#1D1D1F"/>
+            <SolidColorBrush x:Key="EditorHoverBrush" Color="#353539"/>
+            <SolidColorBrush x:Key="EditorDividerBrush" Color="#363639"/>
+            <SolidColorBrush x:Key="EditorGutterDividerBrush" Color="#2C2C2E"/>
+            <SolidColorBrush x:Key="EditorTextBrush" Color="#F5F5F7"/>
+            <SolidColorBrush x:Key="EditorSecondaryBrush" Color="#B5B5BA"/>
+            <SolidColorBrush x:Key="EditorMutedBrush" Color="#A1A1A7"/>
+            <SolidColorBrush x:Key="EditorAccentBrush" Color="#0A74EB"/>
+            <SolidColorBrush x:Key="EditorAccentHoverBrush" Color="#0864D1"/>
+            <SolidColorBrush x:Key="EditorProseBrush" Color="#ECECEE"/>
+            <SolidColorBrush x:Key="EditorQuoteLineBrush" Color="#515154"/>
+            <SolidColorBrush x:Key="EditorQuoteTextBrush" Color="#C1C1C5"/>
+            <SolidColorBrush x:Key="EditorScrollThumbBrush" Color="#33FFFFFF"/>
+            <SolidColorBrush x:Key="EditorScrollThumbHoverBrush" Color="#59FFFFFF"/>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

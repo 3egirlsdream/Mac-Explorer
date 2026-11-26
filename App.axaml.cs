@@ -36,6 +36,7 @@ public partial class App : Application
         // This ensures Application.Current is available before theme services initialize.
         AvaloniaXamlLoader.Load(this);
         Platforms.MacOS.MacFontLifetime.Prepare();
+        AppTypography.RegisterGlobalTextOptions();
         MacExplorer.Services.Markdown.MarkdownLocalization.Register();
         Services = ConfigureServices();
         FeatureAccess.Current = Services.GetRequiredService<FeatureAccessService>();

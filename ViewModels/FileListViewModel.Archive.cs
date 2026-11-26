@@ -16,11 +16,6 @@ public partial class FileListViewModel
         return true;
     }
 
-    internal Task ExtractEntireArchiveAsync()
-        => _navigation.CurrentArchivePath is { } path
-            ? QueueArchiveExtraction(path, new(Path.GetDirectoryName(path)!, ArchiveExtractionMode.NamedFolder))
-            : Task.CompletedTask;
-
     private Task ExtractArchiveItemAsync(FileSystemEntry entry)
     {
         var (path, key) = ArchivePathHelper.Parse(entry.FullPath);

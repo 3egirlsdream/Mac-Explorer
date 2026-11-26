@@ -107,6 +107,37 @@ public partial class ArchiveViewModel : ObservableObject
         return Task.CompletedTask;
     }
 
+    internal Task ExportClipboardEntriesAsync(string path, ArchiveExtractionOptions options)
+    {
+        var request = new FileTaskRequest(BackgroundTaskKind.Extract, LocalizationText.Get("拷贝"), [path], options.Directory)
+        {
+            AllowRetry = false
+        };
+        return FileTaskContext.RunAsync(_taskManager, request, async context =>
+        {
+            var progress = new Progress<ArchiveProgress>(value =>
+                _taskManager?.UpdateProgress(context.Task.Id, value.Percentage, value.CurrentFile));
+            await _archiveService!.ExtractAsync(path, options, progress, context.CancellationToken);
+            return true;
+        });
+    }
+
+    internal Task<T> RunZipMutationAsync<T>(string path, Func<CancellationToken, Action<double>, Task<T>> mutate,
+        CancellationToken token = default, IReadOnlyList<string>? sources = null)
+    {
+        var operation = new FileOperationDisplay(FileOperationPresentation.ArchiveUpdate);
+        var request = new FileTaskRequest(BackgroundTaskKind.Generic, LocalizationText.Get("operation.ArchiveUpdate"), sources ?? [], path)
+        {
+            Operation = operation,
+            AllowRetry = false
+        };
+        return FileTaskContext.RunAsync(_taskManager, request, context => mutate(context.CancellationToken, progress =>
+        {
+            operation.Preparing = false;
+            _taskManager?.UpdateProgress(context.Task.Id, progress * 100, Path.GetFileName(path));
+        }), token);
+    }
+
     public async Task<string?> ExtractEntryToTempWithPasswordAsync(string archivePath, string entryKey,
         Func<Task<string?>> promptPassword)
     {

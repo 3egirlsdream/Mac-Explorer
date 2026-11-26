@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using CodeWF.Markdown;
@@ -96,5 +97,44 @@ public partial class MarkdownPreviewView : UserControl
         {
             textBlock.Copy();
         }
+    }
+}
+
+/// <summary>Applies editor typography to values assigned locally by the Markdown renderer.</summary>
+internal sealed class EditorProse : AvaloniaObject
+{
+    public enum BlockPart { None, Title, Section, Quote }
+
+    public static readonly AttachedProperty<BlockPart> PartProperty =
+        AvaloniaProperty.RegisterAttached<EditorProse, Control, BlockPart>("Part");
+
+    public static BlockPart GetPart(Control control) => control.GetValue(PartProperty);
+    public static void SetPart(Control control, BlockPart value) => control.SetValue(PartProperty, value);
+
+    static EditorProse()
+    {
+        PartProperty.Changed.AddClassHandler<Control>((control, change) =>
+        {
+            switch (control, change.GetNewValue<BlockPart>())
+            {
+                case (Border title, BlockPart.Title):
+                    title.Margin = new Thickness(0, 0, 0, 16);
+                    title.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("EditorDividerBrush"));
+                    break;
+                case (Border section, BlockPart.Section):
+                    section.Margin = new Thickness(0, 28, 0, 12);
+                    break;
+                case (SelectableTextBlock heading, BlockPart.Section):
+                    heading.FontWeight = FontWeight.SemiBold;
+                    break;
+                case (Border quote, BlockPart.Quote):
+                    quote.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("EditorQuoteLineBrush"));
+                    break;
+                case (SelectableTextBlock paragraph, BlockPart.Quote):
+                    paragraph.Margin = default;
+                    paragraph.Bind(SelectableTextBlock.ForegroundProperty, new DynamicResourceExtension("EditorQuoteTextBrush"));
+                    break;
+            }
+        });
     }
 }

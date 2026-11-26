@@ -1883,4 +1883,57 @@
         <Setter Property="Width" Value="15"/>
         <Setter Property="Height" Value="15"/>
     </Style>
+    <Style Selector="Button.editor-header-action, Button.editor-icon">
+        <Setter Property="CornerRadius" Value="{DynamicResource EditorButtonRadius}"/>
+        <Setter Property="Foreground" Value="{DynamicResource EditorSecondaryBrush}"/>
+    </Style>
+    <Style Selector="Button.editor-header-action">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="Padding" Value="10,0"/>
+    </Style>
+    <Style Selector="Button.editor-icon">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="MinWidth" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.editor-header-action:pointerover, Button.editor-icon:pointerover">
+        <Setter Property="Background" Value="{DynamicResource EditorHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.editor-save">
+        <Setter Property="Theme" Value="{StaticResource SurfaceButtonTheme}"/>
+        <Setter Property="Background" Value="{DynamicResource EditorHoverBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource EditorMutedBrush}"/>
+        <Setter Property="Cursor" Value="Arrow"/>
+    </Style>
+    <Style Selector="Button.editor-save:disabled">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.editor-save.dirty:not(:disabled)">
+        <Setter Property="Background" Value="{DynamicResource EditorAccentBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource EditorOnAccentBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.editor-save.dirty:not(:disabled):pointerover, Button.editor-save.dirty:not(:disabled):pressed">
+        <Setter Property="Background" Value="{DynamicResource EditorAccentHoverBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.view-mode-toggle.editor-mode">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="MinWidth" Value="28"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="Foreground" Value="{DynamicResource EditorSecondaryBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.editor-mode /template/ Path.view-mode-toggle-surface">
+        <Setter Property="Stretch" Value="Fill"/>
+    </Style>
+    <Style Selector="ToggleButton.editor-mode:checked">
+        <Setter Property="Foreground" Value="{DynamicResource EditorTextBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.editor-mode:checked /template/ Path.view-mode-toggle-surface">
+        <Setter Property="Fill" Value="{DynamicResource EditorSurfaceBrush}"/>
+    </Style>
+
 </Styles>

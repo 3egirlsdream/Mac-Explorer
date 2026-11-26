@@ -34,3 +34,9 @@ TAR 复合后缀包括 `.tar.gz`、`.tar.gzip`、`.tar.bz2`、`.tar.bzip2`、`.t
 本次不增加压缩输出格式、不新增分卷选择或合并界面，也不引入 CAB、ISO、CPIO、DEB、RPM 等额外引擎格式。
 
 兼容能力依据 [SharpCompress 0.49.1 格式说明](https://github.com/adamhathcock/sharpcompress/blob/0.49.1/docs/FORMATS.md)及对应版本解码实现；测试样本与来源见 [归档测试数据](../Tests/MacExplorer.Tests/TestData/Archives/README.md)。
+
+## 在 ZIP 内修改文件
+
+本地未加密的普通 `.zip` 可以直接从包内文件列表修改。右键「编辑」在内置编辑器打开 UTF-8 或带 BOM 的 UTF-16／UTF-32 文本，包内文本上限为 4 MiB。双击文件仍由默认应用打开临时副本，空格仍打开预览。
+
+新建、粘贴、从文件管理器拖入和确认删除均在包内执行。包内文件和文件夹可通过工具栏、右键菜单或 `⌘C` 复制，可粘贴到 ZIP 包内或普通文件夹。拖入和粘贴保留源文件，拖到包内文件夹会将它用作目标。删除直接移除包内条目。支持克隆的卷复用原 ZIP 的未改数据。不支持克隆时直接从原包流式生成临时 ZIP。写完并校验后替换原包，取消或失败时保留原包。较慢的操作显示进度并支持取消。

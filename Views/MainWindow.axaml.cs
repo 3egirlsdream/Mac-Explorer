@@ -913,7 +913,9 @@ public partial class MainWindow : AppWindow
                 var label = vm.DeleteConfirmItemCount == 1
                     ? Services.Impl.LocalizationText.Get("confirm.item_quote", vm.DeleteConfirmFirstItemName)
                     : Services.Impl.LocalizationText.Get("confirm.selected_items", vm.DeleteConfirmItemCount);
-                var message = vm.DeleteConfirmIncludesRemoteFiles
+                var message = vm.DeleteConfirmIncludesArchiveEntries
+                    ? Services.Impl.LocalizationText.Get("archive.delete_entries_confirm", label)
+                    : vm.DeleteConfirmIncludesRemoteFiles
                     ? Services.Impl.LocalizationText.Get("confirm.trash_remote_message", label)
                     : Services.Impl.LocalizationText.Get("confirm.trash_message", label);
                 var confirmed = await ShowConfirmationAsync("ui.374", message, "ui.006", isDanger: true);

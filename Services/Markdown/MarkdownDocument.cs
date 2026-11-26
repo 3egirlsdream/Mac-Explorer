@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Services.Markdown;
 
@@ -12,18 +13,23 @@ internal sealed class MarkdownDocument
     private readonly byte[] _fingerprint;
     private readonly Encoding _encoding;
     private readonly string _writePath;
+    private readonly Func<byte[], byte[], CancellationToken, Task>? _writeArchive;
 
-    private MarkdownDocument(string path, string writePath, string text, Encoding encoding, byte[] fingerprint)
+    private MarkdownDocument(string path, string writePath, string text, Encoding encoding, byte[] fingerprint,
+        Func<byte[], byte[], CancellationToken, Task>? writeArchive = null)
     {
         FilePath = path;
         _writePath = writePath;
         Text = text;
         _encoding = encoding;
         _fingerprint = fingerprint;
+        _writeArchive = writeArchive;
         NewLine = DetectNewLine(text);
     }
 
     public string FilePath { get; }
+    public string Name => Path.GetFileName(IsArchiveEntry ? ArchivePathHelper.Parse(FilePath).internalPath : FilePath);
+    public bool IsArchiveEntry => _writeArchive != null;
     public string Text { get; }
     public string NewLine { get; }
     public string EncodingName => _encoding.WebName + (_encoding.GetPreamble().Length > 0 ? " BOM" : string.Empty);
@@ -33,10 +39,16 @@ internal sealed class MarkdownDocument
         string.Equals(Path.GetExtension(path), ".md", StringComparison.OrdinalIgnoreCase);
 
     public static Task<MarkdownDocument> OpenAsync(string path, CancellationToken cancellationToken = default)
+        => OpenLocalAsync(path, markdownOnly: true, cancellationToken);
+
+    internal static Task<MarkdownDocument> OpenTextAsync(string path, CancellationToken token)
+        => OpenLocalAsync(path, markdownOnly: false, token);
+
+    private static Task<MarkdownDocument> OpenLocalAsync(string path, bool markdownOnly, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        if (!Path.IsPathFullyQualified(path) || !IsMarkdown(path))
-            throw new ArgumentException("请选择本地 .md 文件。", nameof(path));
+        if (!Path.IsPathFullyQualified(path) || (markdownOnly ? !IsMarkdown(path) : !TextFileTypes.IsText(path)))
+            throw new ArgumentException(LocalizationText.Get("editor.text_required"), nameof(path));
         return Task.Run(async () =>
         {
             var fullPath = Path.GetFullPath(path);
@@ -51,14 +63,41 @@ internal sealed class MarkdownDocument
         Task.Run(async () => Decode(await ReadBoundedAsync(path, cancellationToken).ConfigureAwait(false)).Text,
             cancellationToken);
 
-    public Task<MarkdownDocument> SaveAsync(string text, CancellationToken cancellationToken = default) =>
-        SaveCoreAsync(FilePath, _writePath, text, _fingerprint, cancellationToken);
+    internal static async Task<MarkdownDocument> OpenArchiveAsync(string path,
+        Func<byte[], byte[], CancellationToken, Task> writeArchive, CancellationToken token)
+    {
+        var (archivePath, key) = ArchivePathHelper.Parse(path);
+        var bytes = await ZipMutationService.ReadTextAsync(archivePath, key, MaxReadBytes, token).ConfigureAwait(false);
+        var (text, encoding) = Decode(bytes);
+        return new MarkdownDocument(path, "", text, encoding, SHA256.HashData(bytes), writeArchive);
+    }
+
+    public async Task<MarkdownDocument> SaveAsync(string text, CancellationToken cancellationToken = default)
+    {
+        if (_writeArchive == null)
+            return await SaveCoreAsync(FilePath, _writePath, text, _fingerprint, cancellationToken).ConfigureAwait(false);
+        var bytes = Encode(text);
+        await _writeArchive(_fingerprint, bytes, cancellationToken).ConfigureAwait(false);
+        return new MarkdownDocument(FilePath, "", text, _encoding, SHA256.HashData(bytes), _writeArchive);
+    }
+
+    private byte[] Encode(string text)
+    {
+        var preamble = _encoding.GetPreamble();
+        var byteCount = _encoding.GetByteCount(text);
+        if (byteCount > MaxReadBytes - preamble.Length)
+            throw new IOException(LocalizationText.Get("editor.text_limit"));
+        var output = new byte[preamble.Length + byteCount];
+        preamble.CopyTo(output, 0);
+        _encoding.GetBytes(text, output.AsSpan(preamble.Length));
+        return output;
+    }
 
     /// <summary>The save picker must have obtained overwrite consent before this method is called.</summary>
     public Task<MarkdownDocument> SaveCopyAsync(string path, string text, CancellationToken cancellationToken = default)
     {
-        if (!Path.IsPathFullyQualified(path) || !IsMarkdown(path))
-            throw new ArgumentException("另存为的文件名必须以 .md 结尾。", nameof(path));
+        if (!Path.IsPathFullyQualified(path) || !string.Equals(Path.GetExtension(path), Path.GetExtension(Name), StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException(LocalizationText.Get("editor.same_extension"), nameof(path));
         return Task.Run(async () =>
         {
             var fullPath = Path.GetFullPath(path);
@@ -172,7 +211,7 @@ internal sealed class MarkdownDocument
     {
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
             64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        if (stream.Length > MaxReadBytes) throw new IOException("仅支持打开 4 MB 以内的 Markdown 文件。");
+        if (stream.Length > MaxReadBytes) throw new IOException(LocalizationText.Get("editor.text_limit"));
         using var output = new MemoryStream((int)stream.Length);
         var buffer = new byte[64 * 1024];
         int read;
@@ -180,7 +219,7 @@ internal sealed class MarkdownDocument
                    (int)Math.Min(buffer.Length, MaxReadBytes + 1L - output.Length)), cancellationToken).ConfigureAwait(false)) > 0)
         {
             output.Write(buffer, 0, read);
-            if (output.Length > MaxReadBytes) throw new IOException("文件读取过程中超过了 4 MB 限制。");
+            if (output.Length > MaxReadBytes) throw new IOException(LocalizationText.Get("editor.text_limit"));
         }
         return output.ToArray();
     }
@@ -203,12 +242,12 @@ internal sealed class MarkdownDocument
         try
         {
             var text = encoding.GetString(bytes, skip, bytes.Length - skip);
-            if (text.Contains('\0')) throw new IOException("文件包含二进制内容，不能作为 Markdown 编辑。");
+            if (text.Contains('\0')) throw new IOException(LocalizationText.Get("editor.binary"));
             return (text, encoding);
         }
         catch (DecoderFallbackException ex)
         {
-            throw new IOException("无法无损解码此文件。支持 UTF-8，以及带 BOM 的 UTF-16/UTF-32；请先转换编码。", ex);
+            throw new IOException(LocalizationText.Get("editor.encoding"), ex);
         }
     }
 
