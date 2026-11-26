@@ -145,6 +145,10 @@ Copilot asks for confirmation before sharing file details, sending file contents
 
 See the [build guide](doc/BUILD.md) for compiling, packaging, signing, and notarization, and [testing instructions](AGENTS.md#自动测试) for isolated app tests. To report a bug or suggest a feature, open a [GitHub Issue](https://github.com/3egirlsdream/Mac-Explorer/issues) with your macOS version, app version, and steps to reproduce.
 
+**QQ group `1106162306`**
+
+<img src=".github/assets/readme-qq-group.png" width="240" alt="QR code for the Mac Explorer QQ group">
+
 ## License
 
 Mac Explorer is licensed under [GNU GPL v3.0 or later](LICENSE). Third-party notices are listed in [ThirdParty/Notices](ThirdParty/Notices/README.md).

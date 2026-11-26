@@ -145,6 +145,10 @@ Copilot 在分享文件信息、发送正文或修改文件前都会先请求你
 
 想自己编译、打包或公证，请查看 [构建文档](doc/BUILD.md)；运行隔离测试请参考 [测试说明](AGENTS.md#自动测试)。如果遇到 Bug 或有好点子，欢迎到 [GitHub Issues](https://github.com/3egirlsdream/Mac-Explorer/issues) 提反馈，附上 macOS 版本、应用版本和复现步骤即可。
 
+**QQ 交流群 `1106162306`**
+
+<img src=".github/assets/readme-qq-group.png" width="240" alt="Mac Explorer QQ 交流群二维码">
+
 ## 许可证
 
 Mac Explorer 使用 [GNU GPL v3.0 或更新版本](LICENSE) 协议开源。第三方许可声明汇总在 [ThirdParty/Notices](ThirdParty/Notices/README.md)。
