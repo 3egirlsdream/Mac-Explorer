@@ -468,6 +468,12 @@ public partial class FinderSidebarView : UserControl
             {
                 var effect = FileDropPolicy.GetEffect(paths, targetPath, allowedEffects);
                 if (effect == DragDropEffects.None || !Directory.Exists(targetPath)) return;
+                if (effect == DragDropEffects.Move)
+                    paths = paths.Where(path => !FileDropPolicy.IsSameDestination(path, targetPath)).ToArray();
+
+                var authorization = Platforms.MacOS.MacNativeFileDrop.AuthorizeSourcesAsync(TopLevel.GetTopLevel(this) as Window, paths);
+                if (!authorization.IsCompleted) e.DragEffects = allowedEffects & DragDropEffects.Copy;
+                if (!await authorization) { e.DragEffects = DragDropEffects.None; return; }
                 if (effect == DragDropEffects.Copy)
                 {
                     var copied = await App.Services.GetRequiredService<IDragDropService>()
@@ -475,7 +481,6 @@ public partial class FinderSidebarView : UserControl
                     e.DragEffects = copied ? effect : DragDropEffects.None;
                     return;
                 }
-                paths = paths.Where(path => !FileDropPolicy.IsSameDestination(path, targetPath)).ToArray();
                 var fileService = App.Services.GetRequiredService<IFileService>();
                 var target = await fileService.GetEntryAsync(targetPath);
                 if (target is not { IsDirectory: true, IsWritable: true }) return;

@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:MacExplorer.Controls"
+             xmlns:loc="using:MacExplorer.Controls"
+             xmlns:icons="using:MacExplorer.Assets"
+             x:Class="MacExplorer.Views.MindMapPreviewView"
+             x:ClassModifier="internal">
+    <Grid RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto" Margin="12,6,12,0" ColumnSpacing="8">
+            <controls:AppComboBox x:Name="SheetPicker" HorizontalAlignment="Left" MaxWidth="240"
+                                  AutomationProperties.Name="{loc:Loc preview.mind-map.sheets}"
+                                  ToolTip.Tip="{loc:Loc preview.mind-map.sheets}"
+                                  SelectionChanged="OnSheetChanged" IsVisible="False">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" MaxWidth="200"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </controls:AppComboBox>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                <controls:AppButton Classes="ghost icon-action small" Click="OnZoomOut"
+                                    AutomationProperties.Name="{loc:Loc preview.mind-map.zoom-out}"
+                                    ToolTip.Tip="{loc:Loc preview.mind-map.zoom-out}">
+                    <controls:FluentIcon Data="{x:Static icons:Icons.Subtract}" Width="16" Height="16"/>
+                </controls:AppButton>
+                <controls:AppButton Classes="ghost icon-action small" Click="OnZoomIn"
+                                    AutomationProperties.Name="{loc:Loc preview.action.zoom}"
+                                    ToolTip.Tip="{loc:Loc preview.action.zoom}">
+                    <controls:FluentIcon Data="{x:Static icons:Icons.Plus}" Width="16" Height="16"/>
+                </controls:AppButton>
+                <controls:AppButton Classes="ghost icon-action small" Click="OnFit"
+                                    AutomationProperties.Name="{loc:Loc preview.mind-map.fit}"
+                                    ToolTip.Tip="{loc:Loc preview.mind-map.fit}">
+                    <controls:FluentIcon Data="{x:Static icons:Icons.ExpandPreview}" Width="16" Height="16"/>
+                </controls:AppButton>
+            </StackPanel>
+        </Grid>
+        <controls:MindMapCanvas x:Name="Canvas" Grid.Row="1" FontSize="{DynamicResource FontSizeBodyLarge}"/>
+    </Grid>
+</UserControl>

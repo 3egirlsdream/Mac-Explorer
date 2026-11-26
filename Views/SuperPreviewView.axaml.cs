@@ -88,6 +88,7 @@ public partial class SuperPreviewView : UserControl
         _memoryLifetime = MemoryDiagnostics.Track(this, DiagnosticObjectKind.Preview);
         InitializeComponent();
         AddHandler(KeyDownEvent, OnDiffPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnMindMapPreviewKeyDown, RoutingStrategies.Tunnel);
         _isCompactPreview = isCompactPreview;
         _isGalleryPreview = isGalleryPreview;
         if (isCompactPreview)
@@ -488,6 +489,10 @@ public partial class SuperPreviewView : UserControl
             return;
         }
 
+        var extension = Path.GetExtension(entry.Name).ToLowerInvariant();
+        if (MindMapReader.Supports(extension) && await TryShowMindMapAsync(previewPath, extension, token, version))
+            return;
+
         if (TryShowDocumentPreview(previewPath, entry.Name))
             return;
 
@@ -518,9 +523,9 @@ public partial class SuperPreviewView : UserControl
         try
         {
             var maxPixels = _isCompactPreview && !_isGalleryPreview ? 720 : 1800;
-            var bytes = _thumbnailService == null
-                ? null
-                : await _thumbnailService.GetThumbnailAsync(previewPath, maxPixels, token);
+            var bytes = extension == ".emmx"
+                ? await EmbeddedThumbnailReader.ReadPngAsync(previewPath, extension, maxPixels, token)
+                : _thumbnailService == null ? null : await _thumbnailService.GetThumbnailAsync(previewPath, maxPixels, token);
             if (version != _operationVersion || token.IsCancellationRequested || !IsVisible)
                 return;
             if (bytes != null && bytes.Length > 0)
@@ -531,8 +536,7 @@ public partial class SuperPreviewView : UserControl
                 SetPreviewBitmap(bitmap);
                 if (UseEnhancedImageCanvas && !_isGalleryPreview)
                 {
-                    var ext = Path.GetExtension(entry.Name);
-                    _galleryShowCheckerboard = _checkerboardOverride ?? TransparentImageExtensions.Contains(ext);
+                    _galleryShowCheckerboard = _checkerboardOverride ?? TransparentImageExtensions.Contains(extension);
                     SyncGalleryImageCanvas();
                 }
                 PreviewImage.IsVisible = !UseEnhancedImageCanvas;
@@ -546,7 +550,8 @@ public partial class SuperPreviewView : UserControl
                 return;
             }
 
-            ShowPlaceholder(LocalizationText.Get(IsVideoFile(entry) ? "preview.video.unavailable" : "preview.unavailable"));
+            ShowPlaceholder(LocalizationText.Get(extension == ".emmx" ? "preview.mind-map.unavailable"
+                : IsVideoFile(entry) ? "preview.video.unavailable" : "preview.unavailable"));
         }
         catch (OperationCanceledException)
         {
@@ -908,6 +913,7 @@ public partial class SuperPreviewView : UserControl
     private void SetPreviewBitmap(Bitmap? bitmap)
     {
         ClearDiffPreview();
+        ClearMindMapPreview();
         ClearVideoPreview();
         ClearDocumentPreview();
         ClearMarkdownPreview();

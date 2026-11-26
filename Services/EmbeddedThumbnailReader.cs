@@ -7,17 +7,22 @@ internal static class EmbeddedThumbnailReader
     private const int MaxEntries = 512;
     private const int MaxPreviewBytes = 8 * 1024 * 1024;
 
-    internal static bool Supports(string extension) => extension is ".kra" or ".krz" or ".ora";
+    internal static bool Supports(string extension) => extension is ".kra" or ".krz" or ".ora" or ".emmx";
 
     internal static async Task<byte[]?> ReadPngAsync(string path, string extension, int maxPixelSize, CancellationToken ct)
     {
-        var previewName = extension == ".ora" ? "Thumbnails/thumbnail.png" : "preview.png";
+        string[] previewNames = extension switch
+        {
+            ".ora" => ["Thumbnails/thumbnail.png", "mergedimage.png"],
+            ".emmx" => ["thumbnail.png"],
+            _ => ["preview.png", "mergedimage.png"]
+        };
         try
         {
             using var file = File.OpenRead(path);
             using var archive = ZipArchive.OpenArchive(file);
             var entries = archive.Entries.Take(MaxEntries);
-            foreach (var name in new[] { previewName, "mergedimage.png" })
+            foreach (var name in previewNames)
             {
                 var entry = entries.FirstOrDefault(candidate =>
                 {

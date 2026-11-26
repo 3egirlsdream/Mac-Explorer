@@ -220,6 +220,8 @@ feat: 优化文件夹恢复
 
 - Diff／Patch 预览复用 `DiffPreviewView` 的双栏只读 AvaloniaEdit、`diff-preview` 样式与全局等宽字体／字号；按区块配对增删行并补齐空位，页边显示原文件行号，双向同步纵向滚动，各栏保留横向滚动。增删行使用 `SuccessBrush`／`DangerBrush` 文字与淡色背景，文件头与区块使用 `AccentBrush`；复制跳过对齐空位并保留原换行，无有效区块、格式不支持或超过十万行时显示补丁原文，读取上限和编码共用 `TextPreviewReader`。
 
+- 思维导图在空格预览与信息面板内共用 Avalonia 画布，按主题和分支以标准布局绘制，复用全局主题、Fluent 图标、AppButton 和 AppComboBox；支持适应窗口、缩放、拖动、折叠与多工作表。亿图脑图仅显示包内缩略图，复用既有图片预览。
+
 - 同名文件弹窗以全局默认按钮的实际尺寸为比例基准，按钮固定 32px 高、默认面板约 616×380px，不叠加 compact 字号或局部按钮高度；使用共享文件类型图标与左右元数据对照，窄窗口改为上下排列；标题居中复用 `dialog-window-title centered`；底部取消任务与处理操作分开，保留两者为默认操作，替换的附加选项复用全局 `SplitButton.secondary` 与标准菜单；其外观直接由 `Button.secondary` 和 `Button.icon-action` 组合，不复制颜色、圆角或边框样式，弹窗按钮不局部覆盖颜色和内边距。
 
 - 应用按钮统一使用 `Controls/AppButton.cs` 的 `AppButton` / `AppToggleButton` / `AppSplitButton`，所有按钮样式、主题和专用变体集中在 `Assets/ButtonStyles.axaml`，经 `ComponentStyles.axaml` 全局加载；页面只指定 Classes、内容、行为和布局，不设置颜色、字体、圆角、边框、内边距或固定高度。普通操作使用 primary／secondary／ghost／danger，按需追加 compact／small／dialog-action，图标操作用 icon-action；透明表面共用 SurfaceButtonTheme，组合下拉复用现有按钮。`Tools/Testing/check-buttons.py` 在统一测试入口自动检查，详见 `docs/development/buttons.md`。

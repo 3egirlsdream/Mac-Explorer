@@ -2052,6 +2052,12 @@ public partial class FileListView : UserControl
             if (target?.IsWritable == false || !VirtualPath.IsRemotePath(targetDirectory) && !Directory.Exists(targetDirectory)) return;
             var effect = FileDropPolicy.GetEffect(paths, targetDirectory, allowedEffects);
             if (effect == DragDropEffects.None) return;
+            if (effect == DragDropEffects.Move)
+                paths = paths.Where(path => !FileDropPolicy.IsSameDestination(path, targetDirectory)).ToArray();
+
+            var authorization = Platforms.MacOS.MacNativeFileDrop.AuthorizeSourcesAsync(TopLevel.GetTopLevel(this) as Window, paths);
+            if (!authorization.IsCompleted) e.DragEffects = allowedEffects & DragDropEffects.Copy;
+            if (!await authorization) { e.DragEffects = DragDropEffects.None; return; }
             e.DragEffects = effect;
             if (effect == DragDropEffects.Copy)
             {
@@ -2064,10 +2070,6 @@ public partial class FileListView : UserControl
                 if (!copied) e.DragEffects = DragDropEffects.None;
                 return;
             }
-
-            paths = paths.Where(path => !FileDropPolicy.IsSameDestination(path, targetDirectory)).ToArray();
-            if (paths.Length == 0)
-                return;
 
             var fileService = App.Services.GetRequiredService<IFileService>();
             var lookedUp = await Task.WhenAll(

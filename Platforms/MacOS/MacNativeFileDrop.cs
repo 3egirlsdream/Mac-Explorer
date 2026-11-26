@@ -91,6 +91,37 @@ internal static class MacNativeFileDrop
         finally { if (paths != 0) FreePathsNative(paths); }
     }
 
+    internal static async Task<bool> AuthorizeSourcesAsync(Window? window, IReadOnlyList<string> paths)
+    {
+        if (!DistributionChannel.IsAppStore) return true;
+        var access = DirectoryAccess.Current;
+        var missing = paths.Where(path => Path.IsPathFullyQualified(path) && !access.CanAccess(path)).ToArray();
+        if (missing.Length == 0) return true;
+        if (window?.IsVisible != true) return false;
+
+        // Begin the sheet after AppKit has finished handling the drop event.
+        await Dispatcher.Yield(DispatcherPriority.Background);
+        await AuthorizationGate.WaitAsync();
+        try
+        {
+            foreach (var source in missing)
+            {
+                if (!window.IsVisible) return false;
+                if (access.CanAccess(source)) continue;
+                var folder = Path.GetDirectoryName(source);
+                if (folder == null) return false;
+                var bookmark = await PickSourceFolderAsync(window, source, folder,
+                    LocalizationText.Get("drop.folder_access_title"),
+                    LocalizationText.Get("drop.folder_access_message", Path.GetFileName(folder)),
+                    LocalizationText.Get("drop.folder_access_continue"));
+                if (bookmark == null || !window.IsVisible) return false;
+                access.RememberDropFolder(bookmark, source);
+            }
+            return true;
+        }
+        finally { AuthorizationGate.Release(); }
+    }
+
     internal static bool Receive(Window window, string targetDirectory)
     {
         if (window.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle handle) return false;
@@ -143,7 +174,11 @@ internal static class MacNativeFileDrop
             if (!window.IsVisible) return;
             if (!FolderAccess.Covers(source))
             {
-                var bookmark = await PickSourceFolderAsync(window, source);
+                var folder = FileDropFolderAccess.SuggestedFolder(source);
+                var bookmark = await PickSourceFolderAsync(window, source, folder,
+                    LocalizationText.Get("允许读取附件文件夹"),
+                    LocalizationText.Get("macOS 阻止读取此附件。请选择“{0}”文件夹并授权，将继续保存。授权包括其子文件夹，后续拖入可复用此授权。", Path.GetFileName(folder)),
+                    LocalizationText.Get("授权并保存"));
                 if (bookmark == null || !window.IsVisible) return;
                 if (!FolderAccess.Remember(bookmark, source))
                     throw new UnauthorizedAccessException(LocalizationText.Get("未能启用文件夹授权，请重新选择包含此附件的文件夹。"));
@@ -157,19 +192,16 @@ internal static class MacNativeFileDrop
         finally { AuthorizationGate.Release(); }
     }
 
-    private static Task<string?> PickSourceFolderAsync(Window window, string source)
+    private static Task<string?> PickSourceFolderAsync(Window window, string source, string folder,
+        string title, string message, string prompt)
     {
         if (window.TryGetPlatformHandle() is not IMacOSTopLevelPlatformHandle handle)
             return Task.FromResult<string?>(null);
-        var folder = FileDropFolderAccess.SuggestedFolder(source);
         var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var cookie = GCHandle.Alloc(completion);
         try
         {
-            AuthorizeFolderNative(source, folder, handle.NSView,
-                LocalizationText.Get("允许读取附件文件夹"),
-                LocalizationText.Get("macOS 阻止读取此附件。请选择“{0}”文件夹并授权，将继续保存。授权包括其子文件夹，后续拖入可复用此授权。", Path.GetFileName(folder)),
-                LocalizationText.Get("授权并保存"),
+            AuthorizeFolderNative(source, folder, handle.NSView, title, message, prompt,
                 LocalizationText.Get("请选择包含“{0}”的文件夹。", Path.GetFileName(source)),
                 GCHandle.ToIntPtr(cookie), FolderSelected);
         }

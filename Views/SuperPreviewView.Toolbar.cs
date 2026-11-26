@@ -129,9 +129,10 @@ public partial class SuperPreviewView
         var launcherAvailable = App.Services?.GetService<IApplicationLauncherService>() != null;
         var clipboardAvailable = App.Services?.GetService<IClipboardService>() != null;
         var icon = FileIconResolver.ResolveIconKey(Path.GetExtension(entry.Name), entry.Name);
-        var image = !archive && !entry.IsDirectory && icon == "file-image";
+        var image = !archive && !entry.IsDirectory && (icon == "file-image"
+            || (_previewBitmap != null && Path.GetExtension(entry.Name).Equals(".emmx", StringComparison.OrdinalIgnoreCase)));
         var pdf = !entry.IsDirectory && Path.GetExtension(entry.Name).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
-        var text = !entry.IsDirectory && !archive && !pdf && !IsDocumentFile(entry.Name)
+        var text = _mindMapPreview == null && !entry.IsDirectory && !archive && !pdf && !IsDocumentFile(entry.Name)
             && !DiffPreviewDocument.IsDiff(entry.Name) && (IsTextFile(entry) || MarkdownDocument.IsMarkdown(entry.Name));
         var media = icon is "file-video" or "file-audio";
 
@@ -220,9 +221,8 @@ public partial class SuperPreviewView
         PreviewPreviousSlot.IsVisible = !native && _previousPreviewIndex >= 0;
         PreviewNextSlot.IsVisible = !native && _nextPreviewIndex >= 0;
 
-        // Match FileGalleryView: reserve bottom breathing room so AppKit previews
-        // never overlap the in-page glass toolbar (no floating Popup windows needed).
-        PreviewHost.Margin = native && PreviewToolbar.IsVisible
+        // Leave room for the in-page toolbar below interactive and AppKit previews.
+        PreviewHost.Margin = (native || _mindMapPreview != null) && PreviewToolbar.IsVisible
             ? new Thickness(0, 0, 0, 68)
             : default;
 

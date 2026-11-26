@@ -102,23 +102,37 @@ public sealed class GlobalSearchPathViewModelTests : FileListViewModelTestBase
     }
 
     [AvaloniaFact(Explicit = true)]
-    public async Task GlobalSearchDoubleDDoesNotOpenAndConventionalShortcutsStillWork()
+    public async Task GlobalSearchDoubleDDoesNotOpenAndConventionalShortcutsToggle()
     {
         using var theme = new FastListTestTheme();
         await using var fixture = await TabCacheFixture.CreateAsync(entries: 0);
         var window = fixture.Window;
         var overlay = window.FindControl<Border>("GlobalSearchOverlay")!;
+        var input = window.FindControl<TextBox>("GlobalSearchBox")!;
         window.Focus();
         window.KeyPress(Key.D, RawInputModifiers.None, PhysicalKey.D, null);
         window.KeyPress(Key.D, RawInputModifiers.None, PhysicalKey.D, null);
         Assert.False(overlay.IsVisible);
 
         window.KeyPress(Key.K, RawInputModifiers.Meta, PhysicalKey.K, null);
+        window.KeyRelease(Key.K, RawInputModifiers.Meta, PhysicalKey.K, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(overlay.IsVisible);
+        Assert.Same(input, window.FocusManager!.GetFocusedElement());
+        window.KeyPress(Key.K, RawInputModifiers.Meta, PhysicalKey.K, null);
+        window.KeyRelease(Key.K, RawInputModifiers.Meta, PhysicalKey.K, null);
+        Assert.False(overlay.IsVisible);
+        window.KeyPress(Key.F, RawInputModifiers.Meta | RawInputModifiers.Shift, PhysicalKey.F, null);
+        window.KeyRelease(Key.F, RawInputModifiers.Meta | RawInputModifiers.Shift, PhysicalKey.F, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(overlay.IsVisible);
+        window.KeyPress(Key.F, RawInputModifiers.Meta | RawInputModifiers.Shift, PhysicalKey.F, null);
+        window.KeyRelease(Key.F, RawInputModifiers.Meta | RawInputModifiers.Shift, PhysicalKey.F, null);
+        Assert.False(overlay.IsVisible);
+        window.KeyPress(Key.K, RawInputModifiers.Meta, PhysicalKey.K, null);
         Assert.True(overlay.IsVisible);
         window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
         Assert.False(overlay.IsVisible);
-        window.KeyPress(Key.F, RawInputModifiers.Meta | RawInputModifiers.Shift, PhysicalKey.F, null);
-        Assert.True(overlay.IsVisible);
     }
 
 }

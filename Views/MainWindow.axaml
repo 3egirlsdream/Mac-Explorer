@@ -486,7 +486,7 @@
 	                VerticalAlignment="Top"
 	                Margin="8,94,8,0">
 	                <Grid RowDefinitions="Auto,Auto,*,Auto">
-	                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="2,0,2,11">
+	                <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="2,0,2,11">
 	                    <Border Grid.Column="0" Width="28" Height="28" CornerRadius="8"
 	                            Background="{DynamicResource InteractionSelectedBrush}">
 	                        <PathIcon Data="{x:Static icons:Icons.Search}" Width="15" Height="15"
@@ -507,9 +507,6 @@
 	                            Classes="ghost icon-action" Content="＋"
 	                            IsVisible="False" ToolTip.Tip="{loc:Loc ui.067}"
 	                            Click="OnAddGlobalSearchFolder"/>
-	                    <TextBlock Grid.Column="4" Text="{loc:Loc ui.033}"
-	                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}"
-	                               Foreground="{DynamicResource TextMutedBrush}"/>
 	                </Grid>
 	                <Border Grid.Row="1" CornerRadius="10" Padding="10,7"
 	                        Background="{DynamicResource SurfaceElevatedBrush}"

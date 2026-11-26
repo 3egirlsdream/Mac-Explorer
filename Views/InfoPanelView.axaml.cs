@@ -23,6 +23,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Preview;
 using MacExplorer.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -69,6 +70,7 @@ public partial class InfoPanelView : UserControl
     private CancellationTokenSource? _ocrCts;
     private CancellationTokenSource? _panelUpdateDebounceCts;
     private Task? _previewLoadTask;
+    private MindMapPreviewView? _mindMapPreview;
     private PreviewSelectionIdentity? _currentPreviewSelection;
 
     public event EventHandler<bool>? PreviewExpandedChanged;
@@ -172,6 +174,7 @@ public partial class InfoPanelView : UserControl
         CloseTagSuggestions();
         CancelQueuedPanelUpdate();
         CancelPanelLoad();
+        ClearMindMapPreview();
         if (_subscribedViewModel != null)
         {
             _subscribedViewModel.SelectedEntries.CollectionChanged -= OnSelectionChanged;
@@ -450,7 +453,15 @@ public partial class InfoPanelView : UserControl
         bool isPreviewExpanded,
         CancellationToken cancellationToken)
     {
-        if (entry.IsDirectory || !await FileExistsAsync(entry.FullPath, cancellationToken).ConfigureAwait(false))
+        if (entry.IsDirectory) return null;
+        var previewExtension = Path.GetExtension(entry.Name).ToLowerInvariant();
+        var requestedPixels = isPreviewExpanded ? 1800 : 900;
+        if ((MindMapReader.Supports(previewExtension) || previewExtension == ".emmx")
+            && await BuildMindMapPreviewResultAsync(entry, viewModel, previewExtension, requestedPixels, cancellationToken)
+                .ConfigureAwait(false) is { } mindMap)
+            return mindMap;
+
+        if (!await FileExistsAsync(entry.FullPath, cancellationToken).ConfigureAwait(false))
             return null;
 
         var extension = Path.GetExtension(entry.FullPath);
@@ -482,8 +493,6 @@ public partial class InfoPanelView : UserControl
 
         try
         {
-            var requestedPixels = isPreviewExpanded ? 1800 : 900;
-
             var thumbnailUrl = entry.ThumbnailUrl;
             var bytes = await TryGetPreviewBytesAsync(
                 viewModel.GetPreviewThumbnailAsync(entry, requestedPixels, cancellationToken))
@@ -589,6 +598,15 @@ public partial class InfoPanelView : UserControl
             return;
         }
 
+        if (result.MindMap != null)
+        {
+            _mindMapPreview = new MindMapPreviewView();
+            _mindMapPreview.SetDocument(result.MindMap);
+            PreviewSurface.Children.Add(_mindMapPreview);
+            PreviewPlaceholder.IsVisible = false;
+            return;
+        }
+
         if (result.Text != null)
         {
             PreviewText.Text = result.Text;
@@ -634,6 +652,7 @@ public partial class InfoPanelView : UserControl
 
     private void ResetPreviewContent(string placeholder)
     {
+        ClearMindMapPreview();
         _ocrCts?.Cancel();
         _ocrCts?.Dispose();
         _ocrCts = null;
@@ -758,6 +777,7 @@ public partial class InfoPanelView : UserControl
         public bool CanRetry { get; private init; }
         public string? Text { get; private init; }
         public string? Badge { get; private init; }
+        public MindMapDocument? MindMap { get; private init; }
         public global::Avalonia.Media.Imaging.Bitmap? Bitmap { get; set; }
         public byte[]? OcrBytes { get; private init; }
 
@@ -766,6 +786,9 @@ public partial class InfoPanelView : UserControl
 
         public static PreviewLoadResult ForText(string text, string badge)
             => new() { Text = text, Badge = badge };
+
+        public static PreviewLoadResult ForMindMap(MindMapDocument document)
+            => new() { MindMap = document };
 
         public static PreviewLoadResult ForImage(
             global::Avalonia.Media.Imaging.Bitmap bitmap,
@@ -988,6 +1011,7 @@ public partial class InfoPanelView : UserControl
         _memoryLifetime?.SetState(DiagnosticObjectState.Detached);
         CancelQueuedPanelUpdate();
         CancelPanelLoad();
+        ClearMindMapPreview();
         CloseTagSuggestions();
         if (_language != null) _language.LanguageChanged -= RefreshLocalizedDetails;
         SvgIconCache.FolderStyleChanged -= OnFolderIconStyleChanged;

@@ -40,7 +40,7 @@
                 <Border x:Name="PreviewImageArea" Classes="workspace-preview-surface" Margin="14,10,14,0"
                         MinHeight="160" MaxHeight="220"
                         ClipToBounds="True">
-                    <Panel>
+                    <Panel x:Name="PreviewSurface">
                         <Image x:Name="PreviewImage" Stretch="Uniform"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Image x:Name="PreviewFileIcon" IsVisible="False" Width="96" Height="96"

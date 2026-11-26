@@ -16,6 +16,14 @@ public partial class FileListViewModel
         return true;
     }
 
+    internal Task<string?> ExtractAutomaticArchivePreviewAsync(string path, CancellationToken token)
+    {
+        var (archivePath, key) = ArchivePathHelper.Parse(path);
+        return _archiveService is ArchiveService archive && DirectoryAccess.Current.CanAccess(archivePath)
+            ? archive.ExtractThumbnailSourceAsync(archivePath, key, token)
+            : Task.FromResult<string?>(null);
+    }
+
     private Task ExtractArchiveItemAsync(FileSystemEntry entry)
     {
         var (path, key) = ArchivePathHelper.Parse(entry.FullPath);

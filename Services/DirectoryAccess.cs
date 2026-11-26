@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Platforms.MacOS;
+using MacExplorer.Services.Impl;
 
 namespace MacExplorer.Services;
 
@@ -180,6 +181,16 @@ public sealed class DirectoryAccess : IDisposable
         path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         if (RuntimePaths.TestRoot is { } root && !IsWithin(_backend.RealPath(path), _backend.RealPath(root)))
             throw new UnauthorizedAccessException("测试授权必须位于本次测试目录。");
+        RememberBookmark(_backend.Create(path, true), originalPath: path);
+    }
+
+    internal void RememberDropFolder(string bookmark, string source)
+    {
+        if (_restricted) RememberBookmark(bookmark, droppedSource: source);
+    }
+
+    private void RememberBookmark(string bookmark, string? originalPath = null, string? droppedSource = null)
+    {
         lock (_gate)
         {
             if (_loadFailed)
@@ -188,19 +199,30 @@ public sealed class DirectoryAccess : IDisposable
                 if (loaded == null) throw new IOException(RestoreError);
                 _saved = loaded;
             }
-            var bookmark = _backend.Create(path, true);
             var opened = _backend.Open(bookmark);
             if (opened.Scope == IntPtr.Zero || opened.Path == null)
             {
                 if (opened.Scope != IntPtr.Zero) _backend.Close(opened.Scope);
-                throw new UnauthorizedAccessException("目录授权已失效，请重新选择。");
+                throw new UnauthorizedAccessException(LocalizationText.Get("drop.folder_access_failed"));
             }
+            var path = originalPath ?? opened.Path;
             var saved = new BookmarkStore { Bookmarks = new(_saved.Bookmarks), Aliases = new(_saved.Aliases) };
             saved.Bookmarks.Remove(path);
             saved.Bookmarks[opened.Path] = opened.Refreshed ?? bookmark;
             if (path != opened.Path) saved.Aliases[path] = opened.Path;
             Grant grant;
-            try { grant = new(opened.Refreshed ?? bookmark, opened.Scope, _backend.RealPath(opened.Path)); Save(saved); }
+            try
+            {
+                grant = new(opened.Refreshed ?? bookmark, opened.Scope, _backend.RealPath(opened.Path));
+                if (droppedSource != null)
+                {
+                    if (RuntimePaths.TestRoot is { } root && !IsWithin(grant.CanonicalRoot, _backend.RealPath(root)))
+                        throw new UnauthorizedAccessException("测试授权必须位于本次测试目录。");
+                    if (!IsWithin(_backend.RealPath(droppedSource), grant.CanonicalRoot))
+                        throw new UnauthorizedAccessException(LocalizationText.Get("请选择包含“{0}”的文件夹。", Path.GetFileName(droppedSource)));
+                }
+                Save(saved);
+            }
             catch { _backend.Close(opened.Scope); throw; }
             if (_grants.Remove(opened.Path, out var old)) _backend.Close(old.Scope);
             _grants[opened.Path] = grant;

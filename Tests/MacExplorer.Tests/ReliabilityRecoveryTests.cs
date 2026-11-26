@@ -110,6 +110,35 @@ public sealed class ReliabilityRecoveryTests : IDisposable
         Assert.Equal("original invalid JSON", File.ReadAllText(Directory.GetFiles(_root, "invalid.json.invalid-*").Single()));
     }
 
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public void DropFolderGrantRequiresTheSourceAndRestoresTheSelectedFolder()
+    {
+        var store = Path.Combine(_root, "grants.json");
+        var folder = Path.Combine(_root, "source");
+        var unrelated = Path.Combine(_root, "source-other");
+        var source = Path.Combine(folder, "nested", "file.txt");
+        var backend = new Bookmarks();
+
+        using (var access = new DirectoryAccess(store, true, backend, []))
+        {
+            var before = File.ReadAllText(store);
+            Assert.Throws<UnauthorizedAccessException>(() => access.RememberDropFolder(unrelated, source));
+            Assert.Equal(before, File.ReadAllText(store));
+            Assert.Equal(backend.Opened, backend.Closed);
+            Assert.False(access.CanAccess(source));
+
+            access.RememberDropFolder(folder, source);
+            Assert.True(access.CanAccess(source));
+            Assert.False(access.CanAccess(unrelated));
+        }
+
+        using var restored = new DirectoryAccess(store, true, backend, []);
+        Assert.Equal(folder, Assert.Single(restored.AuthorizedRoots));
+        Assert.True(restored.CanAccess(source));
+        Assert.Equal(source, restored.ResolvePath(source));
+    }
+
     private sealed class Bookmarks : IBookmarkAccess
     {
         public int Opened, Closed;

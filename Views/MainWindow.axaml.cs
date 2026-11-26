@@ -286,7 +286,9 @@ public partial class MainWindow : AppWindow
         }
 
         if (e.Handled || Shortcuts.IsRecording) return;
-        if (IsInsideTextInput(e.Source as Visual) && Services.Impl.ShortcutService.IsTextEditingGesture(e)) return;
+        var isGlobalSearchCloseShortcut = GlobalSearchOverlay.IsVisible && Shortcuts.Matches(ShortcutIds.GlobalSearch, e);
+        if (!isGlobalSearchCloseShortcut && IsInsideTextInput(e.Source as Visual)
+            && Services.Impl.ShortcutService.IsTextEditingGesture(e)) return;
         if (_homeFolderTransition != null)
         {
             if (e.Key == Key.Escape) { _homeFolderTransition.Close(); e.Handled = true; }
@@ -322,13 +324,14 @@ public partial class MainWindow : AppWindow
         if (e.Key == Key.Escape && SuperPreviewControl.IsVisible)
         {
             e.Handled = true;
-            SuperPreviewControl.Close();
+            if (!SuperPreviewControl.TryCloseMindMapSheetPicker())
+                SuperPreviewControl.Close();
             return;
         }
 
         if (GlobalSearchOverlay.IsVisible)
         {
-            if (e.Key == Key.Escape)
+            if (isGlobalSearchCloseShortcut || e.Key == Key.Escape)
             {
                 e.Handled = true;
                 CloseGlobalSearch();

@@ -16,7 +16,8 @@ public partial class MainWindow
         if (definition.Id.StartsWith("editor."))
             return IsMarkdownEditorOpen || text && definition.Id is "editor.copy" or "editor.cut" or "editor.paste" or "editor.all" or "editor.undo" or "editor.redo";
         if (IsModalInteractionBlocked || IsMarkdownEditorOpen || _homeFolderTransition != null
-            || GlobalSearchOverlay.IsVisible || SuperPreviewControl.IsVisible) return false;
+            || SuperPreviewControl.IsVisible) return false;
+        if (GlobalSearchOverlay.IsVisible) return definition.Id == ShortcutIds.GlobalSearch;
         if (text && Shortcuts.GetBindings(definition.Id).Any(b => Services.Impl.ShortcutService.IsTextEditingGesture(
             new Avalonia.Input.KeyEventArgs { Key = b.Key, KeyModifiers = b.Modifiers }))) return false;
         return definition.Id switch
