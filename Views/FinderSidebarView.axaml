@@ -8,7 +8,6 @@
              xmlns:glass="clr-namespace:LiquidGlassAvaloniaUI;assembly=LiquidGlassAvaloniaUI"
              x:Class="MacExplorer.Views.FinderSidebarView"
              x:DataType="vm:FileListViewModel"
-             x:CompileBindings="False"
              Focusable="True" IsTabStop="False"
              DragDrop.AllowDrop="True"
              DragDrop.DragOver="OnSidebarDragOver"

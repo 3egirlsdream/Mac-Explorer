@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using MacExplorer.Models;
@@ -61,7 +62,7 @@ public sealed class FileDeliveryService : IDisposable
         _settings = settings;
         _tags = tags;
         var raw = settings.Get(PreferencesKey);
-        try { Preferences = raw == null ? CreateDefaults() : JsonSerializer.Deserialize<FileDeliveryPreferences>(raw) ?? new(); }
+        try { Preferences = raw == null ? CreateDefaults() : JsonSerializer.Deserialize(raw, AppJsonContext.Default.FileDeliveryPreferences) ?? new(); }
         catch (JsonException) { Preferences = new(); }
         // Only an absent key is first use. An intentionally empty configuration stays empty.
         if (raw == null) Save();
@@ -161,7 +162,7 @@ public sealed class FileDeliveryService : IDisposable
         Save();
         EntriesChanged?.Invoke(this, EventArgs.Empty);
     }
-    private void Save() => _settings.Set(PreferencesKey, JsonSerializer.Serialize(Preferences));
+    private void Save() => _settings.Set(PreferencesKey, JsonSerializer.Serialize(Preferences, AppJsonContext.Default.FileDeliveryPreferences));
     public void Dispose() => _tags.TagRenamed -= OnTagRenamed;
 }
 

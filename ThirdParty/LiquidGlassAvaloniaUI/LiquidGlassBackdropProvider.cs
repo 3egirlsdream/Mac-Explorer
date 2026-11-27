@@ -2,7 +2,6 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -45,8 +44,10 @@ namespace LiquidGlassAvaloniaUI
             public RenderTargetBitmap? ScratchBitmap;
 
             public object? Renderer;
-            public EventInfo? SceneInvalidatedEvent;
-            public Delegate? SceneInvalidatedDelegate;
+            public EventHandler<SceneInvalidatedEventArgs>? SceneInvalidatedHandler;
+            public TopLevel? SubscribedTopLevel;
+            public EventHandler<AvaloniaPropertyChangedEventArgs>? TopLevelPropertyChangedHandler;
+            public EventHandler? WindowClosedHandler;
         }
 
         private sealed class CapturedLayout
@@ -62,8 +63,22 @@ namespace LiquidGlassAvaloniaUI
         private static bool CapturesForeground(Control control) => control is LiquidGlassSurface { CaptureForeground: true };
 
         private static int s_captureDepth;
-        private static PropertyInfo? s_topLevelRendererProperty;
-        private static PropertyInfo? s_dirtyRectProperty;
+        private const string RendererType = "Avalonia.Rendering.Composition.CompositingRenderer, Avalonia.Base";
+
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Renderer")]
+        [return: UnsafeAccessorType(RendererType)]
+        private static extern object GetRenderer(TopLevel topLevel);
+
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "add_SceneInvalidated")]
+        private static extern void SubscribeSceneInvalidated(
+            [UnsafeAccessorType(RendererType)] object renderer, EventHandler<SceneInvalidatedEventArgs> handler);
+
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "remove_SceneInvalidated")]
+        private static extern void UnsubscribeSceneInvalidated(
+            [UnsafeAccessorType(RendererType)] object renderer, EventHandler<SceneInvalidatedEventArgs> handler);
+
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_DirtyRect")]
+        private static extern Rect GetDirtyRect(SceneInvalidatedEventArgs args);
 
         public static bool IsCapturing
         {
@@ -72,11 +87,65 @@ namespace LiquidGlassAvaloniaUI
 
         // Native popups are separate visual roots. Sample their owning window using screen
         // coordinates, so submenus keep native placement and can extend beyond the window.
-        internal static TopLevel? GetBackdropRoot(Control control)
+        internal static TopLevel? ResolveBackdropRoot(TopLevel? root)
         {
-            var root = TopLevel.GetTopLevel(control);
             while (root is PopupRoot popup) root = popup.ParentTopLevel;
             return root;
+        }
+
+        internal static TopLevel? GetBackdropRoot(Control control)
+        {
+            return ResolveBackdropRoot(TopLevel.GetTopLevel(control));
+        }
+
+        public static void DetachSubscriber(Control control, TopLevel? backdropRoot = null)
+        {
+            TopLevel? topLevel = ResolveBackdropRoot(backdropRoot) ?? GetBackdropRoot(control);
+            if (topLevel is null)
+                return;
+
+            if (!GetStates(CapturesForeground(control)).TryGetValue(topLevel, out BackdropState? state))
+                return;
+
+            for (int i = state.Subscribers.Count - 1; i >= 0; i--)
+            {
+                if (!state.Subscribers[i].TryGetTarget(out Control? existing)
+                    || ReferenceEquals(existing, control)
+                    || !existing.IsAttachedToVisualTree())
+                {
+                    state.Subscribers.RemoveAt(i);
+                }
+            }
+
+            state.CapturedLayouts.Remove(control);
+
+            if (state.Subscribers.Count == 0 && !IsCapturing)
+                ReleaseBackdropResources(state, detachRenderer: true);
+        }
+
+        private static bool IsTopLevelHiddenOrMinimized(TopLevel topLevel)
+        {
+            return !topLevel.IsVisible
+                   || (topLevel is Window window && window.WindowState == WindowState.Minimized);
+        }
+
+        private static void ReleaseBackdropResources(BackdropState state, bool detachRenderer)
+        {
+            if (detachRenderer)
+                DetachRendererSubscription(state);
+
+            DisposeAllSnapshots(state);
+            state.ScratchBitmap?.Dispose();
+            state.ScratchBitmap = null;
+        }
+
+        internal static bool HasAllocatedBackdrop(TopLevel topLevel, bool foreground = false)
+        {
+            if (!GetStates(foreground).TryGetValue(topLevel, out BackdropState? state))
+                return false;
+
+            return state.ScratchBitmap is not null
+                   || System.Threading.Volatile.Read(ref state.Snapshot) is not null;
         }
 
         internal static Matrix? GetBackdropTransform(Control control, TopLevel root)
@@ -250,10 +319,13 @@ namespace LiquidGlassAvaloniaUI
             if (state.Subscribers.Count == 0)
             {
                 LiquidGlassDiagnostics.RecordCaptureSkippedNoSubscribers();
-                DetachRendererSubscription(state);
-                DisposeAllSnapshots(state);
-                state.ScratchBitmap?.Dispose();
-                state.ScratchBitmap = null;
+                ReleaseBackdropResources(state, detachRenderer: true);
+                return;
+            }
+
+            if (IsTopLevelHiddenOrMinimized(topLevel))
+            {
+                ReleaseBackdropResources(state, detachRenderer: false);
                 return;
             }
 
@@ -351,17 +423,10 @@ namespace LiquidGlassAvaloniaUI
 
         private static void EnsureRendererSubscription(TopLevel topLevel, BackdropState state)
         {
-            if (state.SceneInvalidatedDelegate is not null)
+            if (state.SceneInvalidatedHandler is not null)
                 return;
 
-            object? renderer = GetRenderer(topLevel);
-            if (renderer is null)
-                return;
-
-            EventInfo? evt = renderer.GetType().GetEvent("SceneInvalidated", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (evt is null)
-                return;
-
+            var renderer = GetRenderer(topLevel);
             EventHandler<SceneInvalidatedEventArgs> handler = (_, args) =>
             {
                 LiquidGlassDiagnostics.RecordRendererInvalidation();
@@ -377,11 +442,8 @@ namespace LiquidGlassAvaloniaUI
                     && System.Threading.Volatile.Read(ref state.Snapshot) is not null)
                     return;
 
-                bool hasDirtyRect = TryGetDirtyRect(args, out Rect dirtyRect);
-                if (hasDirtyRect)
-                    LiquidGlassDiagnostics.RecordDirtyRectAvailable();
-                else
-                    LiquidGlassDiagnostics.RecordDirtyRectUnavailable();
+                var dirtyRect = GetDirtyRect(args);
+                LiquidGlassDiagnostics.RecordDirtyRectAvailable();
 
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -402,10 +464,7 @@ namespace LiquidGlassAvaloniaUI
                     CleanupSubscribers(state);
                     if (state.Subscribers.Count == 0)
                     {
-                        DetachRendererSubscription(state);
-                        DisposeAllSnapshots(state);
-                        state.ScratchBitmap?.Dispose();
-                        state.ScratchBitmap = null;
+                        ReleaseBackdropResources(state, detachRenderer: true);
                         return;
                     }
 
@@ -427,7 +486,7 @@ namespace LiquidGlassAvaloniaUI
                     }
 
                     bool requireFullPixelCheck = false;
-                    if (!needsClipGrowthCapture && hasDirtyRect && state.HasLastClipRect)
+                    if (!needsClipGrowthCapture && state.HasLastClipRect)
                     {
                         if (!dirtyRect.Intersects(state.LastClipRect))
                         {
@@ -452,25 +511,56 @@ namespace LiquidGlassAvaloniaUI
             };
 
             state.Renderer = renderer;
-            state.SceneInvalidatedEvent = evt;
-            state.SceneInvalidatedDelegate = handler;
-            evt.AddEventHandler(renderer, handler);
+            state.SceneInvalidatedHandler = handler;
+            SubscribeSceneInvalidated(renderer, handler);
+
+            state.SubscribedTopLevel = topLevel;
+            EventHandler<AvaloniaPropertyChangedEventArgs> propertyHandler = (_, args) =>
+            {
+                if (IsCapturing)
+                    return;
+
+                if ((args.Property == Visual.IsVisibleProperty && !topLevel.IsVisible)
+                    || (topLevel is Window w && args.Property == Window.WindowStateProperty && w.WindowState == WindowState.Minimized))
+                {
+                    ReleaseBackdropResources(state, detachRenderer: false);
+                }
+            };
+            state.TopLevelPropertyChangedHandler = propertyHandler;
+            topLevel.PropertyChanged += propertyHandler;
+
+            if (topLevel is Window topWindow)
+            {
+                EventHandler closedHandler = (_, _) =>
+                {
+                    state.Subscribers.Clear();
+                    if (!IsCapturing)
+                        ReleaseBackdropResources(state, detachRenderer: true);
+                };
+                state.WindowClosedHandler = closedHandler;
+                topWindow.Closed += closedHandler;
+            }
         }
 
         private static void DetachRendererSubscription(BackdropState state)
         {
-            if (state.Renderer is null || state.SceneInvalidatedEvent is null || state.SceneInvalidatedDelegate is null)
+            if (state.Renderer is { } renderer && state.SceneInvalidatedHandler is { } handler)
+                UnsubscribeSceneInvalidated(renderer, handler);
+
+            if (state.SubscribedTopLevel is { } subscribedTopLevel)
             {
-                state.Renderer = null;
-                state.SceneInvalidatedEvent = null;
-                state.SceneInvalidatedDelegate = null;
-                return;
+                if (state.TopLevelPropertyChangedHandler is { } propertyHandler)
+                    subscribedTopLevel.PropertyChanged -= propertyHandler;
+
+                if (subscribedTopLevel is Window topWindow && state.WindowClosedHandler is { } closedHandler)
+                    topWindow.Closed -= closedHandler;
             }
 
-            state.SceneInvalidatedEvent.RemoveEventHandler(state.Renderer, state.SceneInvalidatedDelegate);
             state.Renderer = null;
-            state.SceneInvalidatedEvent = null;
-            state.SceneInvalidatedDelegate = null;
+            state.SceneInvalidatedHandler = null;
+            state.SubscribedTopLevel = null;
+            state.TopLevelPropertyChangedHandler = null;
+            state.WindowClosedHandler = null;
         }
 
         private static bool RectContains(Rect outer, Rect inner)
@@ -667,41 +757,6 @@ namespace LiquidGlassAvaloniaUI
             }
 
             return excluded;
-        }
-
-        private static bool TryGetDirtyRect(object args, out Rect dirtyRect)
-        {
-            dirtyRect = default;
-            if (args is null)
-                return false;
-
-            if (s_dirtyRectProperty is null || s_dirtyRectProperty.DeclaringType != args.GetType())
-            {
-                s_dirtyRectProperty = args.GetType().GetProperty(
-                    "DirtyRect",
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            }
-
-            if (s_dirtyRectProperty?.PropertyType != typeof(Rect))
-                return false;
-
-            if (s_dirtyRectProperty.GetValue(args) is not Rect value)
-                return false;
-
-            dirtyRect = value;
-            return true;
-        }
-
-        private static object? GetRenderer(TopLevel topLevel)
-        {
-            if (s_topLevelRendererProperty is null)
-            {
-                s_topLevelRendererProperty = typeof(TopLevel).GetProperty(
-                    "Renderer",
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            }
-
-            return s_topLevelRendererProperty?.GetValue(topLevel);
         }
 
         private static void RenderVisualWithClip(RenderTargetBitmap target, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots, bool captureForeground)

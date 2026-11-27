@@ -50,6 +50,8 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             var tagsInMore = toolbar.FindControl<Button>("TagsOverflowButton")!;
             var copy = toolbar.FindControl<Button>("CopyButton")!;
             var copyInMore = toolbar.FindControl<Button>("CopyOverflowButton")!;
+            var home = toolbar.FindControl<Button>("HomeButton")!;
+            var homeInMore = toolbar.FindControl<Button>("HomeOverflowButton")!;
             var more = toolbar.FindControl<Button>("MoreBtn")!;
             Assert.False(inlineTags.IsVisible);
             Assert.False(tagsInMore.IsVisible);
@@ -107,19 +109,21 @@ public sealed class TagToolbarInteractionTests : FileListViewModelTestBase
             Assert.True(more.IsFocused);
 
             Resize(actionsWidth);
-            Assert.True(copy.IsEffectivelyVisible);
-            Assert.True(copy.Focus());
+            Assert.True(home.IsEffectivelyVisible);
+            Assert.True(home.Focus());
             Resize(actionsWidth - 1);
-            Assert.False(copy.IsEffectivelyVisible);
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.False(home.IsEffectivelyVisible);
             Assert.True(more.IsFocused);
             toolbar.ToggleMenu(ToolbarMenuKind.More);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(copyInMore.IsEffectivelyVisible);
+            Assert.False(copyInMore.IsEffectivelyVisible);
+            Assert.True(homeInMore.IsEffectivelyVisible);
             Assert.True(tagsInMore.IsEffectivelyVisible);
-            Assert.True(copyInMore.Focus());
+            Assert.True(homeInMore.IsFocused);
 
             Resize(actionsWidth);
-            Assert.True(copy.IsEffectivelyVisible);
+            Assert.True(home.IsEffectivelyVisible);
             Assert.True(more.IsFocused);
             Resize(tagsWidth);
             Assert.True(tagMore.IsEffectivelyVisible);

@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Models;
@@ -12,11 +13,11 @@ internal static class StartupUpdateChecker
     {
         var executable = Environment.ProcessPath
             ?? throw new InvalidOperationException("无法确定更新检查进程路径");
-        var startInfo = CreateStartInfo(executable, typeof(StartupUpdateChecker).Assembly.Location);
+        var startInfo = CreateStartInfo(executable);
         return await CheckAsync(startInfo, ct).ConfigureAwait(false);
     }
 
-    internal static ProcessStartInfo CreateStartInfo(string executable, string assemblyPath)
+    internal static ProcessStartInfo CreateStartInfo(string executable)
     {
         // nice applies only to the helper; the foreground application's priority stays intact.
         var unix = OperatingSystem.IsMacOS() || OperatingSystem.IsLinux();
@@ -34,7 +35,7 @@ internal static class StartupUpdateChecker
             startInfo.ArgumentList.Add(executable);
         }
         if (Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-            startInfo.ArgumentList.Add(assemblyPath);
+            startInfo.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "MacExplorer.dll"));
         startInfo.ArgumentList.Add(WorkerArgument);
         return startInfo;
     }
@@ -57,7 +58,7 @@ internal static class StartupUpdateChecker
             var error = await errorTask.ConfigureAwait(false);
             if (process.ExitCode != 0)
                 throw new InvalidOperationException($"后台更新检查失败: {error.Trim()}");
-            return JsonSerializer.Deserialize<VersionInfo>(output);
+            return JsonSerializer.Deserialize(output, AppJsonContext.Default.VersionInfo);
         }
         finally
         {
@@ -75,7 +76,7 @@ internal static class StartupUpdateChecker
         try
         {
             var version = await updateService.CheckVersionAsync().ConfigureAwait(false);
-            await output.WriteAsync(JsonSerializer.Serialize(version)).ConfigureAwait(false);
+            await output.WriteAsync(JsonSerializer.Serialize(version, AppJsonContext.Default.VersionInfo)).ConfigureAwait(false);
             return 0;
         }
         catch (Exception ex)

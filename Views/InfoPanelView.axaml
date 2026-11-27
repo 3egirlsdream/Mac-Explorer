@@ -6,8 +6,7 @@
              xmlns:models="using:MacExplorer.Models"
              xmlns:icons="using:MacExplorer.Assets"
              x:Class="MacExplorer.Views.InfoPanelView"
-             x:DataType="vm:FileListViewModel"
-             x:CompileBindings="False">
+             x:DataType="vm:FileListViewModel">
 
     <Border x:Name="InfoPanelRoot" Classes="info-panel" ClipToBounds="True"
             BorderBrush="{DynamicResource WorkspaceDividerBrush}" BorderThickness="1,0,0,0">

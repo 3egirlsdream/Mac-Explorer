@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -371,7 +372,7 @@ public class MacClipboardService : IClipboardService
     {
         var pointer = ClipboardCopyPathsNative(GeneralPasteboard());
         if (pointer == IntPtr.Zero) return [];
-        try { return JsonSerializer.Deserialize<List<string>>(Marshal.PtrToStringUTF8(pointer)!) ?? []; }
+        try { return JsonSerializer.Deserialize(Marshal.PtrToStringUTF8(pointer)!, AppJsonContext.Default.ListString) ?? []; }
         finally { ClipboardFreePathsNative(pointer); }
     }
 

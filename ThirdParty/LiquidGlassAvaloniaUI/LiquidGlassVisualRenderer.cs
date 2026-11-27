@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
+using Avalonia.Controls;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.VisualTree;
@@ -11,24 +10,6 @@ namespace LiquidGlassAvaloniaUI
 {
     internal static class LiquidGlassVisualRenderer
     {
-        private sealed class ClipRadiusAccessor
-        {
-            public ClipRadiusAccessor(Type type) => Property = FindProperty(type);
-            public PropertyInfo? Property { get; }
-
-            private static PropertyInfo? FindProperty(Type type)
-            {
-                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-                var property = type.GetProperty("ClipToBoundsRadius", flags)
-                    ?? type.GetProperties(flags).FirstOrDefault(p => p.Name.EndsWith(".ClipToBoundsRadius", StringComparison.Ordinal));
-                return property?.PropertyType == typeof(CornerRadius) ? property : null;
-            }
-        }
-
-        // Most visual types have no rounded-clip property. Cache that result too;
-        // enumerating every property on every backdrop frame dominates capture time.
-        private static readonly ConditionalWeakTable<Type, ClipRadiusAccessor> s_clipRadiusAccessors = new();
-
         public static void Render(DrawingContext context, Visual visual, Rect clipRect, ISet<Visual>? excludedRoots, bool captureForeground = false)
         {
             if (clipRect.Width <= 0 || clipRect.Height <= 0)
@@ -111,28 +92,11 @@ namespace LiquidGlassAvaloniaUI
             if (!visual.ClipToBounds)
                 return default;
 
-            if (TryGetClipToBoundsRadius(visual, out CornerRadius radius))
-                return context.PushClip(new RoundedRect(rect, radius));
+            // In Avalonia 12.0.4 Border implements the renderer's rounded clip contract.
+            if (visual is Border border && border.ClipToBoundsRadius != default)
+                return context.PushClip(new RoundedRect(rect, border.ClipToBoundsRadius));
 
             return context.PushClip(rect);
-        }
-
-        private static bool TryGetClipToBoundsRadius(Visual visual, out CornerRadius radius)
-        {
-            radius = default;
-
-            PropertyInfo? prop = s_clipRadiusAccessors.GetValue(visual.GetType(), static type => new ClipRadiusAccessor(type)).Property;
-            if (prop is null)
-                return false;
-
-            if (prop.GetValue(visual) is not CornerRadius value)
-                return false;
-
-            if (value == default)
-                return false;
-
-            radius = value;
-            return true;
         }
 
         private static IEnumerable<Visual> GetOrderedChildren(Visual visual)

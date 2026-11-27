@@ -9,6 +9,6 @@ internal static class MacFontTableLifetime
     {
         if (!OperatingSystem.IsMacOS()) return;
         var installed = PohTextShaping.TryInstall();
-        MemoryDiagnostics.Record("fonts.table_allocator", new { installed, allocator = "poh", avaloniaVersion = "12.0.4" });
+        MemoryDiagnostics.Record("fonts.table_allocator", new FontTableAllocator(installed, "poh", "12.0.4"));
     }
 }

@@ -1,4 +1,6 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using MacExplorer.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
@@ -46,16 +48,16 @@ public sealed class HomeWorkspaceService : IDisposable
     public HomeFolderLayout GetLayout(FileTag tag)
     {
         lock (_preferencesGate)
-            return Read<Dictionary<string, HomeFolderLayout>>(LayoutsKey).GetValueOrDefault(LayoutKey(tag))?.Normalize() ?? new();
+            return Read(LayoutsKey, AppJsonContext.Default.DictionaryStringHomeFolderLayout).GetValueOrDefault(LayoutKey(tag))?.Normalize() ?? new();
     }
 
     public void SaveLayout(FileTag tag, HomeFolderLayout layout)
     {
         lock (_preferencesGate)
         {
-            var layouts = Read<Dictionary<string, HomeFolderLayout>>(LayoutsKey);
+            var layouts = Read(LayoutsKey, AppJsonContext.Default.DictionaryStringHomeFolderLayout);
             layouts[LayoutKey(tag)] = layout.Normalize();
-            _settings.Set(LayoutsKey, JsonSerializer.Serialize(layouts));
+            _settings.Set(LayoutsKey, JsonSerializer.Serialize(layouts, AppJsonContext.Default.DictionaryStringHomeFolderLayout));
         }
         PreferencesChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -66,7 +68,7 @@ public sealed class HomeWorkspaceService : IDisposable
         {
             var json = _settings.Get(SectionsKey);
             if (string.IsNullOrEmpty(json)) return new HomeSectionPreferences();
-            try { return (JsonSerializer.Deserialize<HomeSectionPreferences>(json) ?? new HomeSectionPreferences()).Normalize(); }
+            try { return (JsonSerializer.Deserialize(json, AppJsonContext.Default.HomeSectionPreferences) ?? new HomeSectionPreferences()).Normalize(); }
             catch (JsonException ex)
             {
                 _logger?.LogWarning(ex, "Invalid homepage section preferences; using defaults");
@@ -79,7 +81,7 @@ public sealed class HomeWorkspaceService : IDisposable
     {
         var normalized = preferences.Normalize();
         lock (_preferencesGate)
-            _settings.Set(SectionsKey, JsonSerializer.Serialize(normalized));
+            _settings.Set(SectionsKey, JsonSerializer.Serialize(normalized, AppJsonContext.Default.HomeSectionPreferences));
         PreferencesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -87,7 +89,7 @@ public sealed class HomeWorkspaceService : IDisposable
     {
         var key = NormalizePath(path);
         lock (_preferencesGate)
-            return Read<Dictionary<string, HomeScriptCommand[]>>(CommandsKey).GetValueOrDefault(key) ?? [];
+            return Read(CommandsKey, AppJsonContext.Default.DictionaryStringHomeScriptCommandArray).GetValueOrDefault(key) ?? [];
     }
 
     public void SaveCommands(string path, IEnumerable<HomeScriptCommand> commands)
@@ -101,19 +103,19 @@ public sealed class HomeWorkspaceService : IDisposable
             throw new ArgumentException("命令标识无效，请删除重复项后重新添加。");
         lock (_preferencesGate)
         {
-            var stored = Read<Dictionary<string, HomeScriptCommand[]>>(CommandsKey);
+            var stored = Read(CommandsKey, AppJsonContext.Default.DictionaryStringHomeScriptCommandArray);
             if (list.Length == 0) stored.Remove(key);
             else stored[key] = list;
-            _settings.Set(CommandsKey, JsonSerializer.Serialize(stored));
+            _settings.Set(CommandsKey, JsonSerializer.Serialize(stored, AppJsonContext.Default.DictionaryStringHomeScriptCommandArray));
         }
         PreferencesChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private T Read<T>(string key) where T : new()
+    private T Read<T>(string key, JsonTypeInfo<T> typeInfo) where T : new()
     {
         var json = _settings.Get(key);
         if (string.IsNullOrEmpty(json)) return new T();
-        try { return JsonSerializer.Deserialize<T>(json) ?? new T(); }
+        try { return JsonSerializer.Deserialize(json, typeInfo) ?? new T(); }
         catch (JsonException ex)
         {
             _logger?.LogWarning(ex, "Invalid homepage preference {Key}; using defaults", key);
@@ -125,12 +127,12 @@ public sealed class HomeWorkspaceService : IDisposable
     {
         lock (_preferencesGate)
         {
-            var layouts = Read<Dictionary<string, HomeFolderLayout>>(LayoutsKey);
+            var layouts = Read(LayoutsKey, AppJsonContext.Default.DictionaryStringHomeFolderLayout);
             var oldKey = LayoutKey(new FileTag(e.OldName, "", FileTagKind.Custom));
             if (!layouts.Remove(oldKey, out var layout)) return;
             if (e.NewName != null)
                 layouts[LayoutKey(new FileTag(e.NewName, "", FileTagKind.Custom))] = layout;
-            _settings.Set(LayoutsKey, JsonSerializer.Serialize(layouts));
+            _settings.Set(LayoutsKey, JsonSerializer.Serialize(layouts, AppJsonContext.Default.DictionaryStringHomeFolderLayout));
         }
         PreferencesChanged?.Invoke(this, EventArgs.Empty);
     }

@@ -1,7 +1,6 @@
 using MacExplorer.Services.Subscriptions;
 using System.ComponentModel;
 using System.Text.Json;
-using System.Text.Encodings.Web;
 using Avalonia.Threading;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -25,9 +24,9 @@ public sealed class CopilotEngine : IDisposable
     private readonly Func<FileListViewModel?> activePane;
     private readonly Func<HttpMessageHandler>? modelTransportFactory;
     private readonly string _owner = Guid.NewGuid().ToString("N");
-    private static readonly JsonSerializerOptions CatalogJsonOptions = new()
+    private static readonly AIFunctionFactoryOptions ToolOptions = new()
     {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        SerializerOptions = CopilotToolJsonContext.ToolContracts.Options
     };
     private ChatClientAgent? _agent;
     private AgentSession? _session;
@@ -178,7 +177,8 @@ public sealed class CopilotEngine : IDisposable
         await EnsureAgentAsync(cancellationToken);
         store.AddTurn(_sessionId, "user", message);
         if (attachments.Count > 0)
-            store.AddTurn(_sessionId, "user-attachments", JsonSerializer.Serialize(attachments));
+            store.AddTurn(_sessionId, "user-attachments",
+                JsonSerializer.Serialize(attachments, CopilotJsonContext.Default.IReadOnlyListCopilotAttachment));
         return await RunAndRecordAsync(
             _agent!.RunStreamingAsync(CopilotAttachments.BuildPrompt(message, attachments), _session,
                 cancellationToken: cancellationToken),
@@ -268,7 +268,7 @@ public sealed class CopilotEngine : IDisposable
                 if (step.Kind == "assistant" && !string.IsNullOrWhiteSpace(step.Text))
                     store.AddTurn(_sessionId, "assistant-step", step.Text);
                 else if (step.Kind == "tools" && step.Calls.Count > 0)
-                    store.AddTurn(_sessionId, "tool-batch", JsonSerializer.Serialize(step));
+                    store.AddTurn(_sessionId, "tool-batch", JsonSerializer.Serialize(step, CopilotJsonContext.Default.CopilotTraceStep));
                 else if (step.Kind == "thinking")
                     store.AddTurn(_sessionId, "thinking", step.Text);
             }
@@ -327,13 +327,13 @@ public sealed class CopilotEngine : IDisposable
                     "用中文简洁回答；每项失败要说清楚。",
                 Tools =
                 [
-                    AIFunctionFactory.Create(SearchCapabilities),
-                    AIFunctionFactory.Create(DescribeCapability),
-                    AIFunctionFactory.Create(ReadArtifact),
-                    AIFunctionFactory.Create(SaveClassificationProposal),
-                    AIFunctionFactory.Create(CallReadOnlyAsync),
-                    AIFunctionFactory.Create(PreviewOperationAsync),
-                    new ApprovalRequiredAIFunction(AIFunctionFactory.Create(ExecuteApprovedPlanAsync))
+                    AIFunctionFactory.Create(SearchCapabilities, ToolOptions),
+                    AIFunctionFactory.Create(DescribeCapability, ToolOptions),
+                    AIFunctionFactory.Create(ReadArtifact, ToolOptions),
+                    AIFunctionFactory.Create(SaveClassificationProposal, ToolOptions),
+                    AIFunctionFactory.Create(CallReadOnlyAsync, ToolOptions),
+                    AIFunctionFactory.Create(PreviewOperationAsync, ToolOptions),
+                    new ApprovalRequiredAIFunction(AIFunctionFactory.Create(ExecuteApprovedPlanAsync, ToolOptions))
                 ]
             },
             AIContextProviders = [new WorkspaceContextProvider(activePane),
@@ -417,7 +417,8 @@ public sealed class CopilotEngine : IDisposable
                 || c.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || c.Description.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
         Activity?.Invoke($"搜索可用能力：{(string.IsNullOrWhiteSpace(query) ? "全部" : query)} · {matches.Length} 项");
-        return JsonSerializer.Serialize(matches.Select(c => new { c.Id, c.Name, c.Description, c.Impact, c.Confirmation }), CatalogJsonOptions);
+        var summaries = matches.Select(c => new CapabilitySummary(c.Id, c.Name, c.Description, c.Impact, c.Confirmation)).ToArray();
+        return JsonSerializer.Serialize(summaries, CopilotJsonContext.Relaxed.CapabilitySummaryArray);
     }
 
     [Description("按已知稳定 ID 查看能力的参数格式、原逻辑归属、影响与确认规则，无需先搜索。")]
@@ -425,9 +426,9 @@ public sealed class CopilotEngine : IDisposable
     {
         var capability = capabilities.Find(id);
         if (capability == null)
-            return JsonSerializer.Serialize(new CapabilityResult(false, $"未知能力 ID：{id}"), CatalogJsonOptions);
+            return JsonSerializer.Serialize(new CapabilityResult(false, $"未知能力 ID：{id}"), CopilotJsonContext.Relaxed.CapabilityResult);
         Activity?.Invoke($"查看能力说明：{capability.Name}");
-        return JsonSerializer.Serialize(capability, CatalogJsonOptions);
+        return JsonSerializer.Serialize(capability, CopilotJsonContext.Relaxed.AppCapability);
     }
 
     [Description("按产物 ID 读取本会话中的候选文件集或分类方案。文件正文必须重新逐次审批，不能通过此工具读取。")]
@@ -462,7 +463,7 @@ public sealed class CopilotEngine : IDisposable
             || groupsDocument.RootElement.GetArrayLength() is < 1 or > 100)
             throw new ArgumentException("分类方案需要 1 到 100 组。");
         var assigned = new HashSet<string>(StringComparer.Ordinal);
-        var groups = new List<object>();
+        var groups = new List<ClassificationGroup>();
         foreach (var group in groupsDocument.RootElement.EnumerateArray())
         {
             var name = group.GetProperty("name").GetString()?.Trim();
@@ -473,13 +474,15 @@ public sealed class CopilotEngine : IDisposable
                 .Select(path => path.GetString() ?? "").ToArray();
             if (paths.Length == 0 || paths.Any(path => !allowed.Contains(path) || !assigned.Add(path)))
                 throw new ArgumentException("分类文件必须来自候选集且不能重复。");
-            groups.Add(new { name, paths });
+            groups.Add(new ClassificationGroup(name, paths));
         }
         var id = Guid.NewGuid().ToString("N");
+        var proposal = new ClassificationProposal(candidateArtifactId, groups, DateTimeOffset.UtcNow);
         store.SaveArtifact(id, _sessionId, "classification-proposal",
-            JsonSerializer.Serialize(new { candidateArtifactId, groups, createdAt = DateTimeOffset.UtcNow }));
+            JsonSerializer.Serialize(proposal, CopilotJsonContext.Default.ClassificationProposal));
         Activity?.Invoke($"已保存分类方案：{groups.Count} 组、{assigned.Count} 个文件");
-        return JsonSerializer.Serialize(new { artifactId = id, groupCount = groups.Count, fileCount = assigned.Count });
+        return JsonSerializer.Serialize(new ClassificationProposalReceipt(id, groups.Count, assigned.Count),
+            CopilotJsonContext.Default.ClassificationProposalReceipt);
     }
 
     [Description("调用 Impact=Read 的应用能力。file.content 等正文披露能力及修改操作必须先 PreviewOperation，再 ExecuteApprovedPlan。")]
@@ -491,7 +494,7 @@ public sealed class CopilotEngine : IDisposable
         if (capability != null && capability.Impact != CapabilityImpact.Read)
             return JsonSerializer.Serialize(new CapabilityResult(false,
                 $"{id} 需要审批：先调用 PreviewOperation(id, argumentsJson)，再调用 ExecuteApprovedPlan(planId)。此错误不是内容提取失败。",
-                new { RequiredTool = "PreviewOperation", CapabilityId = id, ApprovalRequired = true }), CatalogJsonOptions);
+                new ApprovalRequiredDetails("PreviewOperation", id, true)), CopilotJsonContext.Relaxed.CapabilityResult);
         CapabilityResult result;
         try
         {
@@ -502,14 +505,14 @@ public sealed class CopilotEngine : IDisposable
                                       or UnauthorizedAccessException or JsonException or NotSupportedException or TimeoutException
                                       or Microsoft.Data.Sqlite.SqliteException)
         {
-            return JsonSerializer.Serialize(new CapabilityResult(false, ex.Message), CatalogJsonOptions);
+            return JsonSerializer.Serialize(new CapabilityResult(false, ex.Message), CopilotJsonContext.Relaxed.CapabilityResult);
         }
         Activity?.Invoke($"调用只读能力：{capabilities.Find(id)?.Name ?? id}");
         if (id is not ("file.list" or "file.search" or "file.search-index" or "tag.files"))
-            return JsonSerializer.Serialize(result, CatalogJsonOptions);
+            return JsonSerializer.Serialize(result, CopilotJsonContext.Relaxed.CapabilityResult);
         var artifactId = Guid.NewGuid().ToString("N");
-        store.SaveArtifact(artifactId, _sessionId, "candidate-file-set", JsonSerializer.Serialize(result));
-        return JsonSerializer.Serialize(new { artifactId, result });
+        store.SaveArtifact(artifactId, _sessionId, "candidate-file-set", JsonSerializer.Serialize(result, CopilotJsonContext.Default.CapabilityResult));
+        return JsonSerializer.Serialize(new CandidateFileSetReceipt(artifactId, result), CopilotJsonContext.Default.CandidateFileSetReceipt);
     }
 
     [Description("预览 file.content 的正文发送范围，或文件修改的范围与冲突，生成需要用户确认的短时计划。")]
@@ -525,14 +528,15 @@ public sealed class CopilotEngine : IDisposable
         }
         catch (Exception ex) when (ex is ArgumentException or IOException or InvalidOperationException or UnauthorizedAccessException or JsonException or NotSupportedException or TimeoutException)
         {
-            return JsonSerializer.Serialize(new CapabilityResult(false, ex.Message), CatalogJsonOptions);
+            return JsonSerializer.Serialize(new CapabilityResult(false, ex.Message), CopilotJsonContext.Relaxed.CapabilityResult);
         }
         _plans[plan.Id] = plan;
-        store.SaveArtifact(plan.Id, _sessionId, "operation-plan", JsonSerializer.Serialize(plan));
+        store.SaveArtifact(plan.Id, _sessionId, "operation-plan", JsonSerializer.Serialize(plan, CopilotJsonContext.Default.CapabilityPlan));
         if (id == "file.create-text")
             store.SaveArtifact(Guid.NewGuid().ToString("N"), _sessionId, "generation-draft", argumentsJson);
         Activity?.Invoke($"预览操作：{plan.Summary}");
-        return JsonSerializer.Serialize(new { plan.Id, plan.Summary, plan.AffectedPaths, plan.Capability.Confirmation });
+        return JsonSerializer.Serialize(new OperationPlanSummary(plan.Id, plan.Summary, plan.AffectedPaths, plan.Capability.Confirmation),
+            CopilotJsonContext.Default.OperationPlanSummary);
     }
 
     [Description("请求用户批准并执行已预览的计划。此工具需要人工批准，执行前再次核对文件状态。")]
@@ -553,9 +557,10 @@ public sealed class CopilotEngine : IDisposable
             }
             store.SaveArtifact(Guid.NewGuid().ToString("N"), _sessionId,
                 plan.Capability.Id == "file.content" ? "content-excerpt" : "execution-receipt",
-                JsonSerializer.Serialize(result));
+                JsonSerializer.Serialize(result, CopilotJsonContext.Default.CapabilityResult));
             Activity?.Invoke(result.Message);
-            return JsonSerializer.Serialize(result, plan.Capability.Id == "file.content" ? CatalogJsonOptions : null);
+            return JsonSerializer.Serialize(result, plan.Capability.Id == "file.content"
+                ? CopilotJsonContext.Relaxed.CapabilityResult : CopilotJsonContext.Default.CapabilityResult);
         }
         finally { IsExecutingApprovedOperation = false; _plans.Remove(planId); }
     }

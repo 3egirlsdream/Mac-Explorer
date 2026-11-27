@@ -9,12 +9,12 @@ namespace MacExplorer.Controls;
 public sealed class LocFormatExtension : MarkupExtension
 {
     public string Text { get; set; } = "";
-    public string Path { get; set; } = "";
+    public BindingBase Argument { get; set; } = null!;
     public override object ProvideValue(IServiceProvider serviceProvider)
     {
         var binding = new MultiBinding { Converter = new FormatConverter(Text) };
-        binding.Bindings.Add(new Binding { Source = LocalizationService.Current, Path = "Culture" });
-        binding.Bindings.Add(new Binding(Path));
+        binding.Bindings.Add(LocExtension.ObserveCulture(LocalizationService.Current));
+        binding.Bindings.Add(Argument);
         return binding;
     }
     private sealed class FormatConverter(string text) : IMultiValueConverter

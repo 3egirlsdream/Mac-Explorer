@@ -36,6 +36,8 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     }
     private readonly List<BackgroundTaskInfo> _tasks = [];
     private readonly List<Entry> _queue = [];
+    private readonly Dictionary<string, Task> _legacyRetries = [];
+    private readonly AsyncLocal<BackgroundTaskInfo?> _retryingLegacyTask = new();
     private readonly object _lock = new();
     private readonly ILogger<BackgroundTaskManager>? _logger;
     private readonly ISettingsService? _settings;
@@ -184,8 +186,9 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
             else entry.Completion.TrySetResult(result);
             Schedule();
         }
-        MemoryDiagnostics.Record("task.finished", new { kind = entry.Info.Kind.ToString(), state = entry.Info.State.ToString(),
-            exception = failure?.GetType().Name, items = entry.Info.TotalItems, retainedBytes, retry = entry.Info.CanRetry });
+        MemoryDiagnostics.Record("task.finished", new DiagnosticTaskFinished(entry.Info.Kind.ToString(),
+                entry.Info.State.ToString(), failure?.GetType().Name, entry.Info.TotalItems, retainedBytes,
+                entry.Info.CanRetry));
         RaiseTasksChanged();
         if (callback != null) await InvokeCallbackAsync(callback);
     }
@@ -194,21 +197,18 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     {
         if (MemoryDiagnostics.IsEnabled)
         {
-            MemoryDiagnostics.Record(task.Kind == BackgroundTaskKind.Create ? "task.create_failed" : "task.failed", new
-            {
-                taskId = task.Id,
-                kind = task.Kind.ToString(),
-                operation = Shorten(task.Label, 128),
-                targetDirectory = Shorten(task.Request?.Destination, 1024),
-                currentFile = Shorten(task.CurrentFile, 512),
-                exception = Shorten(failure?.GetType().FullName, 256),
-                hResult = failure?.HResult,
-                nativeErrorCode = failure?.GetBaseException() is System.ComponentModel.Win32Exception nativeError
-                    ? nativeError.NativeErrorCode : (int?)null,
-                message = Shorten(task.ErrorMessage, 1024),
-                detail = Shorten(task.ErrorDetail, 4096),
-                detailTruncated = task.ErrorDetail?.Length > 4096
-            });
+            var detail = new DiagnosticTaskFailure(task.Id, task.Kind.ToString(),
+                Operation: Shorten(task.Label, 128),
+                TargetDirectory: Shorten(task.Request?.Destination, 1024),
+                CurrentFile: Shorten(task.CurrentFile, 512),
+                Exception: Shorten(failure?.GetType().FullName, 256),
+                HResult: failure?.HResult,
+                NativeErrorCode: failure?.GetBaseException() is System.ComponentModel.Win32Exception nativeError
+                    ? nativeError.NativeErrorCode : null,
+                Message: Shorten(task.ErrorMessage, 1024),
+                Detail: Shorten(task.ErrorDetail, 4096),
+                DetailTruncated: task.ErrorDetail?.Length > 4096);
+            MemoryDiagnostics.Record(task.Kind == BackgroundTaskKind.Create ? "task.create_failed" : "task.failed", detail);
         }
     }
 
@@ -265,11 +265,20 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         RaiseTasksChanged();
     }
     public Task WaitForCompletionAsync(string taskId)
-    { lock (_lock) return _queue.Find(e => e.Info.Id == taskId)?.Completion.Task ?? System.Threading.Tasks.Task.CompletedTask; }
+    {
+        lock (_lock)
+        {
+            if (_queue.Find(e => e.Info.Id == taskId) is { } entry)
+                return entry.Completion.Task;
+            if (_legacyRetries.TryGetValue(taskId, out var retry))
+                return retry;
+            return System.Threading.Tasks.Task.CompletedTask;
+        }
+    }
     public async Task ShutdownAsync()
     {
         Task[] pending;
-        lock (_lock) { _stopping = true; pending = _queue.Select(e => e.Completion.Task).ToArray(); }
+        lock (_lock) { _stopping = true; pending = _queue.Select(e => e.Completion.Task).Concat(_legacyRetries.Values).ToArray(); }
         foreach (var task in Tasks.Where(t => t.IsActive)) CancelTask(task.Id);
         try { await System.Threading.Tasks.Task.WhenAll(pending); } catch { /* Each operation retains its own outcome. */ }
         foreach (var entry in _queue.ToArray()) entry.Context.ReleaseExecutionState();
@@ -282,7 +291,20 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         if (FileTaskContext.Current is { } current) return current.Task;
         var task = new BackgroundTaskInfo { Label = label, Kind = kind, OnCompleted = onCompleted,
             RetryAction = retryAction, CanRetry = retryAction != null };
-        lock (_lock) { if (_stopping) throw new InvalidOperationException("Application is stopping"); _tasks.Add(task); }
+        var replaced = _retryingLegacyTask.Value;
+        lock (_lock)
+        {
+            if (_stopping) throw new InvalidOperationException("Application is stopping");
+            if (replaced != null && !ReferenceEquals(replaced, task) && replaced.State == BackgroundTaskState.Running && _tasks.Remove(replaced))
+            {
+                replaced.State = BackgroundTaskState.Cancelled;
+                replaced.CanCancel = false;
+                replaced.CanRetry = false;
+                replaced.OnCompleted = null;
+                replaced.RetryAction = null;
+            }
+            _tasks.Add(task);
+        }
         RaiseTasksChanged(); return task;
     }
     public void UpdateProgress(string taskId, double progress, string currentFile, string? label = null)
@@ -354,12 +376,15 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
     public void RetryTask(string taskId)
     {
         Func<Task>? legacy = null;
+        BackgroundTaskInfo? legacyTask = null;
+        TaskCompletionSource? legacyCompletion = null;
         lock (_lock)
         {
             var task = _tasks.Find(t => t.Id == taskId);
             if (task == null || task.State is not (BackgroundTaskState.Failed or BackgroundTaskState.NeedsAttention) || !task.CanRetry || _stopping) return;
             var entry = _queue.Find(e => e.Info == task);
             if (entry != null && (entry.Executing || !entry.Completion.Task.IsCompleted)) return;
+            if (entry == null && task.RetryAction == null) return;
             if (task.Request is { } retryRequest && !FeatureAccess.TryUse(FeatureAccess.ForRequest(retryRequest))) return;
             task.ErrorMessage = task.ErrorDetail = null;
             if (task.Request?.Operation is { FinderRunning: true } display)
@@ -375,9 +400,73 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
                 _ = entry.Completion.Task.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
                 task.State = BackgroundTaskState.Waiting; Schedule();
             }
-            else { task.State = BackgroundTaskState.Running; legacy = task.RetryAction; }
+            else
+            {
+                task.State = BackgroundTaskState.Running;
+                task.Progress = 0;
+                task.CanRetry = false;
+                legacy = task.RetryAction;
+                legacyTask = task;
+                legacyCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _legacyRetries[task.Id] = legacyCompletion.Task;
+            }
         }
-        RaiseTasksChanged(); if (legacy != null) _ = InvokeCallbackAsync(legacy);
+        RaiseTasksChanged();
+        if (legacy != null && legacyTask != null && legacyCompletion != null)
+            _ = InvokeLegacyRetryAsync(legacyTask, legacy, legacyCompletion);
+    }
+
+    private async Task InvokeLegacyRetryAsync(BackgroundTaskInfo task, Func<Task> retryAction, TaskCompletionSource completion)
+    {
+        var previous = _retryingLegacyTask.Value;
+        _retryingLegacyTask.Value = task;
+        try
+        {
+            await retryAction();
+            if (IsRunningLegacyTask(task))
+                CompleteTask(task.Id);
+        }
+        catch (OperationCanceledException)
+        {
+            CancelLegacyRetryIfStillRunning(task);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Background task retry failed");
+            if (IsRunningLegacyTask(task))
+                FailTask(task.Id, ex.Message, ex.ToString());
+        }
+        finally
+        {
+            _retryingLegacyTask.Value = previous;
+            lock (_lock)
+            {
+                if (_legacyRetries.TryGetValue(task.Id, out var current) && ReferenceEquals(current, completion.Task))
+                    _legacyRetries.Remove(task.Id);
+            }
+            completion.TrySetResult();
+        }
+    }
+
+    private void CancelLegacyRetryIfStillRunning(BackgroundTaskInfo task)
+    {
+        lock (_lock)
+        {
+            if (!_tasks.Contains(task) || task.State != BackgroundTaskState.Running)
+                return;
+            task.State = BackgroundTaskState.Cancelled;
+            task.OnCompleted = null;
+            task.RetryAction = null;
+            task.CanRetry = false;
+            TrimCompletedTasks();
+        }
+        RaiseTasksChanged();
+    }
+
+    private bool IsRunningLegacyTask(BackgroundTaskInfo task)
+    {
+        lock (_lock)
+            return _tasks.Contains(task) && task.State == BackgroundTaskState.Running;
     }
     public void MinimizeTask(string taskId) { }
     private void TrimCompletedTasks()
@@ -458,7 +547,8 @@ public sealed class BackgroundTaskManager : IBackgroundTaskManager, IIdleMemoryC
         }
         if (evicted > 0)
         {
-            MemoryDiagnostics.Record("task.retry_state_released", new { count = evicted, retainedLimit = FailedRetryLimit, byteLimit = FailedRetryByteLimit });
+            MemoryDiagnostics.Record("task.retry_state_released", new DiagnosticRetryStateReleased(evicted,
+                                                                      FailedRetryLimit, FailedRetryByteLimit));
             RaiseTasksChanged();
         }
     }

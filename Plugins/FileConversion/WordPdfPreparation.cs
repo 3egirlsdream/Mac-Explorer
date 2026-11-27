@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.Json;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -92,7 +93,7 @@ internal static class WordPdfPreparation
         }
         FileConversionService.NormalizeDocxRelationships(input);
         var manifest = Path.Combine(work, "attachments.json");
-        File.WriteAllText(manifest, JsonSerializer.Serialize(attachments));
+        File.WriteAllText(manifest, JsonSerializer.Serialize(attachments, ConversionJsonContext.Default.ListAttachment));
         return manifest;
     }
 
@@ -104,5 +105,8 @@ internal static class WordPdfPreparation
                 target.AddChild(property.CloneNode(true), true);
     }
 
-    private record Attachment(string Marker, string Path, double Width, double Height);
+    internal sealed record Attachment(string Marker, string Path, double Width, double Height);
 }
+
+[JsonSerializable(typeof(List<WordPdfPreparation.Attachment>))]
+internal sealed partial class ConversionJsonContext : JsonSerializerContext;

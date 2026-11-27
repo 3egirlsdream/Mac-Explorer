@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
 using Avalonia.Platform;
@@ -23,44 +23,42 @@ internal sealed class MacFontLifetime : IFontCollection
 
     private readonly object _sync = new();
     private readonly FontCollectionBase _inner;
-    private readonly Func<string, FontCollectionKey, GlyphTypeface?, bool> _cacheGlyph;
-    private delegate bool FindGlyph(string family, FontCollectionKey key, bool nearest, [NotNullWhen(true)] out GlyphTypeface? glyph);
-    private readonly FindGlyph _findGlyph;
     private readonly ConcurrentDictionary<FontCollectionKey, GlyphTypeface?> _systemUiFonts = new();
-    private readonly Func<FontStyle, FontWeight, FontStretch, GlyphTypeface?>? _createSystemUiGlyph;
+    private readonly IFontManagerImpl? _platform;
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "TryAddGlyphTypeface")]
+    private static extern bool CacheGlyph(FontCollectionBase collection, string family, FontCollectionKey key, GlyphTypeface? glyph);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "TryGetGlyphTypeface")]
+    private static extern bool FindGlyph(FontCollectionBase collection, string family, FontCollectionKey key,
+        bool allowNearestMatch, [NotNullWhen(true)] out GlyphTypeface? glyph);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_PlatformImpl")]
+    private static extern IFontManagerImpl GetPlatform(FontManager manager);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_fontCollections")]
+    private static extern ref readonly ConcurrentDictionary<Uri, IFontCollection> GetCollections(FontManager manager);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "TryCreateGlyphTypeface")]
+    private static extern bool TryCreatePlatformGlyph(IFontManagerImpl platform, string family, FontStyle style,
+        FontWeight weight, FontStretch stretch, [NotNullWhen(true)] out IPlatformTypeface? glyph);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    private static extern GlyphTypeface CreateGlyph(IPlatformTypeface platformTypeface, FontSimulations simulations);
 
     internal MacFontLifetime(FontCollectionBase inner, FontManager? manager = null)
     {
         _inner = inner;
-        _cacheGlyph = typeof(FontCollectionBase).GetMethod("TryAddGlyphTypeface", BindingFlags.Instance | BindingFlags.NonPublic,
-            [typeof(string), typeof(FontCollectionKey), typeof(GlyphTypeface)])!
-            .CreateDelegate<Func<string, FontCollectionKey, GlyphTypeface?, bool>>(inner);
-        _findGlyph = typeof(FontCollectionBase).GetMethod("TryGetGlyphTypeface", BindingFlags.Instance | BindingFlags.NonPublic,
-            [typeof(string), typeof(FontCollectionKey), typeof(bool), typeof(GlyphTypeface).MakeByRefType()])!
-            .CreateDelegate<FindGlyph>(inner);
-        _createSystemUiGlyph = BuildSystemUiFactory(manager);
+        _platform = manager is null ? null : GetPlatform(manager);
     }
 
-    private static Func<FontStyle, FontWeight, FontStretch, GlyphTypeface?>? BuildSystemUiFactory(FontManager? manager)
-    {
-        if (manager == null) return null;
-        var platformImpl = typeof(FontManager).GetProperty("PlatformImpl", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(manager);
-        var tryCreate = platformImpl?.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .FirstOrDefault(m => m.Name == "TryCreateGlyphTypeface"
-                && m.GetParameters() is { Length: 5 } p
-                && p[0].ParameterType == typeof(string));
-        var glyphCtor = typeof(GlyphTypeface).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
-            [typeof(IPlatformTypeface), typeof(FontSimulations)]);
-        if (platformImpl == null || tryCreate == null || glyphCtor == null) return null;
-
-        return (style, weight, stretch) =>
+    private GlyphTypeface? GetSystemUiGlyph(FontCollectionKey key, IFontManagerImpl platform) =>
+        _systemUiFonts.GetOrAdd(key, static (k, fontManager) =>
         {
-            object?[] invokeArgs = [AppleSystemUiFont, style, weight, stretch, null];
-            if (tryCreate.Invoke(platformImpl, invokeArgs) is true && invokeArgs[4] is IPlatformTypeface platformTypeface)
-                return (GlyphTypeface)glyphCtor.Invoke([platformTypeface, platformTypeface.FontSimulations]);
+            if (TryCreatePlatformGlyph(fontManager, AppleSystemUiFont, k.Style, k.Weight, k.Stretch, out var typeface))
+                return CreateGlyph(typeface, typeface.FontSimulations);
             return null;
-        };
-    }
+        }, platform);
 
     internal static void Prepare()
     {
@@ -70,9 +68,7 @@ internal sealed class MacFontLifetime : IFontCollection
         if (system is not FontCollectionBase source || system.GetType().FullName != "Avalonia.Media.Fonts.SystemFontCollection") return;
         // AddFontCollection disposes its previous collection. This decorator takes
         // ownership of that live collection instead; do not dispose active fonts.
-        if (typeof(FontManager).GetField("_fontCollections", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(manager)
-            is ConcurrentDictionary<Uri, IFontCollection> collections)
-            collections.TryUpdate(system.Key, new MacFontLifetime(source, manager), system);
+        GetCollections(manager).TryUpdate(system.Key, new MacFontLifetime(source, manager), system);
     }
 
     public Uri Key => _inner.Key;
@@ -88,17 +84,17 @@ internal sealed class MacFontLifetime : IFontCollection
     public bool TryGetGlyphTypeface(string familyName, FontStyle style, FontWeight weight, FontStretch stretch,
         [NotNullWhen(true)] out GlyphTypeface? glyphTypeface)
     {
-        if (_createSystemUiGlyph != null && IsSystemUiFamily(familyName))
+        if (_platform != null && IsSystemUiFamily(familyName))
         {
             var key = new FontCollectionKey(style, weight, stretch);
-            glyphTypeface = _systemUiFonts.GetOrAdd(key, k => _createSystemUiGlyph(k.Style, k.Weight, k.Stretch));
+            glyphTypeface = GetSystemUiGlyph(key, _platform);
             if (glyphTypeface != null) return true;
         }
 
         lock (_sync)
         {
             var success = _inner.TryGetGlyphTypeface(familyName, style, weight, stretch, out glyphTypeface);
-            if (success) _cacheGlyph(familyName, new FontCollectionKey(style, weight, stretch), glyphTypeface);
+            if (success) CacheGlyph(_inner, familyName, new FontCollectionKey(style, weight, stretch), glyphTypeface);
             return success;
         }
     }
@@ -106,19 +102,19 @@ internal sealed class MacFontLifetime : IFontCollection
     public bool TryCreateSyntheticGlyphTypeface(GlyphTypeface glyphTypeface, FontStyle style, FontWeight weight, FontStretch stretch,
         [NotNullWhen(true)] out GlyphTypeface? syntheticGlyphTypeface)
     {
-        if (_createSystemUiGlyph != null && IsSystemUiFamily(glyphTypeface.FamilyName))
+        if (_platform != null && IsSystemUiFamily(glyphTypeface.FamilyName))
         {
             var key = new FontCollectionKey(style, weight, stretch);
-            syntheticGlyphTypeface = _systemUiFonts.GetOrAdd(key, k => _createSystemUiGlyph(k.Style, k.Weight, k.Stretch));
+            syntheticGlyphTypeface = GetSystemUiGlyph(key, _platform);
             if (syntheticGlyphTypeface != null) return true;
         }
 
         lock (_sync)
         {
             var key = new FontCollectionKey(style, weight, stretch);
-            if (_findGlyph(glyphTypeface.FamilyName, key, false, out syntheticGlyphTypeface)) return true;
+            if (FindGlyph(_inner, glyphTypeface.FamilyName, key, false, out syntheticGlyphTypeface)) return true;
             var success = _inner.TryCreateSyntheticGlyphTypeface(glyphTypeface, style, weight, stretch, out syntheticGlyphTypeface);
-            if (success) _cacheGlyph(glyphTypeface.FamilyName, key, syntheticGlyphTypeface);
+            if (success) CacheGlyph(_inner, glyphTypeface.FamilyName, key, syntheticGlyphTypeface);
             return success;
         }
     }

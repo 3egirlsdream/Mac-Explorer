@@ -129,7 +129,7 @@ public partial class MainWindow
                     }); break;
                     case "assistant-step": AddCopilotLine("Copilot", turn.Text); break;
                     case "tool-batch":
-                        if (JsonSerializer.Deserialize<CopilotTraceStep>(turn.Text) is { } batch)
+                        if (JsonSerializer.Deserialize(turn.Text, CopilotJsonContext.Default.CopilotTraceStep) is { } batch)
                             AddCopilotToolGroup(batch);
                         break;
                     case "error": AddCopilotLine("错误", turn.Text); break;

@@ -195,7 +195,7 @@ public sealed partial class LocalSendService
         if (string.IsNullOrWhiteSpace(raw) || raw.Length > 32 * 1024) return _verifiedHistory = [];
         try
         {
-            var entries = JsonSerializer.Deserialize<List<VerifiedPeerHistory>>(raw, Json) ?? [];
+            var entries = JsonSerializer.Deserialize(raw, LocalSendJsonContext.Default.ListVerifiedPeerHistory) ?? [];
             return _verifiedHistory = entries.Where(item => item != null && IsValidHistory(item))
                 .OrderByDescending(item => item.VerifiedUtcTicks).Take(8).ToList();
         }
@@ -242,7 +242,7 @@ public sealed partial class LocalSendService
                 history.Insert(0, new VerifiedPeerHistory(peer.Fingerprint, peer.Address, peer.Port, peer.Alias, scopes, now));
                 var updated = history.OrderByDescending(item => item.VerifiedUtcTicks).Take(8).ToList();
                 cancellationToken.ThrowIfCancellationRequested();
-                _settings.Set(ILocalSendService.VerifiedPeersKey, JsonSerializer.Serialize(updated, Json));
+                _settings.Set(ILocalSendService.VerifiedPeersKey, JsonSerializer.Serialize(updated, LocalSendJsonContext.Default.ListVerifiedPeerHistory));
                 _verifiedHistory = updated;
             }
         }

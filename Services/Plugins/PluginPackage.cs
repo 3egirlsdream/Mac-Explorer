@@ -1,5 +1,3 @@
-using System.IO.Compression;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MacExplorer.PluginSdk;
@@ -9,11 +7,11 @@ namespace MacExplorer.Services.Plugins;
 internal static class PluginPackage
 {
     private static readonly Regex Identifier = new("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$", RegexOptions.CultureInvariant);
-    public static PluginManifest ReadManifest(string directory, bool requireAssembly = true)
+    public static PluginManifest ReadManifest(string directory)
     {
         using var stream = File.OpenRead(Path.Combine(directory, "plugin.json"));
         if (stream.Length > 1024 * 1024) throw new InvalidDataException("插件清单过大。");
-        var manifest = JsonSerializer.Deserialize<PluginManifest>(stream, PluginProtocol.Json)
+        var manifest = JsonSerializer.Deserialize(stream, PluginJsonContext.Default.PluginManifest)
             ?? throw new InvalidDataException("插件清单为空。");
         if (manifest.Id == null || !Identifier.IsMatch(manifest.Id) || string.IsNullOrWhiteSpace(manifest.Name) || manifest.Name.Length > 100 ||
             !Version.TryParse(manifest.Version, out _) || !Identifier.IsMatch(manifest.Version))
@@ -22,9 +20,6 @@ internal static class PluginPackage
         if (manifest.TrialDays is < 0 or > 3650 || (!manifest.Paid && manifest.TrialDays != 0) ||
             (manifest.ApiVersion == 1 && (manifest.Paid || manifest.HasUserInterface)))
             throw new InvalidDataException("授权或窗口能力需要 API v2，试用天数必须在 0–3650 之间。");
-        var entry = ContainedPath(directory, manifest.Entry);
-        if (requireAssembly && (!File.Exists(entry) || !entry.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("插件入口程序集不存在。");
-        if (requireAssembly) _ = AssemblyName.GetAssemblyName(entry); // Read metadata without loading plugin code into the UI process.
         if (manifest.Commands is not { Length: > 0 and <= 100 } || manifest.Commands.Any(c => c == null) ||
             manifest.Commands.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != manifest.Commands.Length)
             throw new InvalidDataException("插件命令为空或存在重复标识。");
@@ -48,37 +43,4 @@ internal static class PluginPackage
         return path;
     }
 
-    public static async Task ExtractAsync(string package, string directory, CancellationToken token)
-    {
-        using var zip = ZipFile.OpenRead(package);
-        if (zip.Entries.Count > 10000 || zip.Entries.Sum(e => e.Length) > 512L * 1024 * 1024)
-            throw new InvalidDataException("插件包过大。");
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in zip.Entries)
-        {
-            token.ThrowIfCancellationRequested();
-            var path = ContainedPath(directory, entry.FullName);
-            if (!names.Add(path)) throw new InvalidDataException("插件包存在重复路径。");
-            var mode = (entry.ExternalAttributes >> 16) & 0xffff;
-            var kind = mode & 0xf000;
-            if (kind != 0 && kind != 0x8000 && kind != 0x4000) throw new InvalidDataException("插件包不允许符号链接或特殊文件。");
-            if (entry.FullName.EndsWith('/')) { Directory.CreateDirectory(path); continue; }
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await using (var input = entry.Open())
-            await using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                var buffer = new byte[65536]; long copied = 0; int count;
-                while ((count = await input.ReadAsync(buffer, token)) > 0)
-                {
-                    copied += count;
-                    if (copied > entry.Length) throw new InvalidDataException("插件包解压长度不匹配。");
-                    await output.WriteAsync(buffer.AsMemory(0, count), token);
-                }
-                if (copied != entry.Length) throw new InvalidDataException("插件包解压不完整。");
-            }
-            if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite |
-                    ((mode & 0x49) != 0 ? UnixFileMode.UserExecute : 0));
-        }
-    }
 }

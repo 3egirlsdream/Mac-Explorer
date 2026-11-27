@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
@@ -35,8 +36,8 @@ public class AppUpdateService : IAppUpdateService
     public async Task<VersionInfo?> GetVersionDetailsAsync(CancellationToken ct = default)
     {
         DistributionChannel.RequireWebsite("自更新");
-        var response = await _http.GetFromJsonAsync<VersionCheckResponse>(
-            VersionApiUrl + "&CurrentVersion=" + Uri.EscapeDataString(CurrentVersion), ct).ConfigureAwait(false);
+        var response = await _http.GetFromJsonAsync(
+            VersionApiUrl + "&CurrentVersion=" + Uri.EscapeDataString(CurrentVersion), WebAppJsonContext.Default.VersionCheckResponse, ct).ConfigureAwait(false);
 
         if (response?.Success != true)
             throw new InvalidOperationException("更新服务器返回了失败状态");
@@ -416,7 +417,6 @@ echo ""[$(date)] Update completed""
         {
             AppContext.BaseDirectory,
             Environment.ProcessPath,
-            System.Reflection.Assembly.GetExecutingAssembly().Location,
         };
 
         foreach (var candidate in candidates.Where(path => !string.IsNullOrWhiteSpace(path)))

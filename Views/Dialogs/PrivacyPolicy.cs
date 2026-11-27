@@ -28,7 +28,7 @@ internal static class PrivacyPolicy
             MinWidth = 360, MinHeight = 300, VerticalContentAlignment = VerticalAlignment.Stretch,
             WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        dialog.Styles.Add(new DialogSettingsStyles());
         dialog.Content = new ScrollViewer { Margin = new Thickness(16),
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             Content = new TextBlock { Text = await reader.ReadToEndAsync(), TextWrapping = TextWrapping.Wrap,

@@ -67,7 +67,7 @@ macOS Debug 构建完成后，用独立配置运行真实窗口检查：
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_WINDOW_OPEN_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 该入口仅在 Debug 且设置了 `MACEXPLORER_TEST_ROOT` 时生效；依次打开设置、确认、同名冲突、文件进度、压缩、远程连接、重命名、图片转换、密码、LocalSend、首页标签命名、工作组命名、脚本命令、新主窗口和文件速递，不执行文件操作。报告写入终端打印的临时目录 `window-open-smoke.json`，随后退出。设置首开必须仅创建一个页面，逐页进入后检查延迟内容已创建；每个窗口显示调用返回时，外框必须已经铺满客户端区域。
@@ -79,7 +79,7 @@ MACEXPLORER_WINDOW_OPEN_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_TAG_CLIPBOARD_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 该入口仅在 Debug 隔离实例中运行，检查标签间复制／剪切、真实子目录复制／移动、取消副本标签，以及外部进程写入的多文件 Finder 引用 URL。使用独立命名剪贴板，报告与窗口截图保存到测试目录的 `tag-clipboard/`，结束后退出。自动回归使用 `fast`、`ui --area UnifiedTagInteraction --area Localization` 和 `integration --area UnifiedFileTag --area Clipboard --area FileDrop`。
@@ -91,7 +91,7 @@ MACEXPLORER_TAG_CLIPBOARD_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_TASK_RING_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 报告及浅／深色、0%／25%／50%／100%、流动、暂停和不确定进度截图保存在打印的测试目录下 `task-progress-ring/`。报告检查运行中的实际动画帧增长，暂停、隐藏、最小化、移除和关闭后帧数停止，以及关闭后的绘图资源释放；结束后自动退出。普通逻辑与交互回归使用 `fast --area FileTasks` / `ui --area FileTasks`。
@@ -103,7 +103,7 @@ WebDAV 使用 macOS NetFS 和系统文件系统。原生检查以新的 Debug �
 ```bash
 python3 -m venv /tmp/macexplorer-webdav-qa
 /tmp/macexplorer-webdav-qa/bin/pip install WsgiDAV==4.4.0 cheroot==11.1.2
-dotnet build MacExplorer.csproj -p:SkipMacOSReleaseDMG=true
+dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_WEBDAV_TEST_PYTHON=/tmp/macexplorer-webdav-qa/bin/python \
   bash Tools/Testing/run-tests.sh integration --area Network
 ```
@@ -117,7 +117,7 @@ MACEXPLORER_WEBDAV_TEST_PYTHON=/tmp/macexplorer-webdav-qa/bin/python \
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_DELIVERY_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 该入口仅在 Debug 与独立测试目录中运行，生成文件、长文件名、文件夹和不可用路径，检查暂存展示、清空后源文件不变，并输出四语浅／深色及窄窗口截图。结果位于打印的测试目录 `file-delivery/`，`report.json` 的 success 为验收结果。设置 `MACEXPLORER_DELIVERY_SMOKE=interactive` 会保留实例及 `Documents/DeliveryFixture`，用于 Finder／本程序实际拖入、拖出和取消验证；`state.json` 仅在该显式测试模式下记录测试路径、窗口可见性和原生拖拽计数。普通自动回归运行 `fast`、`ui --area FileDelivery --area Localization`、`integration --area FileDelivery`。
@@ -131,7 +131,7 @@ bash Tools/Testing/run-tests.sh integration --area FolderPhotoCover
 
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_BACKGROUND_THEME_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 主题检查覆盖分层渐变铺满而不重复、纹理强度独立、三组各三款宽幅 SVG 预设、无内嵌位图、原比例与实际 SVG 渲染首尾接缝／平铺几何、100% 普通混合、默认强度文字对比度、旧开发预设迁移、预设持久化与并发切换、切换预设后恢复自定义图片、固定按高平铺几何与旧布局字段兼容、受限解码与导入持久化、失效图片回退、失败替换保留旧主题、多窗口同步、独立对话框隔离和主题菜单／子菜单／下拉框材质、透明度反向换算及端点效果，以及四语设置操作。原生检查只在 Debug 隔离实例中生效，生成主题图和文件列表样例，输出所有预设的浅／深色、宽／窄窗口、首页、信息面板、滚动、固定平铺、关闭主题及四语设置截图；设置页实际选择主题并核对预览随浅深色切换。`background-theme/report.json` 记录检查结果。通过像素比对检查激活页签、信息面板分隔线左侧、工具栏四角及状态栏保留原图，并比对工具栏与信息栏磨砂是否保持同一窗口坐标、比例和透明度。同时通过像素检查标题栏空白区为无纹理渐变、信息预览卡片透出同坐标磨砂，并核对工具栏选中面及主窗口分隔线透明度；额外输出自定义图片／预设在浅深色下的列表选中态、右键菜单悬停、子菜单及排序下拉截图；关闭主题恢复原有组件表面和自定义交互配色。源图片缩放与滚动复用同一已解码资源，窗口尺寸变化仅更新有界合成缓存；恢复默认保留用户原图。
@@ -145,7 +145,7 @@ MACEXPLORER_BACKGROUND_THEME_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 bash Tools/Testing/run-isolated.sh python3 Tools/Testing/run-folder-tabs-smoke.py \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 该入口仅用于 Debug 隔离实例，先在同一进程关闭最后一个主窗口，再通过 Dock 重开回调的托管入口检查全部页签与活动位置，验证后显式关闭恢复窗口；随后使用同一临时配置连续启动五次新构建的原生可执行文件，走应用退出的 `ShutdownRequested` 流程。检查退出时保存全部主窗口及各自页签、重复目录与活动位置，重启时恢复窗口边界及活动窗口；再逐个关闭窗口并退出，检查下次只恢复最后关闭窗口。还覆盖关闭恢复设置与显式启动位置优先，生成四语浅色宽窗口／深色窄窗口设置截图。报告与日志保存在测试目录 `folder-tabs/`。此处“实例”指同一应用进程中的多个主窗口，不涉及多个进程之间合并状态。
@@ -169,7 +169,7 @@ bash Tools/Testing/run-isolated.sh python3 Tools/Testing/run-folder-tabs-smoke.p
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_TAB_GROUPS_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 仅 Debug 且配置独立测试目录时启用；数据全部写入本次测试目录。`tab-groups/report.json` 记录结果，并保存四语浅／深色、窄窗口、长组名、菜单、重命名、背景主题及恢复后的真实合成截图，同时检查启动会话恢复、关闭后重开工作组、同目录独立状态和全局默认值未变。设为 `interactive` 可保留实例供原生指针验收；不操作真实用户目录。
@@ -186,7 +186,7 @@ clang++ -fobjc-arc -std=c++17 -mmacosx-version-min=14.0 Tests/Native/VideoPrevie
   -framework CoreVideo -framework QuartzCore -o /tmp/macexplorer-video-native
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_VIDEO_PREVIEW_SMOKE=1 MACEXPLORER_VIDEO_FIXTURE_HELPER=/tmp/macexplorer-video-native \
-  bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 检查浅／深色、窄窗口和中文长文件名、模态遮挡、最小化、原生焦点关闭、损坏视频、快速切换、压缩包视频、重复开关回收和播放中关闭窗口。最小化检查等待真实原生状态及动画完成后再恢复，避免渲染暂停期间的待处理队列影响回收判断。
@@ -197,13 +197,13 @@ MACEXPLORER_VIDEO_PREVIEW_SMOKE=1 MACEXPLORER_VIDEO_FIXTURE_HELPER=/tmp/macexplo
 
 ## 同名文件弹窗验证
 
-Debug 构建后，使用 `MACEXPLORER_FILE_CONFLICT_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'` 检查四语浅色与深色窄窗口、长文件名、处理按钮与替换下拉菜单。该入口只创建隔离窗口，不执行文件替换；截图与 `report.json` 写入测试目录的 `file-conflict/`。
+Debug 构建后，使用 `MACEXPLORER_FILE_CONFLICT_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/MacExplorer'` 检查四语浅色与深色窄窗口、长文件名、处理按钮与替换下拉菜单。该入口只创建隔离窗口，不执行文件替换；截图与 `report.json` 写入测试目录的 `file-conflict/`。
 
 ## 窗口拖拽缩放验证
 
 手动复验可将 `MACEXPLORER_WINDOW_RESIZE_SMOKE` 设为 `interactive`，通过同一隔离入口启动新构建。此模式保留一个 440×420 的同名冲突示例弹窗，不执行文件操作；关闭弹窗后测试实例退出。
 
-Debug 构建后，使用 `MACEXPLORER_WINDOW_RESIZE_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'`。该入口需要原生指针事件权限，对同名冲突、编辑同步、正文命中和 Git 差异的浅深色隔离窗口实际拖动右下角的圆角内侧，分别放大、缩小，记录拖拽中间帧及原生层状态，结果保存在测试目录的 `window-resize/`。中间帧使用 WindowServer 截图，不能用合成树截图替代；检查必须观察到 `liveResize`，并验证实际渲染层使用左上角原像素对齐、正确的 backing scale，且没有几何动画；原生底色必须保持不透明并保留窗口圆角。`integration --area Window` 另用停留在旧尺寸的画面检查新增区域有底色、圆角外透明、主题更新与渲染层替换后仍生效。
+Debug 构建后，使用 `MACEXPLORER_WINDOW_RESIZE_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/MacExplorer'`。该入口需要原生指针事件权限，对同名冲突、编辑同步、正文命中和 Git 差异的浅深色隔离窗口实际拖动右下角的圆角内侧，分别放大、缩小，记录拖拽中间帧及原生层状态，结果保存在测试目录的 `window-resize/`。中间帧使用 WindowServer 截图，不能用合成树截图替代；检查必须观察到 `liveResize`，并验证实际渲染层使用左上角原像素对齐、正确的 backing scale，且没有几何动画；原生底色必须保持不透明并保留窗口圆角。`integration --area Window` 另用停留在旧尺寸的画面检查新增区域有底色、圆角外透明、主题更新与渲染层替换后仍生效。
 
 `integration --area Window` 同时检查首次显示后替换 Metal／软件渲染层、1×／2× backing scale 更新、保留未提交 drawable 尺寸，以及视图和原生观察器释放；`ui --area FeatureUpgrade --area RemoteEdit --area Window` 检查拖拽结束后的布局与操作。只验证最后一帧不足以判断拖拽过程中是否失真。
 
@@ -221,14 +221,14 @@ Debug 构建后，通过独立配置启动真实应用，运行本地 6002 项�
 ```bash
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_BULK_PASTE_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 显式设置 `MACEXPLORER_BULK_PASTE_SOURCE=/Volumes/磁盘/现有目录` 时，追加外置盘到本机的真实文件夹复制；源目录只读，目标始终位于本次测试目录。使用独立命名的原生剪贴板，外部来源通过文件 URL 采纳路径进入粘贴流程，不改写用户系统剪贴板。报告与窗口截图保存在 `bulk-paste/`；对比源与目标的相对路径、内容 SHA-256、目录数、文件数和链接目标，并记录耗时、主线程心跳次数与最长间隔。该检查验证当前磁盘和所选目录，不替代其他文件系统或 App Store 沙盒授权验收。
 
 自动回归使用 `fast`、`ui --area FileTasks --area Clipboard --area UnifiedTagInteraction`、`integration --area Clipboard`；覆盖长文件名、取消、权限失败后重试、未完成目录重新扫描、临时文件所有权与原生剪贴板中的不可用路径。
 
-独立进度窗的整批同名预检回归位于 `fast --area FileConflicts`，包括三层目录同名、同批来源互相重名及最后一次确认取消。Debug 构建后运行 `MACEXPLORER_FILE_OPERATION_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'`，测试目录的 `operation-windows/` 包含原生窗口的浅色和深色窄窗截图。该入口检查真实进度的逐帧过渡，并在隔离目录内验证排队暂停、写入途中暂停与继续、运行或暂停时停止复制、停止批量删除及结束自动关窗。
+独立进度窗的整批同名预检回归位于 `fast --area FileConflicts`，包括三层目录同名、同批来源互相重名及最后一次确认取消。Debug 构建后运行 `MACEXPLORER_FILE_OPERATION_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/MacExplorer'`，测试目录的 `operation-windows/` 包含原生窗口的浅色和深色窄窗截图。该入口检查真实进度的逐帧过渡，并在隔离目录内验证排队暂停、写入途中暂停与继续、运行或暂停时停止复制、停止批量删除及结束自动关窗。
 
 ## Git 菜单与提交历史
 
@@ -237,7 +237,7 @@ bash Tools/Testing/run-tests.sh ui --area Git
 bash Tools/Testing/run-tests.sh integration --area Git
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_GIT_MENU_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 真实窗口检查只在隔离测试目录创建 Git 仓库，验证四语原生子菜单、取消丢弃后内容不变，以及浅／深色、宽／窄提交历史与双栏差异；截图与 `report.json` 位于打印的测试目录 `git-menu/`。集成检查覆盖暂存／取消暂存、首次提交、目录与删除、重命名历史、分页与合并、冲突与锁文件、字面文件名、二进制／超限差异及 worktree；商店 helper 的调用检查不能替代签名沙盒与真实授权验证。
@@ -246,7 +246,7 @@ MACEXPLORER_GIT_MENU_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 
 运行 `bash Tools/Testing/run-tests.sh fast` 和 `bash Tools/Testing/run-tests.sh ui --area DiskManagement --area Network`，覆盖挂载标题齿轮显隐、空分组隐藏、窄窗口返回、导航历史、磁盘替换、异步过期结果和弹出失败。原生查询与临时只读磁盘映像通过 `bash Tools/Testing/run-tests.sh integration --area DiskManagement` 验证；映像仅在本次隔离目录创建并于结束时卸载清理，不操作现有磁盘。
 
-Debug 构建后，运行 `MACEXPLORER_DISK_MANAGEMENT_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'`，检查真实齿轮入口、页签复用、原生启动卷信息与页面切换，并输出四语、浅深色、宽窄窗口及断开状态截图至测试目录 `disk-management/`。界面示例使用测试替身，未执行真实外置盘弹出；商店签名沙盒需另行验证。
+Debug 构建后，运行 `MACEXPLORER_DISK_MANAGEMENT_SMOKE=1 bash Tools/Testing/run-isolated.sh 'bin/Debug/net10.0/osx-arm64/MacExplorer'`，检查真实齿轮入口、页签复用、原生启动卷信息与页面切换，并输出四语、浅深色、宽窄窗口及断开状态截图至测试目录 `disk-management/`。界面示例使用测试替身，未执行真实外置盘弹出；商店签名沙盒需另行验证。
 
 ## 侧栏自定义分组验证
 
@@ -255,7 +255,7 @@ bash Tools/Testing/run-tests.sh fast
 bash Tools/Testing/run-tests.sh ui --area Sidebar --area Localization --area Window
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_SIDEBAR_GROUPS_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 原生入口仅在 Debug 隔离实例中生效，使用本次测试目录的文件夹与配置，检查分组添加／重命名、四语设置、多页签更新、独立固定和删除保留原目录，保存浅／深色、窄侧栏及命名弹窗截图和 `sidebar-groups/report.json` 后退出。拖放区域、目录移动与悬停回归由 Sidebar UI 测试覆盖。
@@ -264,10 +264,10 @@ MACEXPLORER_SIDEBAR_GROUPS_SMOKE=1 bash Tools/Testing/run-isolated.sh \
 
 ```bash
 MACEXPLORER_DELIVERY_SMOKE=native-drag bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
-先用 `-p:SkipMacOSReleaseDMG=true` 构建 Debug `.app`。此模式在隔离目录创建四个示例文件夹，实际发送鼠标输入，将前三个连续拖入自定义分组，第四个用 Escape 取消；检查原生拖拽开始／结束、投放窗复用、快捷入口数量、原文件内容和暂存区，保存 `sidebar-native-drag/report.json` 与截图后退出。需要已有的原生输入权限。文件速递／窗口集成检查同时覆盖 KVO 注册后重复定位和 Metal 层替换，避免重复覆盖 KVO 动态类。
+先用 `-p:SkipMacOSReleaseDMG=true` 构建 Debug 可执行文件。此模式在隔离目录创建四个示例文件夹，实际发送鼠标输入，将前三个连续拖入自定义分组，第四个用 Escape 取消；检查原生拖拽开始／结束、投放窗复用、快捷入口数量、原文件内容和暂存区，保存 `sidebar-native-drag/report.json` 与截图后退出。需要已有的原生输入权限。文件速递／窗口集成检查同时覆盖 KVO 注册后重复定位和 Metal 层替换，避免重复覆盖 KVO 动态类。
 
 ## exFAT 新建文件兼容验证
 

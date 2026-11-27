@@ -424,7 +424,8 @@ public partial class NavigationViewModel : ObservableObject, IMemoryDiagnosticSo
             entry.HasSearchResultsSnapshot = false;
             evicted++;
         }
-        if (evicted > 0) MemoryDiagnostics.Record("search.history_trimmed", new { evicted, history = HistoryCount, snapshotBytes = bytes });
+        if (evicted > 0) MemoryDiagnostics.Record("search.history_trimmed", new SearchHistoryTrim(evicted,
+                                                                                HistoryCount, bytes));
     }
 
     private static void SetSearchSnapshot(NavigationHistoryEntry entry, IReadOnlyList<FileSystemEntry> results)

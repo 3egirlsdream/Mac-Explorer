@@ -44,7 +44,7 @@ public sealed class CopilotIndexedSearchTests : IDisposable
         }, Token);
     private Task<IndexedFileSearchResult> Search(IndexedFileQuery query) =>
         _catalog.SearchResourcesAsync(_root, query, new(), Token);
-    private AppCapabilityRegistry Registry(IFileService? files = null, IMetadataService? metadata = null) => new(files!, null!, null!, null!, null!, null!, null!, null!,
+    private AppCapabilityRegistry Registry(IFileService? files = null, IMetadataService? metadata = null) => new(files!, null!, null!, null!, null!, null!, null!,
         null!, null!, null!, null!, null!, new CopilotContentExtractor(null!, null!, _tags),
         null!, null!, null!, null!, null!, _catalog, metadata, _tags);
 

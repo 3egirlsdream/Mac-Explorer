@@ -9,10 +9,7 @@ internal static class MarkdownLocalization
 {
     public static void Register()
     {
-        // Next to the executable in build output, under Contents/Resources in the .app bundle.
-        var resourceFolder = Path.Combine(AppContext.BaseDirectory, "I18n");
-        if (!Directory.Exists(resourceFolder))
-            resourceFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "I18n"));
+        var resourceFolder = Path.Combine(RuntimePaths.BundleResourceDirectory, "I18n");
         I18nManager.Instance.Register(
             new JsonLangPlugin { ResourceFolder = resourceFolder },
             Services.Impl.LocalizationCatalog.GetPack(Services.Impl.LocalizationService.ResolveSystemLanguage()).Culture, out _);

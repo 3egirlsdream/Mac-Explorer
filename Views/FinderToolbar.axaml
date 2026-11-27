@@ -5,8 +5,7 @@
              xmlns:icons="using:MacExplorer.Assets"
              xmlns:controls="using:MacExplorer.Controls"
              x:Class="MacExplorer.Views.FinderToolbar"
-             x:DataType="vm:FileListViewModel"
-             x:CompileBindings="False">
+             x:DataType="vm:FileListViewModel">
 
     <UserControl.Styles>
         <Style Selector="PathIcon.toolbar-icon">
@@ -61,25 +60,34 @@
                 </controls:AppButton>
                 <Border x:Name="InlineActionsHost">
                     <StackPanel x:Name="InlineActions" Orientation="Horizontal" Spacing="4">
-                        <Separator Classes="toolbar-separator"/>
+                        <Separator x:Name="InlineActionsDivider" Classes="toolbar-separator"/>
 
                         <!-- Clipboard -->
-                        <controls:AppButton x:Name="CutButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="{loc:Loc ui.007}" Click="CutSelected">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
-                        </controls:AppButton>
-                        <controls:AppButton x:Name="CopyButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="{loc:Loc ui.012}" Click="CopySelected">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
-                        </controls:AppButton>
-                        <controls:AppButton x:Name="PasteButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
-                        </controls:AppButton>
-                        <controls:AppButton x:Name="DeleteButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Click="DeleteSelected">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
-                        </controls:AppButton>
-
-                        <controls:AppButton x:Name="HomeButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
-                            <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Workbench}"/>
-                        </controls:AppButton>
+                        <Border x:Name="CutButtonHost">
+                            <controls:AppButton x:Name="CutButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.cut" AutomationProperties.Name="{loc:Loc ui.007}" Click="CutSelected">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Cut}"/>
+                            </controls:AppButton>
+                        </Border>
+                        <Border x:Name="CopyButtonHost">
+                            <controls:AppButton x:Name="CopyButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.copy" AutomationProperties.Name="{loc:Loc ui.012}" Click="CopySelected">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Copy}"/>
+                            </controls:AppButton>
+                        </Border>
+                        <Border x:Name="PasteButtonHost">
+                            <controls:AppButton x:Name="PasteButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.paste" AutomationProperties.Name="{loc:Loc ui.026}" Click="PasteItems">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Paste}"/>
+                            </controls:AppButton>
+                        </Border>
+                        <Border x:Name="DeleteButtonHost">
+                            <controls:AppButton x:Name="DeleteButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="file.trash" AutomationProperties.Name="{Binding DeleteSelectionDescription}" Click="DeleteSelected">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Delete}"/>
+                            </controls:AppButton>
+                        </Border>
+                        <Border x:Name="HomeButtonHost">
+                            <controls:AppButton x:Name="HomeButton" Classes="ghost toolbar-btn w32" controls:ShortcutTip.Command="navigation.home" AutomationProperties.Name="{loc:Loc ui.029}" Click="GoHome">
+                                <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Workbench}"/>
+                            </controls:AppButton>
+                        </Border>
                     </StackPanel>
                 </Border>
             </StackPanel>

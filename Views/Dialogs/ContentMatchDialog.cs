@@ -26,13 +26,11 @@ internal sealed class ContentMatchDialog : DialogWindow
         Title = LocalizationText.Get("content.matches");
         TitleBarContent = new TextBlock { Text = Title, Classes = { "dialog-window-title" } };
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-        { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         Width = 1040; MinWidth = 360; Height = 626; MaxHeight = 780;
         VerticalContentAlignment = VerticalAlignment.Stretch;
         _entry = entry; _keyword = keyword; _initialMatch = initialMatch; CanResize = true; MinHeight = 400;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-            { Source = new Uri("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml") });
+        Styles.Add(new ContentMatchEditorStyles());
         _preview.Margin = new Thickness(16);
         Content = _preview;
         Opened += async (_, _) => await LoadAsync();

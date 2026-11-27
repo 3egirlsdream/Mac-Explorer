@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using MacExplorer.Services.Subscriptions;
 using System.Text.Json;
 using MacExplorer.Models;
@@ -378,7 +379,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
         {
             if (!File.Exists(_configPath)) { _configurationLoadFailed = false; return; }
             var json = File.ReadAllText(_configPath);
-            var servers = JsonSerializer.Deserialize<List<RemoteServerInfo>>(json);
+            var servers = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListRemoteServerInfo);
             if (servers == null) throw new JsonException("连接配置为空，未执行迁移。");
             _configurationLoadFailed = false;
             foreach (var saved in servers) _servers[saved.Id] = saved;
@@ -410,15 +411,7 @@ public class RemoteConnectionService : IRemoteConnectionService, IDisposable
                 if (!string.IsNullOrEmpty(server.Password) && server.AuthMethod == RemoteAuthMethod.Password) _credentials.Save(server.Id, server.Password);
             var dir = Path.GetDirectoryName(_configPath)!;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            var resolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver();
-            resolver.Modifiers.Add(info =>
-            {
-                if (info.Type != typeof(RemoteServerInfo)) return;
-                foreach (var property in info.Properties)
-                    if (property.Name == nameof(RemoteServerInfo.Password)) property.ShouldSerialize = (_, _) => false;
-            });
-            var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions
-                { WriteIndented = true, TypeInfoResolver = resolver });
+            var json = JsonSerializer.Serialize(snapshot, IndentedAppJsonContext.RemoteServers);
             var temporary = _configPath + ".tmp";
             File.WriteAllText(temporary, json);
             File.Move(temporary, _configPath, true);

@@ -190,7 +190,7 @@ public sealed class CopilotCoreTests
 
     [Fact(Explicit = true)]
     [Trait("Kind", "Integration")]
-    public void InstalledPluginCommandsAppearInCapabilityCatalog()
+    public async Task BuiltInCommandsAppearAndOldInstallRequestsAreRejected()
     {
         using var env = new PluginTestEnvironment();
         var registry = new AppCapabilityRegistry(null!, null!, null!, null!, env.Manager,
@@ -199,6 +199,10 @@ public sealed class CopilotCoreTests
         var commands = registry.Catalog.Where(item => item.Id.StartsWith("plugin.command:", StringComparison.Ordinal)).ToArray();
         Assert.Equal(plugin.Manifest.Commands.Length, commands.Length);
         Assert.All(commands, item => Assert.Equal(CapabilityImpact.Change, item.Impact));
+        Assert.Null(registry.Find("plugin.install"));
+        Assert.Null(registry.Find("plugin.market-list"));
+        var error = await Assert.ThrowsAsync<NotSupportedException>(() => registry.PreviewAsync("plugin.install", "{}", null));
+        Assert.Equal(Services.Impl.LocalizationText.Get("plugin.nativeOnly"), error.Message);
     }
 
     [Fact]

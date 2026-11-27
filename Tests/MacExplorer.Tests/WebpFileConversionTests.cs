@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using System.Text.Json;
 using MacExplorer.PluginSdk;
 using MacExplorer.Services;
@@ -87,9 +86,8 @@ public sealed class WebpFileConversionTests : IDisposable
     [Trait("Kind", "Integration")]
     public void BundledPluginMatchesSourceVersionAndAdvertisesWebp()
     {
-        using var package = ZipFile.OpenRead(PluginTestEnvironment.BundledPackage);
-        using var stream = package.GetEntry("plugin.json")!.Open();
-        var manifest = JsonSerializer.Deserialize<PluginManifest>(stream, PluginProtocol.Json)!;
+        using var env = new PluginTestEnvironment();
+        var manifest = Assert.Single(env.Manager.Plugins).Manifest;
         Assert.Equal(SourceManifest().Version, manifest.Version);
         Assert.Equal(new[] { "to-png", "to-jpg" }, manifest.Commands
             .Where(command => command.Match.Matches([new PluginFile(Path.Combine(_root, "image.WEBP"))]))

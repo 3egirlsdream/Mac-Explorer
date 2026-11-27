@@ -22,8 +22,16 @@ public sealed class FileOperationHistoryService : IFileOperationHistoryService
     private readonly SemaphoreSlim _undoGate = new(1, 1);
     private static readonly AsyncLocal<bool> Undoing = new();
     internal static bool IsUndoing => Undoing.Value;
-    private sealed class ReplacementBaseline
-    { internal FileIdentitySnapshot? Snapshot, BackupSnapshot; }
+    private sealed class ReplacementBaseline : IRetainedState
+    {
+        internal FileIdentitySnapshot? Snapshot, BackupSnapshot;
+
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth)
+        {
+            size.Visit(Snapshot, depth);
+            size.Visit(BackupSnapshot, depth);
+        }
+    }
     private static ReplacementBaseline GetReplacementBaseline(FileTaskContext context, string target)
         => context.Remember("replacement-baseline:" + target, () => new ReplacementBaseline());
     internal static void PrepareReplacementBaseline(FileTaskContext context, string target, FileIdentitySnapshot snapshot, FileIdentitySnapshot backupSnapshot)

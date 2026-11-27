@@ -7,27 +7,123 @@ using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.Services.Impl;
 
-public class OpenWithAppService : IOpenWithAppService, IDisposable
+public class OpenWithAppService : IOpenWithAppService, IDisposable, IIdleMemoryCache
 {
+    internal const int DefaultMaxIconCacheEntries = 64;
+    internal const long DefaultMaxIconCacheBytes = 2 * 1024 * 1024;
+
+    private sealed record IconCacheEntry(string Key, string Value, long Bytes)
+    {
+        public DateTime LastUsedUtc = DateTime.UtcNow;
+    }
+
     private readonly DatabaseConnectionFactory _connectionFactory;
     private readonly SqliteConnection _connection;
     private readonly ILogger<OpenWithAppService>? _logger;
+    private readonly Func<string, string?> _extractIconByPath;
+    private readonly int _maxIconEntries;
+    private readonly long _maxIconBytes;
     private List<OpenWithApp> _cache = new();
     private readonly object _lock = new();
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
-    private readonly ConcurrentDictionary<string, string> _iconCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _iconCacheLock = new();
+    private readonly Dictionary<string, LinkedListNode<IconCacheEntry>> _iconCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LinkedList<IconCacheEntry> _iconLru = [];
+    private long _iconCacheBytes;
     private readonly ConcurrentDictionary<string, Task<string?>> _iconLoads = new(StringComparer.OrdinalIgnoreCase);
 
     private Task<List<AppListItem>>? _installedApps;
     private DateTimeOffset _installedAppsExpires;
 
     public OpenWithAppService(DatabaseConnectionFactory connectionFactory, ILogger<OpenWithAppService>? logger = null)
+        : this(connectionFactory, null, DefaultMaxIconCacheEntries, DefaultMaxIconCacheBytes, logger) { }
+
+    internal OpenWithAppService(
+        DatabaseConnectionFactory connectionFactory,
+        Func<string, string?>? extractIconByPath,
+        int maxIconEntries = DefaultMaxIconCacheEntries,
+        long maxIconBytes = DefaultMaxIconCacheBytes,
+        ILogger<OpenWithAppService>? logger = null)
     {
         _connectionFactory = connectionFactory;
         _connection = connectionFactory.GetConnection();
+        _extractIconByPath = extractIconByPath ?? ExtractIconBase64;
+        _maxIconEntries = Math.Max(1, maxIconEntries);
+        _maxIconBytes = Math.Max(1, maxIconBytes);
         _logger = logger;
+        MemoryCacheMaintenance.Register(this);
         LoadAll();
         _ = Task.Run(FillMissingIcons);
+    }
+
+    internal int IconCacheCount
+    {
+        get { lock (_iconCacheLock) return _iconCache.Count; }
+    }
+
+    internal long IconCacheBytes
+    {
+        get { lock (_iconCacheLock) return _iconCacheBytes; }
+    }
+
+    internal void TrimMemory(DateTime unusedBefore)
+    {
+        lock (_iconCacheLock)
+        {
+            while (_iconLru.Last is { } last && last.Value.LastUsedUtc < unusedBefore)
+                RemoveIconNodeLocked(last);
+        }
+
+        lock (_lock)
+        {
+            if (_installedApps is { IsCompleted: true } && DateTimeOffset.UtcNow >= _installedAppsExpires)
+                _installedApps = null;
+        }
+    }
+
+    void IIdleMemoryCache.TrimMemory(DateTime unusedBefore) => TrimMemory(unusedBefore);
+
+    private bool TryGetCachedIcon(string key, out string? value)
+    {
+        lock (_iconCacheLock)
+        {
+            if (!_iconCache.TryGetValue(key, out var node))
+            {
+                value = null;
+                return false;
+            }
+            node.Value.LastUsedUtc = DateTime.UtcNow;
+            if (!ReferenceEquals(_iconLru.First, node))
+            {
+                _iconLru.Remove(node);
+                _iconLru.AddFirst(node);
+            }
+            value = node.Value.Value;
+            return true;
+        }
+    }
+
+    private void CacheIcon(string key, string value)
+    {
+        var bytes = ((long)key.Length + value.Length) * sizeof(char);
+        if (bytes > _maxIconBytes) return;
+        lock (_iconCacheLock)
+        {
+            if (_iconCache.TryGetValue(key, out var existing))
+                RemoveIconNodeLocked(existing);
+            var node = _iconLru.AddFirst(new IconCacheEntry(key, value, bytes));
+            _iconCache[key] = node;
+            _iconCacheBytes += bytes;
+            while ((_iconCache.Count > _maxIconEntries || _iconCacheBytes > _maxIconBytes) && _iconLru.Last is { } last)
+                RemoveIconNodeLocked(last);
+        }
+    }
+
+    private void RemoveIconNodeLocked(LinkedListNode<IconCacheEntry> node)
+    {
+        _iconCache.Remove(node.Value.Key);
+        _iconLru.Remove(node);
+        _iconCacheBytes -= node.Value.Bytes;
     }
 
     private void LoadAll()
@@ -124,8 +220,8 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
         if (BuiltInOpenWithActions.IsOpenInTerminal(bundleId))
             return GetAppIconBase64Async(BuiltInOpenWithActions.TerminalBundleId);
 
-        if (_iconCache.TryGetValue(bundleId, out var cachedIcon))
-            return Task.FromResult<string?>(cachedIcon);
+        if (TryGetCachedIcon(bundleId, out var cachedIcon))
+            return Task.FromResult(cachedIcon);
 
         return _iconLoads.GetOrAdd(bundleId, id => Task.Run<string?>(() =>
         {
@@ -133,7 +229,7 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
             {
                 var icon = ReadAppIconBase64(id);
                 if (!string.IsNullOrEmpty(icon))
-                    _iconCache.TryAdd(id, icon);
+                    CacheIcon(id, icon);
                 return icon;
             }
             finally
@@ -149,16 +245,16 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
             return Task.FromResult<string?>(null);
 
         var cacheKey = $"path:{appPath}";
-        if (_iconCache.TryGetValue(cacheKey, out var cachedIcon))
-            return Task.FromResult<string?>(cachedIcon);
+        if (TryGetCachedIcon(cacheKey, out var cachedIcon))
+            return Task.FromResult(cachedIcon);
 
         return _iconLoads.GetOrAdd(cacheKey, key => Task.Run<string?>(() =>
         {
             try
             {
-                var icon = ExtractIconBase64(appPath);
+                var icon = _extractIconByPath(appPath);
                 if (!string.IsNullOrEmpty(icon))
-                    _iconCache.TryAdd(key, icon);
+                    CacheIcon(key, icon);
                 return icon;
             }
             finally
@@ -519,6 +615,13 @@ public class OpenWithAppService : IOpenWithAppService, IDisposable
 
     public void Dispose()
     {
+        lock (_iconCacheLock)
+        {
+            _iconCache.Clear();
+            _iconLru.Clear();
+            _iconCacheBytes = 0;
+        }
+        lock (_lock) { _installedApps = null; }
         _connection.Close();
         _connection.Dispose();
         _connectionLock.Dispose();

@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 using MacExplorer.Services;
 
@@ -38,7 +39,7 @@ internal sealed class FileDropFolderAccess(string store, IBookmarkAccess backend
         try
         {
             if (!File.Exists(store)) return;
-            var saved = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(store))
+            var saved = JsonSerializer.Deserialize(File.ReadAllText(store), AppJsonContext.Default.DictionaryStringString)
                 ?? throw new JsonException();
             foreach (var bookmark in saved.Values)
                 Remember(bookmark, null, persist: false);
@@ -89,7 +90,7 @@ internal sealed class FileDropFolderAccess(string store, IBookmarkAccess backend
             var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
             if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
             using (var writer = new StreamWriter(new FileStream(temporary, options)))
-                writer.Write(JsonSerializer.Serialize(_grants.ToDictionary(pair => pair.Key, pair => pair.Value.Bookmark)));
+                writer.Write(JsonSerializer.Serialize(_grants.ToDictionary(pair => pair.Key, pair => pair.Value.Bookmark), AppJsonContext.Default.DictionaryStringString));
             File.Move(temporary, store, overwrite: true);
             PersistenceError = null;
         }

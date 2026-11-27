@@ -22,7 +22,7 @@ namespace MacExplorer.Views.Dialogs;
 
 public partial class SettingsDialog : DialogWindow
 {
-    private sealed record SearchLocationRow(string Path, string DisplayPath);
+    internal sealed record SearchLocationRow(string Path, string DisplayPath);
 
     private readonly IPinnedFolderService? _pinnedFolderService;
     private readonly IDefaultAppService _defaultAppService;
@@ -99,7 +99,6 @@ public partial class SettingsDialog : DialogWindow
             ?? new Services.Impl.GlobalSearchScopeService(settingsService);
         _localSendService = localSendService;
         _localizationService.LanguageChanged += RefreshLanguage;
-        PluginSettingsTab.IsVisible = !DistributionChannel.IsAppStore;
         SettingsTabs.SelectionChanged += OnSettingsPageChanged;
         SettingsTabs.SelectedIndex = 0;
         AddHandler(WindowOpenedEvent, (_, _) => { _pagesReady = true; EnsureSelectedPage(); });

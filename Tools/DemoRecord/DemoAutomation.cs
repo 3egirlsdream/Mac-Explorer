@@ -1,6 +1,8 @@
 #if DEMO_AUTOMATION
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -28,7 +30,6 @@ internal static class DemoAutomation
     private static string _token = "";
     private static bool _stopping;
     private static int _mainActivations;
-    private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static IClassicDesktopStyleApplicationLifetime Desktop =>
         (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
 
@@ -54,12 +55,9 @@ internal static class DemoAutomation
         {
             try
             {
-                await WriteAsync(Path.Combine(mailbox, "ready.json"), new
-                {
-                    pid = Environment.ProcessId, token = _token, root = _root,
-                    database = RuntimePaths.DatabasePath, executable = Environment.ProcessPath,
-                    version = typeof(App).Assembly.GetName().Version?.ToString()
-                });
+                await WriteAsync(Path.Combine(mailbox, "ready.json"), new DemoReady(Environment.ProcessId, _token,
+                    _root, RuntimePaths.DatabasePath, Environment.ProcessPath,
+                    typeof(App).Assembly.GetName().Version?.ToString()));
                 while (!_stopping)
                 {
                     foreach (var file in Directory.GetFiles(mailbox, "*.request.json").Order())
@@ -72,22 +70,22 @@ internal static class DemoAutomation
                             if (command.GetProperty("token").GetString() != _token)
                                 throw new InvalidOperationException("Invalid demo token.");
                             var result = await Dispatcher.UIThread.InvokeAsync(() => ExecuteAsync(owner, command));
-                            response = new { ok = true, data = result };
+                            response = new DemoSuccess(true, result);
                         }
-                        catch (Exception ex) { response = new { ok = false, error = ex.ToString() }; }
+                        catch (Exception ex) { response = new DemoFailure(false, ex.ToString()); }
                         await WriteAsync(file.Replace(".request.json", ".response.json"), response);
                         File.Delete(file);
                     }
                     await Task.Delay(30);
                 }
             }
-            catch (Exception ex) { await WriteAsync(Path.Combine(mailbox, "fatal.json"), new { error = ex.ToString() }); }
+            catch (Exception ex) { await WriteAsync(Path.Combine(mailbox, "fatal.json"), new DemoFatalError(ex.ToString())); }
         });
     }
 
     private static async Task WriteAsync(string path, object value)
     {
-        await File.WriteAllTextAsync(path + ".tmp", JsonSerializer.Serialize(value, Json));
+        await File.WriteAllTextAsync(path + ".tmp", JsonSerializer.Serialize(value, DemoJsonContext.WireOptions.GetTypeInfo(value.GetType())));
         File.Move(path + ".tmp", path, true);
     }
 
@@ -142,21 +140,19 @@ internal static class DemoAutomation
         switch (op)
         {
             case "state":
-                return new
-                {
-                    path = pane.CurrentPath, loading = pane.IsLoading, entries = pane.Entries.Select(e => e.Name).ToArray(),
-                    selected = pane.SelectedEntries.Select(e => e.Name).ToArray(), viewMode = pane.ViewMode.ToString(),
-                    layout = ((MainWindowViewModel)main.DataContext!).PaneLayout.ToString(),
-                    hints = main.IsShortcutHintVisible, mainActive = main.IsActive, mainActivations = _mainActivations,
-                    preview = main.DemoPreviewVisible, previewReady = main.DemoPreviewReady, globalSearch = main.DemoGlobalSearchVisible,
-                    globalResults = main.DemoGlobalResults,
-                    editorText = main.DemoEditorText,
-                    menus = main.GetVisualDescendants().OfType<FileListView>().Where(v => v.DemoMenu?.IsOpen == true)
+                return new DemoState(pane.CurrentPath, pane.IsLoading, pane.Entries.Select(e => e.Name).ToArray(),
+                    pane.SelectedEntries.Select(e => e.Name).ToArray(), pane.ViewMode.ToString(),
+                    ((MainWindowViewModel)main.DataContext!).PaneLayout.ToString(), main.IsShortcutHintVisible,
+                    main.IsActive, _mainActivations, main.DemoPreviewVisible, main.DemoPreviewReady,
+                    main.DemoGlobalSearchVisible, main.DemoGlobalResults, main.DemoEditorText,
+                    main.GetVisualDescendants().OfType<FileListView>().Where(v => v.DemoMenu?.IsOpen == true)
                         .SelectMany(v => Controls(v.DemoMenu!).OfType<MenuItem>()).Select(m => m.Header?.ToString()).ToArray(),
-                    windows = Desktop.Windows.Where(w => w.IsVisible).Select(w => new { type = w.GetType().Name, w.Title }).ToArray(),
-                    tasks = App.Services.GetRequiredService<IBackgroundTaskManager>().Tasks.Select(t => new { t.Id, t.Label, state = t.State.ToString(), t.Progress, t.ErrorMessage }).ToArray(),
-                    pendingImages = main.GetVisualDescendants().OfType<FastFileList>().Where(c => c.IsEffectivelyVisible).Sum(c => c.DemoPendingImages)
-                };
+                    Desktop.Windows.Where(w => w.IsVisible)
+                        .Select(w => new DemoWindowState(w.GetType().Name, w.Title)).ToArray(),
+                    App.Services.GetRequiredService<IBackgroundTaskManager>().Tasks
+                        .Select(t => new DemoTaskState(t.Id, t.Label, t.State.ToString(), t.Progress, t.ErrorMessage)).ToArray(),
+                    main.GetVisualDescendants().OfType<FastFileList>().Where(c => c.IsEffectivelyVisible)
+                        .Sum(c => c.DemoPendingImages));
             case "setup":
                 main.Width = 1200; main.Height = 680;
                 main.Position = new PixelPoint(120, 70);
@@ -171,7 +167,7 @@ internal static class DemoAutomation
                 var id = Text(command, "id");
                 if (!id.StartsWith("ui.", StringComparison.Ordinal) && id != "file.info")
                     throw new InvalidOperationException("Only UI capabilities are exposed by the demo mailbox.");
-                var args = command.TryGetProperty("arguments", out var a) ? a : JsonSerializer.SerializeToElement(new { });
+                var args = command.TryGetProperty("arguments", out var a) ? a : JsonSerializer.SerializeToElement(new DemoEmptyArguments(), DemoJsonContext.Default.DemoEmptyArguments);
                 ValidatePaths(args);
                 var result = await App.Services.GetRequiredService<IAppCapabilityRegistry>().ExecuteReadAsync(id, args.GetRawText(), pane);
                 if (!result.Success) throw new InvalidOperationException(result.Message);
@@ -217,7 +213,7 @@ internal static class DemoAutomation
                     throw new InvalidOperationException("Target is not visible.");
                 var p = target.PointToScreen(rect.Center);
                 // Avalonia macOS PixelPoint uses desktop coordinates; recorder/input reports display scale separately.
-                return new { x = p.X, y = p.Y, width = rect.Width, height = rect.Height, window = window.GetType().Name };
+                return new DemoWindowGeometry(p.X, p.Y, rect.Width, rect.Height, window.GetType().Name);
             case "text":
                 var box = Controls(Window(main, kind)).OfType<TextBox>().Single(c => c.Name == Text(command, "name"));
                 box.Text = Text(command, "text");
@@ -270,7 +266,7 @@ internal static class DemoAutomation
                     .OrderByDescending(t => t.Confidence).FirstOrDefault()
                     ?? throw new InvalidOperationException("No real classification result was produced.");
                 await pane.NavigateToAsync($"{VirtualPath.AiPrefix}{label.TagType}:{label.TagValue}");
-                return new { label.TagType, label.TagValue, label.Confidence };
+                return new DemoClassification(label.TagType, label.TagValue, label.Confidence);
             case "script-dialog":
                 var scriptPath = LocalPath(Path.Combine(_root, "Documents/山野计划/自动化/整理交付.sh"));
                 _ = new global::MacExplorer.Views.Dialogs.HomeScriptCommandsDialog(scriptPath,
@@ -322,6 +318,56 @@ internal static class DemoAutomation
             foreach (var item in value.EnumerateArray()) ValidatePaths(item);
         else if (value.ValueKind == JsonValueKind.String && value.GetString() is { } text && Path.IsPathFullyQualified(text))
             LocalPath(text);
+    }
+}
+internal sealed record DemoReady(int Pid, string Token, string Root, string Database, string? Executable,
+    string? Version);
+internal sealed record DemoSuccess(bool Ok, object? Data);
+internal sealed record DemoFailure(bool Ok, string Error);
+internal sealed record DemoFatalError(string Error);
+internal sealed record DemoState(string Path, bool Loading, string[] Entries, string[] Selected, string ViewMode,
+    string Layout, bool Hints, bool MainActive, int MainActivations, bool Preview, bool PreviewReady,
+    bool GlobalSearch, string[] GlobalResults, string EditorText, string?[] Menus, DemoWindowState[] Windows,
+    DemoTaskState[] Tasks, int PendingImages);
+internal sealed record DemoWindowState(string Type, string? Title);
+internal sealed record DemoTaskState(string Id,
+    string Label, string State,
+    double Progress,
+    string? ErrorMessage);
+internal sealed record DemoEmptyArguments;
+internal sealed record DemoWindowGeometry(int X, int Y, double Width, double Height, string Window);
+internal sealed record DemoClassification(string TagType,
+    string TagValue,
+    float Confidence);
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(DemoClassification))]
+[JsonSerializable(typeof(DemoEmptyArguments))]
+[JsonSerializable(typeof(DemoFailure))]
+[JsonSerializable(typeof(DemoFatalError))]
+[JsonSerializable(typeof(DemoReady))]
+[JsonSerializable(typeof(DemoState))]
+[JsonSerializable(typeof(DemoSuccess))]
+[JsonSerializable(typeof(DemoWindowGeometry))]
+internal sealed partial class DemoJsonContext : JsonSerializerContext
+{
+    internal static JsonSerializerOptions WireOptions => Wire.Options;
+
+    private static class Wire
+    {
+        internal static readonly JsonSerializerOptions Options = CreateOptions();
+
+        private static JsonSerializerOptions CreateOptions()
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                TypeInfoResolver = JsonTypeInfoResolver.Combine(Default, CopilotJsonContext.Default)
+            };
+            options.MakeReadOnly();
+            return options;
+        }
     }
 }
 #endif

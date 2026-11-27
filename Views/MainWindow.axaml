@@ -12,7 +12,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="MacExplorer.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel" x:CompileBindings="False"
+        x:DataType="vm:MainWindowViewModel"
         Title="{Binding FileList.CurrentLocationTitle}"
         ShowTitleBarDivider="False"
         Width="1280" Height="800"

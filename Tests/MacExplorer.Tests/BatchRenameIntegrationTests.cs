@@ -110,7 +110,7 @@ public abstract partial class FileListViewModelTestBase
     protected static AppCapabilityRegistry BatchRegistry(IFileService files, IBatchRenameService? rename = null)
     {
         rename ??= new BatchRenameService(files);
-        return new AppCapabilityRegistry(files, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, rename,
+        return new AppCapabilityRegistry(files, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, rename,
             new BatchRenameOperationService(rename, new FileOperationHistoryService(files, batchRename: rename), new BackgroundTaskManager(null)));
     }
 

@@ -17,7 +17,7 @@ internal static class SftpHostKeyConsent
         var pending = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            var owner = desktop?.Windows.FirstOrDefault(window => window.IsActive) ?? desktop?.MainWindow;
+            var owner = App.ResolveLiveWindow(desktop);
             return owner == null || ct.IsCancellationRequested ? Task.FromResult(false) : ShowAsync(owner, key, ct);
         });
         return pending;
@@ -28,7 +28,7 @@ internal static class SftpHostKeyConsent
         var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("信任 SFTP 服务器"), Width = 460, MinWidth = 340,
             MaxHeight = 540, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        dialog.Styles.Add(new DialogSettingsStyles());
         var reject = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
         var trust = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("信任并连接"), Classes = { "primary", "compact" } };
         reject.Click += (_, _) => dialog.Close(false);

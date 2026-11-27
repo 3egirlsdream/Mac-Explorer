@@ -4,12 +4,24 @@ using MacExplorer.Services.Search;
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 /// <summary>Long-lived recursive search watches, independent of open windows and tabs.</summary>
-public sealed class MacSearchChangeSource : ISearchChangeSource
+public sealed class MacSearchChangeSource : IDiagnosticSearchChangeSource
 {
     public IDisposable Watch(string root, ulong sinceEventId, Action<SearchChange> onChange, bool fullScanFollows)
+        => Watch(root, sinceEventId, onChange, fullScanFollows, null);
+
+    public IDisposable Watch(string root, ulong sinceEventId, Action<SearchChange> onChange, bool fullScanFollows,
+        Action<string, uint, ulong>? onRecoverySignal)
     {
         if (!OperatingSystem.IsMacOS()) throw new PlatformNotSupportedException("FSEvents requires macOS.");
-        return new Subscription(root, sinceEventId, onChange, fullScanFollows);
+        return new Subscription(root, sinceEventId, onChange, fullScanFollows, onRecoverySignal);
+    }
+
+    internal static (ulong Since, ulong Baseline, bool RequiresFullScan) ResolveStartEventId(
+        ulong sinceEventId, ulong currentEventId, bool fullScanFollows)
+    {
+        if (fullScanFollows) return (currentEventId, currentEventId, false);
+        if (sinceEventId == 0 || sinceEventId > currentEventId) return (currentEventId, currentEventId, true);
+        return (sinceEventId, sinceEventId, false);
     }
 
     // Exposed as a pure function so recovery flags can be regression-tested without macOS.
@@ -23,7 +35,8 @@ public sealed class MacSearchChangeSource : ISearchChangeSource
         if ((flags & 0x200) != 0) kind |= SearchChangeKind.Removed;
         if ((flags & 0x800) != 0) kind |= SearchChangeKind.Renamed;
         if ((flags & (0x400 | 0x1000 | 0x2000 | 0x4000 | 0x8000)) != 0) kind |= SearchChangeKind.Modified;
-        return new SearchChange((flags & droppedOrWrapped) != 0 || reset ? root : path,
+        var target = (flags & droppedOrWrapped) != 0 || reset || string.IsNullOrEmpty(path) ? root : path;
+        return new SearchChange(target,
             (flags & 0x20000) != 0, (flags & (0x1 | droppedOrWrapped | rootOrMountChanged)) != 0,
             id, reset, kind);
     }
@@ -34,16 +47,20 @@ public sealed class MacSearchChangeSource : ISearchChangeSource
         path == watchedRoot ? requestedRoot : SearchPath.IsWithin(path, watchedRoot)
             ? SearchPath.Prefix(requestedRoot) + path[SearchPath.Prefix(watchedRoot).Length..] : path;
 
-    private sealed class Subscription : IDisposable
+    private sealed class Subscription : ISearchWatchHandle
     {
         private readonly string _root;
         private readonly string _watchedRoot;
         private readonly Action<SearchChange> _publish;
+        private readonly Action<string, uint, ulong>? _onRecoverySignal;
         private readonly Callback _callback; // Instance-owned delegate; never a static singleton target.
         private IntPtr _stream, _queue, _path, _paths;
         private int _disposed;
+        public ulong InitialEventId { get; }
+        public bool RequiresFullScan { get; }
 
-        public Subscription(string root, ulong sinceEventId, Action<SearchChange> publish, bool fullScanFollows)
+        public Subscription(string root, ulong sinceEventId, Action<SearchChange> publish, bool fullScanFollows,
+            Action<string, uint, ulong>? onRecoverySignal)
         {
             _root = root;
             var resolved = realpath(root, IntPtr.Zero);
@@ -51,6 +68,7 @@ public sealed class MacSearchChangeSource : ISearchChangeSource
             try { _watchedRoot = SearchPath.Normalize(Marshal.PtrToStringUTF8(resolved)!); }
             finally { free(resolved); }
             _publish = publish;
+            _onRecoverySignal = onRecoverySignal;
             _callback = OnEvents;
             try
             {
@@ -60,11 +78,11 @@ public sealed class MacSearchChangeSource : ISearchChangeSource
                 _queue = dispatch_queue_create("com.macexplorer.search-events", IntPtr.Zero);
                 if (_paths == IntPtr.Zero || _queue == IntPtr.Zero) throw new IOException("Unable to create search event queue.");
                 var current = FSEventsGetCurrentEventId();
-                // A full reconciliation covers the pre-start history. Replaying it as
-                // dirty work would needlessly scan the same tree twice at each launch.
-                var since = fullScanFollows || sinceEventId == 0 || sinceEventId > current ? current : sinceEventId;
+                var resolvedStart = ResolveStartEventId(sinceEventId, current, fullScanFollows);
+                InitialEventId = resolvedStart.Baseline;
+                RequiresFullScan = resolvedStart.RequiresFullScan;
                 // WatchRoot | NoDefer | FileEvents. Do NOT ignore our own file operations.
-                _stream = FSEventStreamCreate(IntPtr.Zero, _callback, IntPtr.Zero, _paths, since, 0.35, 0x4 | 0x2 | 0x10);
+                _stream = FSEventStreamCreate(IntPtr.Zero, _callback, IntPtr.Zero, _paths, resolvedStart.Since, 0.35, 0x4 | 0x2 | 0x10);
                 if (_stream == IntPtr.Zero) throw new IOException("Unable to create search event stream.");
                 FSEventStreamSetDispatchQueue(_stream, _queue);
                 if (!FSEventStreamStart(_stream)) throw new IOException("Unable to start search event stream.");
@@ -75,22 +93,35 @@ public sealed class MacSearchChangeSource : ISearchChangeSource
         private void OnEvents(IntPtr stream, IntPtr context, nint count, IntPtr paths, IntPtr flags, IntPtr ids)
         {
             if (Volatile.Read(ref _disposed) != 0) return;
+            const uint recoveryFlags = 0x1 | 0x2 | 0x4 | 0x8 | 0x20 | 0x40 | 0x80;
             try
             {
                 for (var i = 0; i < count; i++)
                 {
                     var path = Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(paths, i * IntPtr.Size));
                     var flag = unchecked((uint)Marshal.ReadInt32(flags, i * sizeof(uint)));
-                    if (string.IsNullOrEmpty(path) || flag == 0x10) continue; // HistoryDone marker only.
+                    if (flag == 0x10) continue; // HistoryDone marker only.
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        if ((flag & recoveryFlags) == 0) continue;
+                        path = _root;
+                    }
                     var id = unchecked((ulong)Marshal.ReadInt64(ids, i * sizeof(ulong)));
-                    _publish(Decode(_root, MapEventPath(path, _watchedRoot, _root), flag, id));
+                    var change = Decode(_root, MapEventPath(path, _watchedRoot, _root), flag, id);
+                    if (change.MustRescan) _onRecoverySignal?.Invoke(change.Path, flag, id);
+                    _publish(change);
                 }
             }
             catch (Exception ex)
             {
                 // Do not allow an exception to cross the unmanaged callback boundary.
                 System.Diagnostics.Debug.WriteLine($"Search FSEvents callback: {ex}");
-                try { _publish(new(_root, true, true, 0)); } catch { }
+                try
+                {
+                    _onRecoverySignal?.Invoke(_root, 0x2u, 0);
+                    _publish(new(_root, true, true, 0));
+                }
+                catch { }
             }
         }
 

@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.VisualTree;
 using LiquidGlassAvaloniaUI;
 
@@ -60,7 +59,7 @@ public sealed class PopupGlass : AvaloniaObject
         public GlassPanel(Border owner, Control? content)
         {
             var glass = new LiquidGlassSurface { Classes = { "popup-glass" }, CaptureForeground = true, IsHitTestVisible = false };
-            glass.Bind(LiquidGlassSurface.CornerRadiusProperty, new Binding(nameof(Border.CornerRadius)) { Source = owner });
+            glass.Bind(LiquidGlassSurface.CornerRadiusProperty, owner.GetObservable(Border.CornerRadiusProperty));
             ContentHost = new Border { Child = content };
             LiquidGlassBackdrop.SetIsExcludedFromCapture(ContentHost, true);
             Children.Add(glass);

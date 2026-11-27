@@ -45,15 +45,44 @@ if channel == 'AppStore':
     attributes = subprocess.check_output(['xattr', '-r', '-s', str(app)], text=True)
     for line in attributes.splitlines():
         if line.endswith('com.apple.quarantine'): errors.append('Quarantine attribute found: ' + line)
+contents = app / 'Contents'
+frameworks = contents / 'Frameworks'
+required_libraries = {'libAvaloniaNative.dylib', 'libHarfBuzzSharp.dylib', 'libSkiaSharp.dylib',
+                      'libe_sqlite3.dylib', 'libraw.dylib', 'libzip.dylib', 'libMacExplorerNativeDrag.dylib'}
+for library in sorted(required_libraries):
+    if not (frameworks / library).is_file():
+        errors.append('Missing required library: ' + library)
+for directory in ('BuiltInConversion/plugin.json', 'Copilot/Skills', 'I18n'):
+    if not (contents / 'Resources' / directory).exists():
+        errors.append('Missing resource: ' + directory)
+if (contents / 'Resources/Managed').exists():
+    errors.append('Managed directory found in NativeAOT bundle')
 native = []
 for path in (app / 'Contents').rglob('*'):
-    if not path.is_file() or path.is_symlink():
+    if path.is_symlink():
+        if path.suffix == '.dylib' and path.resolve() != frameworks / path.name:
+            errors.append('Incorrect library symlink: ' + str(path))
         continue
+    if not path.is_file():
+        continue
+    if (path.suffix in {'.dll', '.mexplug'} or path.name == 'MacExplorer.PluginWorker'
+            or path.name.endswith(('.deps.json', '.runtimeconfig.json'))
+            or path.name.startswith(('libclr', 'libcoreclr', 'libhostfxr', 'libhostpolicy', 'libmscord'))):
+        errors.append('Managed runtime artifact found: ' + str(path.relative_to(app)))
     relative = str(path.relative_to(app))
     if 'Mach-O' in subprocess.check_output(['file', '-b', str(path)], text=True):
         embedded = subprocess.check_output(['otool', '-P', str(path)], stderr=subprocess.DEVNULL, text=True)
         errors.extend(f'{relative}: {error}' for error in embedded_plist_errors(embedded))
         load = subprocess.check_output(['otool', '-l', str(path)], text=True)
+        if path.parent == contents / 'MacOS' and path.name == info['CFBundleExecutable']:
+            if 'path @executable_path/../Frameworks ' not in load:
+                errors.append('Main executable is missing the Frameworks rpath')
+        if path.suffix == '.dylib' and path.parent != frameworks:
+            errors.append('Native library is misplaced: ' + relative)
+        dependencies = subprocess.check_output(['otool', '-L', str(path)], text=True)
+        for reference in re.findall(r'^\s+(.+?) \(compatibility version', dependencies, re.M):
+            if reference.startswith('/') and not reference.startswith(('/usr/lib/', '/System/Library/')):
+                errors.append(f'{relative}: non-system absolute dependency {reference}')
         targets = re.findall(r'\b(?:minos|version) (\d+\.\d+(?:\.\d+)?)', load)
         # LC_ID_DYLIB also has a version: only inspect deployment load commands.
         targets = re.findall(r'(?:LC_BUILD_VERSION[\s\S]*?minos |LC_VERSION_MIN_MACOSX[\s\S]*?version )(\d+\.\d+(?:\.\d+)?)', load)
@@ -67,11 +96,12 @@ for path in (app / 'Contents').rglob('*'):
     elif relative.startswith('Contents/MacOS/'):
         errors.append(f'Non-native resource is misplaced in MacOS: {relative}')
     if path.name == 'MacExplorer.Folder.png': errors.append('Bundled Apple GenericFolderIcon artwork found')
-    if channel == 'AppStore' and path.suffix == '.mexplug': errors.append('Writable plugin package found in App Store bundle')
 entitlement_xml = subprocess.check_output(['codesign', '-d', '--entitlements', ':-', str(app)], stderr=subprocess.DEVNULL)
 entitlements = plistlib.loads(entitlement_xml) if entitlement_xml.strip() else {}
+if entitlements.get('com.apple.security.cs.allow-jit'):
+    errors.append('Unexpected JIT entitlement')
 if channel == 'AppStore':
-    for key in ['app-sandbox', 'files.user-selected.read-write', 'files.bookmarks.app-scope', 'network.client', 'network.server', 'cs.allow-jit']:
+    for key in ['app-sandbox', 'files.user-selected.read-write', 'files.bookmarks.app-scope', 'network.client', 'network.server']:
         if not entitlements.get('com.apple.security.' + key): errors.append('Missing entitlement: ' + key)
     if any('temporary-exception' in key for key in entitlements): errors.append('Temporary sandbox exception found')
     if info['CFBundleIdentifier'] == 'com.thankful.top.macexplorer': errors.append('App Store reused website bundle identity')
@@ -83,14 +113,6 @@ if channel == 'AppStore':
 elif channel == 'Website':
     if entitlements.get('com.apple.security.cs.disable-library-validation'):
         errors.append('The website app must keep library validation enabled')
-    worker = app / 'Contents/MacOS/MacExplorer.PluginWorker'
-    if not worker.is_file():
-        errors.append('Missing website plugin worker')
-    else:
-        expected_worker = pathlib.Path(__file__).resolve().parents[2] / 'Platforms/MacOS/WebsitePluginWorker.entitlements'
-        worker_xml = subprocess.check_output(['codesign', '-d', '--entitlements', ':-', str(worker)], stderr=subprocess.DEVNULL)
-        if not worker_xml or plistlib.loads(worker_xml) != plistlib.loads(expected_worker.read_bytes()):
-            errors.append('Incorrect entitlements on the website plugin worker')
 host = next(item for item in native if item['path'] == 'Contents/MacOS/' + info['CFBundleExecutable'])
 required_architectures = set(host['architectures'].split())
 for item in native:

@@ -8,8 +8,17 @@ namespace MacExplorer.Services;
 /// <summary>Transfers use task-owned temporary outputs and never infer ownership from a filename.</summary>
 internal static class SftpTransfer
 {
-    private sealed record Item(string Source, string Relative, bool Directory, string? Link, long Size, DateTime Modified);
-    private sealed class Output
+    private sealed record Item(string Source, string Relative, bool Directory, string? Link, long Size, DateTime Modified) : IRetainedState
+    {
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth)
+        {
+            size.AddScalars(3, depth); // Directory, Size, Modified
+            size.Visit(Source, depth);
+            size.Visit(Relative, depth);
+            size.Visit(Link, depth);
+        }
+    }
+    private sealed class Output : IRetainedState
     {
         public required string Path;
         public required string Temporary;
@@ -18,6 +27,14 @@ internal static class SftpTransfer
         public long Offset;
         public string? Backup;
         public bool BackupOwned;
+
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth)
+        {
+            size.AddScalars(4, depth); // Created, Committed, Offset, BackupOwned
+            size.Visit(Path, depth);
+            size.Visit(Temporary, depth);
+            size.Visit(Backup, depth);
+        }
     }
     internal static async Task<string> CopyAsync(string source, string directory, FileTaskContext context,
         Func<string, SftpClient> client, IProgress<FileOperationProgress>? progress,

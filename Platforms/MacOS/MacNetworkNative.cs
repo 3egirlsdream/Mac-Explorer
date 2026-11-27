@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -26,7 +27,7 @@ internal static class MacNetworkNative
         {
             try
             {
-                var result = JsonSerializer.Deserialize<MountResult>(json)!;
+                var result = JsonSerializer.Deserialize(json, AppJsonContext.Default.MountResult)!;
                 if (result.Status == -128) completion.TrySetCanceled();
                 else if (result.Status != 0) completion.TrySetException(new NetworkMountException(result.Status));
                 else completion.TrySetResult(result.Paths);
@@ -44,7 +45,7 @@ internal static class MacNetworkNative
     internal static IReadOnlyList<VolumeInfo> GetVolumes()
     {
         var pointer = me_network_volumes();
-        try { return JsonSerializer.Deserialize<VolumeInfo[]>(Marshal.PtrToStringUTF8(pointer) ?? "[]") ?? []; }
+        try { return JsonSerializer.Deserialize(Marshal.PtrToStringUTF8(pointer) ?? "[]", AppJsonContext.Default.VolumeInfoArray) ?? []; }
         finally { me_string_free(pointer); }
     }
     internal static IDisposable Browse(Action<string> callback)
@@ -58,7 +59,7 @@ internal static class MacNetworkNative
         public void Dispose() { if (Requests.TryRemove(id, out _)) me_network_browse_stop(id); }
     }
     internal static bool Open(string uri) => me_network_open(uri);
-    private sealed record MountResult(int Status, string[] Paths);
+    internal sealed record MountResult(int Status, string[] Paths);
     [DllImport(Library)] private static extern void me_network_mount(long id, [MarshalAs(UnmanagedType.LPUTF8Str)] string uri, [MarshalAs(UnmanagedType.LPUTF8Str)] string user, [MarshalAs(UnmanagedType.LPUTF8Str)] string password, Callback callback);
     [DllImport(Library)] private static extern void me_network_mount_cancel(long id);
     [DllImport(Library)] private static extern IntPtr me_network_volumes();

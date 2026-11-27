@@ -4,7 +4,7 @@ public sealed record CopilotSkill(string Name, string Content, bool Enabled, boo
 
 public sealed class CopilotSkillCatalog
 {
-    private readonly string _builtIn = Path.Combine(AppContext.BaseDirectory, "Copilot", "Skills");
+    private readonly string _builtIn = Path.Combine(RuntimePaths.BundleResourceDirectory, "Copilot", "Skills");
     public string DirectoryPath { get; } = Path.Combine(RuntimePaths.DataDirectory, "CopilotSkills");
 
     public CopilotSkillCatalog()

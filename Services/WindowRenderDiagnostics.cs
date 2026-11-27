@@ -12,20 +12,31 @@ namespace MacExplorer.Services;
 /// <summary>Observes resize races without invalidating layout or touching the render loop.</summary>
 internal sealed class WindowRenderDiagnostics : IDisposable
 {
+    internal const long PeriodicHealthyIntervalMs = 300_000;
     private readonly long _id;
     private readonly AppWindow _window;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
-    private readonly byte[] _buffer = new byte[4096];
+    private readonly Func<long>? _clockMs;
+    private readonly Func<JsonElement?>? _readNative;
+    private readonly Func<bool>? _isNativeOccluded;
     private readonly DispatcherTimer _settled = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private byte[]? _buffer;
     private long _geometryAt, _lastLogAt;
     private int _settleStep, _sequence, _mismatchSamples;
     private string _lastMismatch = "";
-    private bool _disposed;
+    private bool _hasLogged, _disposed;
 
-    internal WindowRenderDiagnostics(AppWindow window)
+    internal WindowRenderDiagnostics(
+        AppWindow window,
+        Func<long>? clockMs = null,
+        Func<JsonElement?>? readNative = null,
+        Func<bool>? isNativeOccluded = null)
     {
         _id = window.DiagnosticId;
         _window = window;
+        _clockMs = clockMs;
+        _readNative = readNative;
+        _isNativeOccluded = isNativeOccluded;
         window.PropertyChanged += OnPropertyChanged;
         window.ScalingChanged += OnScalingChanged;
         window.Activated += OnActivated;
@@ -34,9 +45,11 @@ internal sealed class WindowRenderDiagnostics : IDisposable
         ScheduleSettled();
     }
 
+    private long ElapsedMs => _clockMs?.Invoke() ?? _clock.ElapsedMilliseconds;
+
     internal void RecordRequest(WindowState requested, string trigger)
     {
-        Capture("state-request", new { requested = requested.ToString(), trigger });
+        Capture("state-request", new WindowStateRequest(requested.ToString(), trigger));
         ScheduleSettled();
     }
 
@@ -45,7 +58,7 @@ internal sealed class WindowRenderDiagnostics : IDisposable
         if (e.Property == Window.WindowStateProperty)
         {
             ScheduleSettled();
-            Capture("state-changed", new { previous = e.OldValue?.ToString(), current = e.NewValue?.ToString() });
+            Capture("state-changed", new WindowStateChange(e.OldValue?.ToString(), e.NewValue?.ToString()));
         }
         else if (e.Property == TopLevel.ClientSizeProperty || e.Property == Visual.BoundsProperty)
             ScheduleSettled();
@@ -63,7 +76,7 @@ internal sealed class WindowRenderDiagnostics : IDisposable
     private void ScheduleSettled()
     {
         if (!MemoryDiagnostics.IsEnabled) { _settled.Stop(); return; }
-        _geometryAt = _clock.ElapsedMilliseconds;
+        _geometryAt = ElapsedMs;
         _mismatchSamples = 0;
         _lastMismatch = "";
         _settleStep = 0;
@@ -89,47 +102,74 @@ internal sealed class WindowRenderDiagnostics : IDisposable
         if (_disposed || !MemoryDiagnostics.IsEnabled) return;
         try
         {
-            var elapsed = _clock.ElapsedMilliseconds;
+            var elapsed = ElapsedMs;
+            if (reason == "periodic")
+            {
+                if (!_window.IsVisible || _window.WindowState == WindowState.Minimized) return;
+                if (_mismatchSamples == 0 && !Different(_window.ClientSize, _window.Bounds.Size))
+                {
+                    // Skip native AppKit/CoreAnimation JSON capture during the 5-minute healthy window or while occluded.
+                    if (_hasLogged && elapsed - _lastLogAt < PeriodicHealthyIntervalMs) return;
+                    if (IsNativeOccluded()) return;
+                }
+            }
             var native = ReadNative();
             var mismatches = _window.IsVisible && _window.WindowState != WindowState.Minimized
                 ? FindMismatches(_window.ClientSize, _window.Bounds.Size, _window.RenderScaling, native)
                 : [];
-            var signature = string.Join(",", mismatches);
+            var signature = mismatches.Length == 0 ? "" : string.Join(",", mismatches);
             _mismatchSamples = signature.Length == 0 ? 0 : signature == _lastMismatch ? _mismatchSamples + 1 : 1;
             _lastMismatch = signature;
             var persistent = _mismatchSamples >= 2 && elapsed - _geometryAt >= 1000;
-            // Inspect every 30 s, but retain unchanged healthy windows only every five minutes.
-            if (reason == "periodic" && mismatches.Length == 0 && elapsed - _lastLogAt < 300_000) return;
-            _lastLogAt = elapsed;
-            MemoryDiagnostics.Record(persistent ? "window.render_mismatch" : "window.render", new
+            if (reason == "periodic" && mismatches.Length == 0)
             {
-                schema = 1, windowId = _id, windowType = _window.GetType().Name, sequence = ++_sequence,
-                reason, request, windowElapsedMs = elapsed, geometryAgeMs = elapsed - _geometryAt,
-                state = _window.WindowState.ToString(), visible = _window.IsVisible, active = _window.IsActive,
-                clientSize = SizeArray(_window.ClientSize), boundsSize = SizeArray(_window.Bounds.Size),
-                contentSize = _window.Content is Control content ? SizeArray(content.Bounds.Size) : null,
-                renderScaling = _window.RenderScaling, desktopScaling = _window.DesktopScaling,
-                measureValid = _window.IsMeasureValid, arrangeValid = _window.IsArrangeValid,
-                rootTransform = TransformArray(_window),
-                contentTransform = _window.Content is Visual visual ? TransformArray(visual) : null,
-                nativeStatus = native.HasValue ? "ok" : "unavailable", native,
-                mismatches, mismatchSamples = _mismatchSamples, persistent
-            });
+                if (_hasLogged && elapsed - _lastLogAt < PeriodicHealthyIntervalMs) return;
+                if (native is { } n && n.TryGetProperty("occluded", out var occluded) && occluded.ValueKind == JsonValueKind.True)
+                    return;
+            }
+            _hasLogged = true;
+            _lastLogAt = elapsed;
+            MemoryDiagnostics.Record(persistent ? "window.render_mismatch" : "window.render", new WindowRenderReport(1,
+                _id, _window.GetType().Name, ++_sequence, reason, request, elapsed, elapsed - _geometryAt,
+                _window.WindowState.ToString(), _window.IsVisible, _window.IsActive, SizeArray(_window.ClientSize),
+                SizeArray(_window.Bounds.Size),
+                _window.Content is Control content ? SizeArray(content.Bounds.Size) : null, _window.RenderScaling,
+                _window.DesktopScaling, _window.IsMeasureValid, _window.IsArrangeValid, TransformArray(_window),
+                _window.Content is Visual visual ? TransformArray(visual) : null,
+                native.HasValue ? "ok" : "unavailable", native, mismatches, _mismatchSamples, persistent));
         }
         catch (Exception ex)
         {
-            MemoryDiagnostics.Record("window.render_sample_failed", new { windowId = _id, exception = ex.GetType().Name });
+            MemoryDiagnostics.Record("window.render_sample_failed", new WindowRenderFailure(_id, ex.GetType().Name));
         }
+    }
+
+    private IntPtr GetNativeView()
+    {
+        if (!OperatingSystem.IsMacOS()) return IntPtr.Zero;
+        var handle = _window.TryGetPlatformHandle();
+        return handle is IMacOSTopLevelPlatformHandle mac ? mac.NSView
+            : handle?.HandleDescriptor == "NSView" ? handle.Handle : IntPtr.Zero;
+    }
+
+    private bool IsNativeOccluded()
+    {
+        if (_isNativeOccluded != null) return _isNativeOccluded();
+        var view = GetNativeView();
+        if (view == IntPtr.Zero) return false;
+        try { return NativeIsOccluded(view) == 1; }
+        catch (DllNotFoundException) { return false; }
+        catch (EntryPointNotFoundException) { return false; }
     }
 
     private JsonElement? ReadNative()
     {
-        var handle = _window.TryGetPlatformHandle();
-        var view = handle is IMacOSTopLevelPlatformHandle mac ? mac.NSView
-            : handle?.HandleDescriptor == "NSView" ? handle.Handle : IntPtr.Zero;
-        if (!OperatingSystem.IsMacOS() || view == IntPtr.Zero) return null;
+        if (_readNative != null) return _readNative();
+        var view = GetNativeView();
+        if (view == IntPtr.Zero) return null;
         try
         {
+            _buffer ??= new byte[4096];
             var count = NativeSnapshot(view, _buffer, _buffer.Length);
             if (count <= 0) return null;
             using var json = JsonDocument.Parse(_buffer.AsMemory(0, count));
@@ -142,6 +182,12 @@ internal sealed class WindowRenderDiagnostics : IDisposable
     [DllImport("libMacExplorerNativeDrag", EntryPoint = "me_window_render_snapshot")]
     private static extern int NativeSnapshot(IntPtr view, [Out] byte[] buffer, int capacity);
 
+    [DllImport("libMacExplorerNativeDrag", EntryPoint = "me_window_is_occluded")]
+    private static extern int NativeIsOccluded(IntPtr view);
+
+    private static bool Different(Size a, Size b, double tolerance = 1) =>
+        Math.Abs(a.Width - b.Width) > tolerance || Math.Abs(a.Height - b.Height) > tolerance;
+
     private static double[] SizeArray(Size size) => [size.Width, size.Height];
     private static double[] TransformArray(Visual visual)
     {
@@ -151,20 +197,19 @@ internal sealed class WindowRenderDiagnostics : IDisposable
 
     internal static string[] FindMismatches(Size client, Size bounds, double scale, JsonElement? native)
     {
-        var result = new List<string>();
-        static bool Different(Size a, Size b, double tolerance = 1) =>
-            Math.Abs(a.Width - b.Width) > tolerance || Math.Abs(a.Height - b.Height) > tolerance;
-        if (Different(client, bounds)) result.Add("managed-layout-size");
-        if (native is not { } n) return result.ToArray();
+        List<string>? result = null;
+        void Add(string mismatch) => (result ??= new List<string>(2)).Add(mismatch);
+        if (Different(client, bounds)) Add("managed-layout-size");
+        if (native is not { } n) return result?.ToArray() ?? [];
         Size ReadSize(string key) => new(n.GetProperty(key)[0].GetDouble(), n.GetProperty(key)[1].GetDouble());
-        if (Different(client, ReadSize("viewSize"))) result.Add("native-view-size");
-        if (Different(ReadSize("viewSize"), ReadSize("viewBoundsSize"))) result.Add("view-coordinate-scale");
-        if (Math.Abs(scale - n.GetProperty("windowScale").GetDouble()) > 0.01) result.Add("backing-scale");
+        if (Different(client, ReadSize("viewSize"))) Add("native-view-size");
+        if (Different(ReadSize("viewSize"), ReadSize("viewBoundsSize"))) Add("view-coordinate-scale");
+        if (Math.Abs(scale - n.GetProperty("windowScale").GetDouble()) > 0.01) Add("backing-scale");
         if (n.GetProperty("layerKind").GetString() != "none"
-            && Different(ReadSize("viewBoundsSize"), ReadSize("layerSize"))) result.Add("layer-size");
+            && Different(ReadSize("viewBoundsSize"), ReadSize("layerSize"))) Add("layer-size");
         if (n.GetProperty("drawableSize").ValueKind == JsonValueKind.Array
-            && Different(ReadSize("backingSize"), ReadSize("drawableSize"), 2)) result.Add("metal-drawable-size");
-        return result.ToArray();
+            && Different(ReadSize("backingSize"), ReadSize("drawableSize"), 2)) Add("metal-drawable-size");
+        return result?.ToArray() ?? [];
     }
 
     public void Dispose()

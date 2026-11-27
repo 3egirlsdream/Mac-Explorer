@@ -71,7 +71,7 @@ def build(skip):
     sources = [REPO/'Tools/DemoRecord/native/DemoNative.swift']
     if not skip:
         with (TOOLS/'build.log').open('w') as log:
-            command(['dotnet','build','MacExplorer.csproj','-c','Release','--artifacts-path',TOOLS/'build',
+            command(['dotnet','publish','MacExplorer.csproj','-c','Release','--artifacts-path',TOOLS/'build',
                      '-p:EnableDemoAutomation=true','-p:SkipMacOSReleaseDMG=true'],cwd=REPO,stdout=log,stderr=subprocess.STDOUT)
         NATIVE.parent.mkdir(parents=True, exist_ok=True)
         native_inputs={'sourceSha256':sha(sources[0]),'compiler':subprocess.check_output(['xcrun','swiftc','--version'],text=True,stderr=subprocess.STDOUT)}
@@ -293,7 +293,7 @@ def main():
     manifest_path=out/'manifest.json'
     previous=json.loads(manifest_path.read_text()) if args.resume and manifest_path.exists() else None
     if manifest_path.exists() and not args.resume:raise ValueError('Output already has a manifest; use --resume or a new --out')
-    fingerprint={'appSha256':sha(app.parent.parent/'Resources/Managed/MacExplorer.dll'),'scenesSha256':sha(spec_path),'fixtureVersion':FIXTURE_VERSION,'fixtureCodeSha256':sha(REPO/'Tools/DemoRecord/fixtures.py'),'nativeSha256':sha(NATIVE),'runnerSha256':sha(__file__),'desktopBackgroundSha256':sha(REPO/'docs/Assets/alpine-lake.jpg')}
+    fingerprint={'appSha256':sha(app),'scenesSha256':sha(spec_path),'fixtureVersion':FIXTURE_VERSION,'fixtureCodeSha256':sha(REPO/'Tools/DemoRecord/fixtures.py'),'nativeSha256':sha(NATIVE),'runnerSha256':sha(__file__),'desktopBackgroundSha256':sha(REPO/'docs/Assets/alpine-lake.jpg')}
     if previous and previous['inputs']!=fingerprint:raise ValueError('Resume inputs changed; use a new output directory')
     with (app.parent.parent/'Info.plist').open('rb') as stream:
         version=plistlib.load(stream)['CFBundleShortVersionString']

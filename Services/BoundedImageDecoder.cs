@@ -17,8 +17,9 @@ internal static class BoundedImageDecoder
     private static readonly SemaphoreSlim Gate = new(2);
     private static int _active, _waiting;
     private static long _reserved, _decoded, _rejected;
-    internal static object Statistics => new { active = Volatile.Read(ref _active), waiting = Volatile.Read(ref _waiting),
-        reservedBytes = Interlocked.Read(ref _reserved), decoded = Interlocked.Read(ref _decoded), rejected = Interlocked.Read(ref _rejected) };
+    internal static ImageDecodeStatistics Statistics => new ImageDecodeStatistics(Volatile.Read(ref _active),
+            Volatile.Read(ref _waiting), Interlocked.Read(ref _reserved), Interlocked.Read(ref _decoded),
+            Interlocked.Read(ref _rejected));
 
     public static Bitmap? Decode(byte[] bytes, int maxEdge, CancellationToken token = default)
         => DecodeCore(bytes, maxEdge, token, bitmap => new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul,
@@ -88,8 +89,9 @@ internal static class BoundedImageDecoder
             if (sampled.Width <= 0 || sampled.Height <= 0 || estimate > MaxWorkingBytes)
             {
                 Interlocked.Increment(ref _rejected);
-                MemoryDiagnostics.Record("image.decode_rejected", new { format = codec.EncodedFormat.ToString(), info.Width, info.Height,
-                    sampledWidth = sampled.Width, sampledHeight = sampled.Height, encodedBytes = bytes.Length, estimatedBytes = estimate });
+                MemoryDiagnostics.Record("image.decode_rejected", new ImageDecodeRejection(
+                        codec.EncodedFormat.ToString(), info.Width, info.Height, sampled.Width, sampled.Height,
+                        bytes.Length, estimate));
                 return null;
             }
             reservation = estimate;
@@ -106,8 +108,8 @@ internal static class BoundedImageDecoder
             var output = convert(resized ?? decoded);
             Interlocked.Increment(ref _decoded);
             if (estimate >= 32L * 1024 * 1024)
-                MemoryDiagnostics.Record("image.large_decode", new { format = codec.EncodedFormat.ToString(), info.Width, info.Height,
-                    targetWidth = target.Width, targetHeight = target.Height, estimatedBytes = estimate });
+                MemoryDiagnostics.Record("image.large_decode", new LargeImageDecode(codec.EncodedFormat.ToString(),
+                        info.Width, info.Height, target.Width, target.Height, estimate));
             return output;
         }
         finally

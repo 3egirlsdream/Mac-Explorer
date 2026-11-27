@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -27,8 +28,8 @@ public sealed class AppStoreUpdateService(HttpClient http) : IAppUpdateService
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(20));
         var country = RegionInfo.CurrentRegion.TwoLetterISORegionName.ToLowerInvariant();
-        var response = await http.GetFromJsonAsync<LookupResponse>(
-            $"https://itunes.apple.com/lookup?id={AppId}&entity=macSoftware&country={country}", timeout.Token)
+        var response = await http.GetFromJsonAsync(
+            $"https://itunes.apple.com/lookup?id={AppId}&entity=macSoftware&country={country}", WebAppJsonContext.Default.LookupResponse, timeout.Token)
             .ConfigureAwait(false);
         var app = response?.Results?.FirstOrDefault(result =>
             result.TrackId == AppId && result.BundleId == BundleIdentifier);
@@ -47,13 +48,13 @@ public sealed class AppStoreUpdateService(HttpClient http) : IAppUpdateService
         IProgress<(double Progress, string Status)>? progress = null, CancellationToken ct = default)
         => throw new NotSupportedException(LocalizationText.Get("updates.store_install_required"));
 
-    private sealed class LookupResponse
+    internal sealed class LookupResponse
     {
         [JsonPropertyName("results")]
         public List<StoreApp>? Results { get; set; }
     }
 
-    private sealed class StoreApp
+    internal sealed class StoreApp
     {
         [JsonPropertyName("trackId")]
         public long TrackId { get; set; }

@@ -313,20 +313,50 @@ public sealed class SearchIndexWriteTests : IDisposable
     public void NativeFlagsPreserveEventKind(uint flags, SearchChangeKind kind) =>
         Assert.Equal(kind, MacSearchChangeSource.Decode("/scope", "/scope/file", flags, 1).Kind);
 
-    private sealed class Changes : ISearchChangeSource
+    private sealed class Changes : IDiagnosticSearchChangeSource
     {
         internal Action<SearchChange> Publish = null!;
+        internal Action<string, uint, ulong>? OnRecovery;
         internal ulong Id;
+        internal int WatchStarts;
+        internal ulong LastSinceEventId;
+        internal bool LastFullScanFollows;
+        internal ulong NextInitialEventId;
+        internal bool NextRequiresFullScan;
         public IDisposable Watch(string root, ulong sinceEventId, Action<SearchChange> onChange, bool fullScanFollows)
-        { Publish = onChange; return new Registration(); }
-        internal void Emit(string path, bool directory = false, bool rescan = false, SearchChangeKind kind = SearchChangeKind.Unknown) =>
-            Publish(new(path, directory, rescan, ++Id, Kind: kind));
-        private sealed class Registration : IDisposable { public void Dispose() { } }
+            => Watch(root, sinceEventId, onChange, fullScanFollows, null);
+        public IDisposable Watch(string root, ulong sinceEventId, Action<SearchChange> onChange, bool fullScanFollows,
+            Action<string, uint, ulong>? onRecoverySignal)
+        {
+            WatchStarts++;
+            LastSinceEventId = sinceEventId;
+            LastFullScanFollows = fullScanFollows;
+            Publish = onChange;
+            OnRecovery = onRecoverySignal;
+            var handle = new Registration(NextInitialEventId, NextRequiresFullScan);
+            NextRequiresFullScan = false;
+            return handle;
+        }
+        internal void Emit(string path, bool directory = false, bool rescan = false, SearchChangeKind kind = SearchChangeKind.Unknown, bool restart = false) =>
+            Publish(new(path, directory, rescan, ++Id, RestartWatcher: restart, Kind: kind));
+        internal void EmitRawRecovery(string path, uint flags, bool restart = false)
+        {
+            var id = ++Id;
+            OnRecovery?.Invoke(path, flags, id);
+            Publish(new(path, true, true, id, RestartWatcher: restart));
+        }
+        private sealed class Registration(ulong initialEventId, bool requiresFullScan) : ISearchWatchHandle
+        {
+            public ulong InitialEventId { get; } = initialEventId;
+            public bool RequiresFullScan { get; } = requiresFullScan;
+            public void Dispose() { }
+        }
     }
     private sealed class Pinyin : IPinyinInitials
     {
+        internal int Calls;
         internal Action<string>? Inspect;
-        public string GetInitials(string name) { Inspect?.Invoke(name); return ""; }
+        public string GetInitials(string name) { Interlocked.Increment(ref Calls); Inspect?.Invoke(name); return ""; }
     }
     private sealed class Clock : TimeProvider
     {
@@ -461,7 +491,7 @@ public sealed class SearchIndexWriteTests : IDisposable
         var changes = new Changes(); var pinyin = new Pinyin();
         await using var indexer = new SearchIndexer(Catalog(), new() { DatabasePath = Database }, pinyin, changes);
         indexer.EnsureRoot(Root); await Ready(indexer, Root);
-        pinyin.Inspect = _ => { pinyin.Inspect = null; changes.Emit(Root, true, true); };
+        indexer.EntryInspected = _ => { indexer.EntryInspected = null; changes.Emit(Root, true, true); };
         indexer.Refresh(Root); await Ready(indexer, Root);
         Assert.Equal(3, indexer.GetStatistics().FullScans);
         Assert.Equal(1, indexer.GetStatistics().FullScanReasons["JournalRecovery"]);
@@ -469,7 +499,7 @@ public sealed class SearchIndexWriteTests : IDisposable
 
     [Fact(Explicit = true)]
     [Trait("Kind", "Integration")]
-    public async Task NewRootRecoveryPreemptsAnUrgentTraversalAtADirectoryBoundary()
+    public async Task NewRootRecoveryCoalescesIntoSingleTrailingPassWithoutRestartingMidTraversal()
     {
         var a = Directory.CreateDirectory(Path.Combine(Root, "a")).FullName;
         var b = Directory.CreateDirectory(Path.Combine(Root, "b")).FullName;
@@ -478,13 +508,21 @@ public sealed class SearchIndexWriteTests : IDisposable
         await using var indexer = new SearchIndexer(Catalog(), new() { DatabasePath = Database }, pinyin, changes);
         indexer.EnsureRoot(Root); await Ready(indexer, Root);
         long firstVisitB = 0; var requested = false;
-        pinyin.Inspect = name =>
+        indexer.EntryInspected = name =>
         {
-            if (name == "a.txt" && !requested) { requested = true; changes.Emit(Root, true, true); }
+            if (name == "a.txt" && !requested)
+            {
+                requested = true;
+                for (var i = 0; i < 3; i++) changes.Emit(Root, true, true);
+            }
             if (name == "b.txt" && firstVisitB == 0) firstVisitB = indexer.GetStatistics().FullScans;
         };
         indexer.Refresh(Root); await Ready(indexer, Root);
-        Assert.Equal(3, firstVisitB);
+        Assert.Equal(2, firstVisitB);
+        var stats = indexer.GetStatistics();
+        Assert.Equal(3, stats.FullScans);
+        Assert.Equal(1, stats.FullScanReasons["JournalRecovery"]);
+        Assert.True(stats.CoalescedRecoveries >= 3);
     }
 
     [Fact(Explicit = true)]
@@ -514,7 +552,7 @@ public sealed class SearchIndexWriteTests : IDisposable
         indexer.EnsureRoot(Root); await Ready(indexer, Root);
         var boundary = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
         var emitted = false;
-        pinyin.Inspect = name =>
+        indexer.EntryInspected = name =>
         {
             if (name == "a.txt" && !emitted)
             {
@@ -534,7 +572,7 @@ public sealed class SearchIndexWriteTests : IDisposable
         Assert.Equal(1, indexer.GetStatistics().DeferredRoots);
         Assert.Equal(0ul, await catalog.GetCheckpointAsync(Root, _cancellation));
         Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false, _cancellation));
-        pinyin.Inspect = null;
+        indexer.EntryInspected = null;
         indexer.Refresh(Root); await Ready(indexer, Root);
         Assert.Equal(3, (await catalog.SearchAsync(Root, SearchQuery.Parse("lost-report"), new(), 10, false, _cancellation)).Count);
         Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root, _cancellation));
@@ -692,5 +730,261 @@ public sealed class SearchIndexWriteTests : IDisposable
             Assert.Equal(writes, indexer.GetStatistics().DiagnosticsWrites);
         }
         finally { await indexer.DisposeAsync(); }
+    }
+
+    [Theory]
+    [InlineData(0ul, 500ul, true, 500ul, 500ul, false)]
+    [InlineData(42ul, 500ul, true, 500ul, 500ul, false)]
+    [InlineData(42ul, 500ul, false, 42ul, 42ul, false)]
+    [InlineData(500ul, 500ul, false, 500ul, 500ul, false)]
+    [InlineData(0ul, 500ul, false, 500ul, 500ul, true)]
+    [InlineData(900ul, 500ul, false, 500ul, 500ul, true)]
+    [Trait("Kind", "Unit")]
+    public void ResolveStartEventIdHandlesValidWrappedAndFullScanCases(
+        ulong sinceEventId, ulong currentEventId, bool fullScanFollows,
+        ulong expectedSince, ulong expectedBaseline, bool expectedRequiresFullScan)
+    {
+        var resolved = MacSearchChangeSource.ResolveStartEventId(sinceEventId, currentEventId, fullScanFollows);
+        Assert.Equal(expectedSince, resolved.Since);
+        Assert.Equal(expectedBaseline, resolved.Baseline);
+        Assert.Equal(expectedRequiresFullScan, resolved.RequiresFullScan);
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task ValidCheckpointResumesIncrementallyWithoutStartupFullScan()
+    {
+        File.WriteAllText(Path.Combine(Root, "existing.txt"), "initial");
+        var catalog = Catalog();
+        var firstChanges = new Changes { NextInitialEventId = 42 };
+        await using (var first = new SearchIndexer(catalog, new() { DatabasePath = Database, EventMergeDelay = TimeSpan.Zero }, new Pinyin(), firstChanges))
+        {
+            first.EnsureRoot(Root);
+            await Ready(first, Root);
+            Assert.Equal(1, first.GetStatistics().FullScans);
+            Assert.Equal(42ul, await catalog.GetCheckpointAsync(Root, _cancellation));
+        }
+
+        var resumedChanges = new Changes { Id = 42 };
+        var resumedPinyin = new Pinyin();
+        await using var resumed = new SearchIndexer(catalog, new() { DatabasePath = Database, EventMergeDelay = TimeSpan.Zero }, resumedPinyin, resumedChanges);
+        resumed.EnsureRoot(Root);
+        await Ready(resumed, Root);
+        var stats = resumed.GetStatistics();
+        Assert.Equal(0, stats.FullScans);
+        Assert.Equal(0, stats.DirectoryScans);
+        Assert.Equal(1, stats.IncrementalStarts);
+        Assert.Equal(0, resumedPinyin.Calls);
+        Assert.Equal(42ul, resumedChanges.LastSinceEventId);
+        Assert.False(resumedChanges.LastFullScanFollows);
+
+        var added = Path.Combine(Root, "replayed-missed.txt");
+        File.WriteAllText(added, "created while closed");
+        resumedChanges.Emit(added, kind: SearchChangeKind.Created);
+        await Ready(resumed, Root);
+        Assert.Equal(0, resumed.GetStatistics().FullScans);
+        Assert.Equal(43ul, await catalog.GetCheckpointAsync(Root, _cancellation));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("replayed-missed"), new(), 10, false, _cancellation));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task InvalidOrIncompleteCheckpointFallsBackToStartupFullScan()
+    {
+        File.WriteAllText(Path.Combine(Root, "seed.txt"), "seed");
+        var catalog = Catalog();
+
+        // Case 1: Persisted Ready + checkpoint > 0, but catalog has no entries under root.
+        await catalog.SaveCheckpointAsync(Root, 10, SearchIndexPhase.Ready, _cancellation);
+        var emptyCatalogChanges = new Changes { NextInitialEventId = 20 };
+        await using (var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database, EventMergeDelay = TimeSpan.Zero }, new Pinyin(), emptyCatalogChanges))
+        {
+            indexer.EnsureRoot(Root);
+            await Ready(indexer, Root);
+            Assert.Equal(1, indexer.GetStatistics().FullScans);
+            Assert.True(emptyCatalogChanges.LastFullScanFollows);
+            Assert.Equal(20ul, await catalog.GetCheckpointAsync(Root, _cancellation));
+        }
+
+        // Case 2: Persisted phase is Partial -> must fall back to full scan.
+        await catalog.SaveCheckpointAsync(Root, 20, SearchIndexPhase.Partial, _cancellation);
+        var partialChanges = new Changes { NextInitialEventId = 30 };
+        await using (var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database, EventMergeDelay = TimeSpan.Zero }, new Pinyin(), partialChanges))
+        {
+            indexer.EnsureRoot(Root);
+            await Ready(indexer, Root);
+            Assert.Equal(1, indexer.GetStatistics().FullScans);
+            Assert.True(partialChanges.LastFullScanFollows);
+            Assert.Equal(30ul, await catalog.GetCheckpointAsync(Root, _cancellation));
+        }
+
+        // Case 3: Persisted checkpoint is wrapped/invalid (persisted 500 > new baseline 100) -> falls back and resets checkpoint to 100.
+        await catalog.SaveCheckpointAsync(Root, 500, SearchIndexPhase.Ready, _cancellation);
+        var wrappedChanges = new Changes { NextInitialEventId = 100, NextRequiresFullScan = true };
+        await using (var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database, EventMergeDelay = TimeSpan.Zero }, new Pinyin(), wrappedChanges))
+        {
+            indexer.EnsureRoot(Root);
+            await Ready(indexer, Root);
+            Assert.Equal(1, indexer.GetStatistics().FullScans);
+            Assert.Equal(0, indexer.GetStatistics().IncrementalStarts);
+            Assert.Equal(100ul, await catalog.GetCheckpointAsync(Root, _cancellation));
+        }
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task RepeatedJournalRecoverySignalsCoalesceAndRespectCooldownWithDiagnostics()
+    {
+        File.WriteAllText(Path.Combine(Root, "base.txt"), "base");
+        var clock = new FakeTimeProvider();
+        var changes = new Changes();
+        var catalog = Catalog();
+        var configuration = new IndexConfiguration
+        {
+            DatabasePath = Database,
+            EventMergeDelay = TimeSpan.Zero,
+            DiagnosticWriteInterval = TimeSpan.Zero
+        };
+        var indexer = new SearchIndexer(catalog, configuration, new Pinyin(), changes, clock);
+        try
+        {
+            indexer.EnsureRoot(Root);
+            await Ready(indexer, Root);
+            Assert.Equal(1, indexer.GetStatistics().FullScans);
+
+            changes.EmitRawRecovery(Root, 0x40u, restart: true); // Mount
+            await Ready(indexer, Root);
+            Assert.Equal(2, indexer.GetStatistics().FullScans);
+            Assert.Equal(1, indexer.GetStatistics().FullScanReasons["JournalRecovery"]);
+            var firstRecoveryCheckpoint = await catalog.GetCheckpointAsync(Root, _cancellation);
+            Assert.Equal(changes.Id, firstRecoveryCheckpoint);
+
+            // Burst of repeated recovery signals within cooldown must coalesce and defer.
+            changes.EmitRawRecovery(Root, 0x80u, restart: true); // Unmount
+            changes.EmitRawRecovery(Root, 0x4u);                 // KernelDropped
+            changes.EmitRawRecovery(Root, 0x2u);                 // UserDropped
+            var duringCooldown = indexer.GetStatistics();
+            Assert.Equal(1, duringCooldown.DeferredRoots);
+            Assert.Equal(2, duringCooldown.FullScans);
+            Assert.True(duringCooldown.CoalescedRecoveries >= 3);
+
+            // Live incremental updates continue working while recovery is deferred, without advancing checkpoint.
+            var live = Path.Combine(Root, "live-during-cooldown.txt");
+            File.WriteAllText(live, "live");
+            changes.Emit(live, kind: SearchChangeKind.Modified);
+            await Eventually(async () => (await catalog.SearchAsync(Root, SearchQuery.Parse("live-during-cooldown"), new(), 10, false, _cancellation)).Count == 1);
+            Assert.Equal(firstRecoveryCheckpoint, await catalog.GetCheckpointAsync(Root, _cancellation));
+
+            // Cooldown expiry runs ONE reconciled JournalRecovery pass and advances checkpoint.
+            clock.Advance(TimeSpan.FromMinutes(10));
+            await Ready(indexer, Root);
+            var afterCooldown = indexer.GetStatistics();
+            Assert.Equal(0, afterCooldown.DeferredRoots);
+            Assert.Equal(3, afterCooldown.FullScans);
+            Assert.Equal(2, afterCooldown.FullScanReasons["JournalRecovery"]);
+            Assert.Equal(changes.Id, await catalog.GetCheckpointAsync(Root, _cancellation));
+
+            await indexer.DisposeAsync();
+            var diagPath = Path.Combine(_folder, "Logs", "search-index-status.json");
+            using var document = JsonDocument.Parse(File.ReadAllText(diagPath));
+            var rootReport = document.RootElement.GetProperty("Roots")[0];
+            var recoveries = rootReport.GetProperty("RecentRecoveries").EnumerateArray().ToArray();
+            Assert.InRange(recoveries.Length, 4, 8);
+            Assert.Contains(recoveries, r => r.GetProperty("RawFlags").GetUInt32() == 0x40u
+                && r.GetProperty("Flags").GetString()!.Contains("Mount")
+                && r.GetProperty("Scope").GetString() == Root);
+            Assert.Contains(recoveries, r => r.GetProperty("RawFlags").GetUInt32() == 0x4u
+                && r.GetProperty("Flags").GetString()!.Contains("KernelDropped"));
+        }
+        finally { await indexer.DisposeAsync(); }
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public void HanFreePinyinFastPathAllocatesZeroBytesAndPreservesHanInitials()
+    {
+        Assert.False(MacPinyinInitials.ContainsHan("package.json"));
+        Assert.False(MacPinyinInitials.ContainsHan("café_résumé-2026.pdf"));
+        Assert.False(MacPinyinInitials.ContainsHan("rocket🚀_한글.txt"));
+        Assert.True(MacPinyinInitials.ContainsHan("合同2026.pdf"));
+        Assert.True(MacPinyinInitials.ContainsHan("extB_\U00020000.txt"));
+
+        var pinyin = new MacPinyinInitials();
+        _ = pinyin.GetInitials("warmup.txt");
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var anyNonEmpty = false;
+        for (var i = 0; i < 100; i++)
+        {
+            if (pinyin.GetInitials("src_components_Button.tsx").Length != 0)
+                anyNonEmpty = true;
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.False(anyNonEmpty);
+        Assert.Equal(0L, allocated);
+
+        if (OperatingSystem.IsMacOS())
+            Assert.Equal("HT2026.PDF", pinyin.GetInitials("合同2026.pdf"));
+    }
+
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task UnchangedDirectoryReconciliationSkipsPinyinAndHandlesInsertUpdateRenameDelete()
+    {
+        var keep = Path.Combine(Root, "keep.txt");
+        var modify = Path.Combine(Root, "modify.txt");
+        var renameOld = Path.Combine(Root, "rename-old.txt");
+        var delete = Path.Combine(Root, "delete.txt");
+        var dirToFile = Path.Combine(Root, "dir-to-file");
+        Directory.CreateDirectory(dirToFile);
+        File.WriteAllText(keep, "unchanged");
+        File.WriteAllText(modify, "old");
+        File.WriteAllText(renameOld, "rename");
+        File.WriteAllText(delete, "gone");
+        File.WriteAllText(Path.Combine(dirToFile, "child.txt"), "nested");
+
+        var catalog = Catalog();
+        var pinyin = new Pinyin();
+        var changes = new Changes();
+        await using var indexer = new SearchIndexer(catalog, new() { DatabasePath = Database, EventMergeDelay = TimeSpan.Zero }, pinyin, changes);
+        indexer.EnsureRoot(Root);
+        await Ready(indexer, Root);
+
+        // Unchanged full reconciliation must skip pinyin and perform zero writes.
+        pinyin.Calls = 0;
+        var beforeUnchanged = indexer.GetStatistics();
+        indexer.Refresh(Root);
+        await Ready(indexer, Root);
+        var afterUnchanged = indexer.GetStatistics();
+        Assert.Equal(0, pinyin.Calls);
+        Assert.Equal(beforeUnchanged.InsertedEntries, afterUnchanged.InsertedEntries);
+        Assert.Equal(beforeUnchanged.UpdatedEntries, afterUnchanged.UpdatedEntries);
+        Assert.Equal(beforeUnchanged.DeletedEntries, afterUnchanged.DeletedEntries);
+
+        // Mutate: keep one file untouched, modify one, rename one, delete one, add one, replace dir with file.
+        File.WriteAllText(modify, "updated content with a different length");
+        var renameNew = Path.Combine(Root, "rename-new.txt");
+        File.Move(renameOld, renameNew);
+        File.Delete(delete);
+        var added = Path.Combine(Root, "added.txt");
+        File.WriteAllText(added, "brand new");
+        Directory.Delete(dirToFile, true);
+        File.WriteAllText(dirToFile, "now a regular file");
+
+        pinyin.Calls = 0;
+        indexer.Refresh(Root);
+        await Ready(indexer, Root);
+
+        // Only the 4 new/modified entries should have computed pinyin (keep.txt was skipped).
+        Assert.Equal(4, pinyin.Calls);
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("keep"), new(), 10, false, _cancellation));
+        var modifiedEntry = Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("modify"), new(), 10, false, _cancellation));
+        Assert.Equal(new FileInfo(modify).Length, modifiedEntry.Size);
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("rename-new"), new(), 10, false, _cancellation));
+        Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("rename-old"), new(), 10, false, _cancellation));
+        Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("delete"), new(), 10, false, _cancellation));
+        Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("added"), new(), 10, false, _cancellation));
+        var replaced = Assert.Single(await catalog.SearchAsync(Root, SearchQuery.Parse("dir-to-file"), new(), 10, false, _cancellation));
+        Assert.False(replaced.IsDirectory);
+        Assert.Empty(await catalog.SearchAsync(Root, SearchQuery.Parse("child"), new(), 10, false, _cancellation));
     }
 }

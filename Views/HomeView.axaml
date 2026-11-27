@@ -7,8 +7,7 @@
              xmlns:models="using:MacExplorer.Models"
              xmlns:views="using:MacExplorer.Views"
              x:Class="MacExplorer.Views.HomeView"
-             x:DataType="vm:FileListViewModel"
-             x:CompileBindings="False">
+             x:DataType="vm:FileListViewModel">
 
     <Grid x:Name="HomeRoot" Classes="home-workspace-root" RowDefinitions="Auto,*">
         <Grid x:Name="HeaderLayout" Margin="24,18,24,12">

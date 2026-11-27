@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -46,7 +47,7 @@ public sealed class MacPdfTextExtractionService : IPdfTextExtractionService
         var error = new StringBuilder();
         // Decode incrementally: retaining the entire JSON string duplicates a large
         // document's text and keywords alongside the deserialized object graph.
-        var outputTask = JsonSerializer.DeserializeAsync<ImageAnalysisResult>(process.StandardOutput.BaseStream,
+        var outputTask = JsonSerializer.DeserializeAsync(process.StandardOutput.BaseStream, AppJsonContext.Default.ImageAnalysisResult,
             cancellationToken: token).AsTask();
         var progressTask = ReadProgressAsync();
         try
@@ -95,7 +96,7 @@ public sealed class MacPdfTextExtractionService : IPdfTextExtractionService
                 const string prefix = "PDF_PROGRESS ";
                 if (line.StartsWith(prefix, StringComparison.Ordinal))
                 {
-                    var update = JsonSerializer.Deserialize<PdfAnalysisProgress>(line[prefix.Length..]);
+                    var update = JsonSerializer.Deserialize(line[prefix.Length..], AppJsonContext.Default.PdfAnalysisProgress);
                     if (update.TotalPages > 0 && update.CompletedPages > lastCompleted
                         && update.CompletedPages <= update.TotalPages)
                     {

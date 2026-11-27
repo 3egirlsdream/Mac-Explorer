@@ -43,7 +43,7 @@ public sealed class StartupUpdateTests
     {
         Assert.SkipWhen(!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux(), "Requires macOS or Linux.");
         var parentNice = await ReadNiceValueAsync(Environment.ProcessId);
-        var start = StartupUpdateChecker.CreateStartInfo("/bin/sh", "unused");
+        var start = StartupUpdateChecker.CreateStartInfo("/bin/sh");
         start.ArgumentList.RemoveAt(start.ArgumentList.Count - 1);
         start.ArgumentList.Add("-c");
         start.ArgumentList.Add("printf '{\"VERSION\":\"%s\"}' \"$(ps -o nice= -p $$ | tr -d ' ')\"");
@@ -75,7 +75,7 @@ public sealed class StartupUpdateTests
         var pidFile = Path.GetTempFileName();
         try
         {
-            var start = StartupUpdateChecker.CreateStartInfo("/bin/sh", "unused");
+            var start = StartupUpdateChecker.CreateStartInfo("/bin/sh");
             start.ArgumentList.RemoveAt(start.ArgumentList.Count - 1);
             start.ArgumentList.Add("-c");
             start.ArgumentList.Add("echo $$ > \"$1\"; exec sleep 30");

@@ -24,8 +24,7 @@ internal sealed class TabGroupNameDialog : DialogWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-            { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         var input = new TextBox { Name = "GroupNameInput", Text = initial, MaxLength = 80, Classes = { "settings-inline-input" } };
         AutomationProperties.SetName(input, LocalizationText.Get(nameKey));
         var label = new TextBlock { Text = LocalizationText.Get(nameKey), VerticalAlignment = VerticalAlignment.Center,

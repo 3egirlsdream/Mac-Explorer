@@ -1,6 +1,6 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.IO.Compression;
 using MacExplorer.Models;
 using MacExplorer.Indexing;
 using MacExplorer.Services;
@@ -49,7 +49,7 @@ public interface IAppCapabilityRegistry
 /// </summary>
 public sealed class AppCapabilityRegistry(
     IFileService files, IPinnedFolderService pins, ISearchService search,
-    IArchiveService archives, PluginManager plugins, PluginMarketClient market, FileDeliveryService delivery,
+    IArchiveService archives, PluginManager plugins, FileDeliveryService delivery,
     IFileTagService tags, IDirectoryChangeNotifier changes, IRemoteConnectionService remoteConnections,
     ISettingsService appSettings, IThemeService themes, IInteractionStyleService interactionStyles,
     CopilotContentExtractor contentExtractor, HomeWorkspaceService homeWorkspace,
@@ -61,7 +61,7 @@ public sealed class AppCapabilityRegistry(
         DateTime Created, bool IsDirectory, bool IsSymbolicLink);
     private sealed record Pending(CapabilityPlan Plan, FileListViewModel? Pane, string PanePath,
         FileStamp[] Stamps, string? ScriptSnapshot, string? PluginSnapshot, string? TagSnapshot,
-        PluginMarketItem? MarketItem, BatchRenamePlan? BatchRenamePreview,
+        BatchRenamePlan? BatchRenamePreview,
         CopilotContentExtractor.Page? ContentPage);
     private readonly Dictionary<string, Pending> _pending = new(StringComparer.Ordinal);
     private readonly object _gate = new();
@@ -100,7 +100,6 @@ public sealed class AppCapabilityRegistry(
         new("archive.extract-folder", "解压到同名文件夹", "使用原有解压流程，在同名文件夹解压", "{\"path\":\"压缩包路径\"}", "ArchiveViewModel.ExtractToNamedFolderAsync", CapabilityImpact.Change, "展示压缩包及新文件夹后确认"),
         new("archive.compress", "压缩文件", "打开原有压缩配置窗口供用户选择格式和输出", "{\"path\":\"文件路径\"}", "ArchiveViewModel.ShowCompressDialog", CapabilityImpact.Change, "展示来源后确认，再由现有窗口收集配置"),
         new("plugin.list", "列出插件", "查看已安装插件与命令", "{}", "PluginManager", CapabilityImpact.Read, "无需确认"),
-        new("plugin.market-list", "搜索插件市场", "从现有插件市场查询插件信息", "{\"query\":\"关键词\",\"page\":0}", "PluginMarketClient.ListAsync", CapabilityImpact.Read, "无需确认"),
         new("sftp.servers", "列出远程连接", "查看已保存连接的名称、ID 和连接状态，不返回密码或密钥", "{}", "IRemoteConnectionService.GetSavedServers", CapabilityImpact.Read, "无需确认"),
         new("sftp.connect", "连接已保存服务器", "连接已有的 SFTP 服务器并在当前窗格打开默认位置", "{\"id\":\"已保存服务器 ID\"}", "FileListViewModel.ConnectToServerAsync", CapabilityImpact.Read, "无需确认；需要凭据时使用现有连接窗口"),
         new("sftp.connect-dialog", "打开远程连接窗口", "打开应用已有的远程连接窗口收集主机与凭据", "{}", "FileListViewModel.RaiseRequestRemoteConnection", CapabilityImpact.Read, "无需确认"),
@@ -134,11 +133,6 @@ public sealed class AppCapabilityRegistry(
         new("tag.pin", "固定标签", "在侧栏固定或取消固定标签", "{\"name\":\"标签名称\",\"pinned\":true}", "IFileTagService.SetTagPinnedAsync", CapabilityImpact.Change, "展示标签后确认"),
         new("tag.color", "设置标签颜色", "为自定义标签设置 Finder 颜色 ID 0 到 7", "{\"name\":\"标签名称\",\"colorId\":4}", "IFileTagService.SetTagColorAsync", CapabilityImpact.Change, "展示标签和新颜色后确认"),
         new("tag.apply", "设置文件标签", "为文件添加或移除一个已有标签", "{\"path\":\"文件路径\",\"tag\":\"标签名称\",\"applied\":true}", "IFileTagService.SetTagAsync", CapabilityImpact.Change, "展示文件及标签后确认"),
-        new("plugin.enable", "启用或禁用插件", "切换已安装插件状态", "{\"id\":\"插件 ID\",\"enabled\":true}", "PluginManager.SetEnabledAsync", CapabilityImpact.Change, "展示插件和状态后确认"),
-        new("plugin.install", "安装插件", "安装本地 .mexplug 插件包", "{\"path\":\"本地插件包路径\"}", "PluginManager.InstallAsync", CapabilityImpact.InstallSoftware, "展示插件来源、名称和版本，单独确认"),
-        new("plugin.market-install", "安装或更新市场插件", "按市场目录中的插件 ID 和版本下载、校验并安装", "{\"id\":\"插件 ID\",\"version\":\"市场版本\"}", "PluginMarketClient.InstallAsync", CapabilityImpact.InstallSoftware, "展示来源、开发者、版本和校验信息后单独确认"),
-        new("plugin.uninstall", "卸载插件", "卸载已安装的插件", "{\"id\":\"插件 ID\"}", "PluginManager.UninstallAsync", CapabilityImpact.Destructive, "展示插件及正在运行的任务后确认"),
-        new("plugin.restore-built-in", "恢复内置插件", "恢复内置文件转换插件", "{}", "PluginManager.RestoreBuiltInAsync", CapabilityImpact.InstallSoftware, "展示内置插件后单独确认"),
         new("plugin.cancel", "取消插件任务", "中止正在运行的插件命令", "{\"id\":\"插件 ID\"}", "PluginManager.CancelAsync", CapabilityImpact.Change, "展示任务后确认"),
         new("delivery.add-folder", "加入文件速递", "将本地目录加入文件速递", "{\"path\":\"文件夹路径\"}", "FileDeliveryService.AddFolder", CapabilityImpact.Change, "展示文件夹后确认"),
         new("delivery.add-tag", "将标签加入文件速递", "将已有标签作为文件速递位置", "{\"tag\":\"标签名称\"}", "FileDeliveryService.AddTag", CapabilityImpact.Change, "展示标签后确认"),
@@ -149,7 +143,7 @@ public sealed class AppCapabilityRegistry(
 
     private static readonly HashSet<string> PathlessCapabilities =
         ["folder.create-unnamed", "tag.create", "tag.rename", "tag.delete", "tag.pin", "tag.color",
-            "plugin.enable", "plugin.uninstall", "plugin.restore-built-in", "plugin.cancel", "plugin.market-install",
+            "plugin.cancel",
             "settings.toggle", "settings.theme",
             "delivery.add-tag", "delivery.remove", "delivery.move", "delivery.enabled"];
 
@@ -159,14 +153,14 @@ public sealed class AppCapabilityRegistry(
             "archive.compress", "tag.apply"];
 
     public IReadOnlyList<AppCapability> Catalog => plugins == null ? ChannelCatalog :
-        [..ChannelCatalog, ..plugins.Plugins.Where(p => !p.Removed).SelectMany(p => p.Manifest.Commands.Select(command =>
+        [..ChannelCatalog, ..plugins.Plugins.Where(p => p.Enabled).SelectMany(p => p.Manifest.Commands.Select(command =>
             new AppCapability(PluginCommandId(p.Manifest.Id, command.Id), command.Title,
                 $"通过已安装插件 {p.Manifest.Name} 处理本地文件", "{\"paths\":[\"本地文件绝对路径\"]}",
                 "FileListViewModel.ExecutePluginCommandAsync", CapabilityImpact.Change,
                 "展示插件、命令、输入文件以及生成位置后确认")))];
 
     private static IReadOnlyList<AppCapability> ChannelCatalog => DistributionChannel.IsAppStore
-        ? BuiltInCatalog.Where(capability => capability.Id != "script.run" && !capability.Id.StartsWith("plugin.", StringComparison.Ordinal)
+        ? BuiltInCatalog.Where(capability => capability.Id != "script.run"
             && !capability.Id.Contains("terminal", StringComparison.Ordinal)).ToArray() : BuiltInCatalog;
 
     public static string PluginCommandId(string pluginId, string commandId)
@@ -174,7 +168,7 @@ public sealed class AppCapabilityRegistry(
 
     private (string PluginId, PluginCommand Command) ResolvePluginCommand(string id)
     {
-        foreach (var plugin in plugins.Plugins.Where(p => p.Enabled && !p.Removed))
+        foreach (var plugin in plugins.Plugins.Where(p => p.Enabled))
             foreach (var command in plugin.Manifest.Commands)
                 if (PluginCommandId(plugin.Manifest.Id, command.Id) == id)
                     return (plugin.Manifest.Id, command);
@@ -201,7 +195,7 @@ public sealed class AppCapabilityRegistry(
             throw new InvalidOperationException("插件命令与所选本地文件不再匹配。");
         var execution = await pane.ExecutePluginCommandAsync(pluginId, command, selected);
         return new(execution.Success, execution.Message,
-            new { execution.Outputs, execution.Warnings });
+            new PluginCommandReceipt(execution.Outputs, execution.Warnings));
     }
 
     private static async Task<CapabilityResult> CreateUnnamedFolderAsync(FileListViewModel pane)
@@ -219,6 +213,8 @@ public sealed class AppCapabilityRegistry(
 
     public async Task<CapabilityResult> ExecuteReadAsync(string id, string argumentsJson, FileListViewModel? pane)
     {
+        if (id is "plugin.install" or "plugin.market-install" or "plugin.market-list")
+            throw PluginManager.ExternalPluginsUnavailable();
         var capability = Find(id) ?? throw new ArgumentException($"未知能力：{id}", nameof(id));
         if (capability.Impact != CapabilityImpact.Read)
             throw new InvalidOperationException("此能力需要先预览并确认。");
@@ -231,10 +227,8 @@ public sealed class AppCapabilityRegistry(
                 var path = Required(args, "path");
                 var entries = await files.GetDirectoryContentsAsync(path);
                 return CapabilityPagination.Create(
-                    entries.OrderBy(e => e.FullPath, StringComparer.Ordinal).ToArray(), args, e => new
-                    {
-                        e.FullPath, e.Name, e.IsDirectory, e.Size, e.LastModified
-                    });
+                    entries.OrderBy(e => e.FullPath, StringComparer.Ordinal).ToArray(), args, e => new DirectoryEntrySummary(
+                        e.FullPath, e.Name, e.IsDirectory, e.Size, e.LastModified));
             }
             case "file.info":
             {
@@ -246,50 +240,43 @@ public sealed class AppCapabilityRegistry(
                 var analysis = aiTags != null && File.Exists(path)
                     && await aiTags.IsFileAnalyzedAsync(path, File.GetLastWriteTime(path).Ticks)
                     ? (await aiTags.GetTagsForFileAsync(path, includeText: false))
-                        .Take(100).Select(t => new { t.TagType, t.TagValue, t.Confidence }).ToArray() : null;
-                return new(true, "已读取文件信息与现有元数据（不含正文）", new
-                {
-                    entry.FullPath, entry.Name, entry.IsDirectory, entry.Size, entry.Created, entry.LastModified,
-                    details?.LastAccessed, details?.Kind, details?.ContentType, details?.Tags,
-                    Image = image == null ? null : new
-                    {
-                        image.PixelWidth, image.PixelHeight, image.ColorSpace, image.CameraMake, image.CameraModel,
-                        image.LensModel, image.FocalLength, image.Aperture, image.ExposureTime, image.IsoSpeed,
-                        image.WhiteBalance, image.Flash, image.ExposureProgram, image.MeteringMode,
-                        image.PhotoTakenDate, image.Latitude, image.Longitude, image.Altitude
-                    }, Analysis = analysis
-                });
+                        .Take(100).Select(t => new FileAnalysisTag(t.TagType, t.TagValue, t.Confidence)).ToArray() : null;
+                return new(true, "已读取文件信息与现有元数据（不含正文）", new FileInformation(entry.FullPath, entry.Name,
+                    entry.IsDirectory, entry.Size, entry.Created, entry.LastModified, details?.LastAccessed,
+                    details?.Kind, details?.ContentType, details?.Tags,
+                    image == null ? null : new FileImageInformation(image.PixelWidth, image.PixelHeight,
+                        image.ColorSpace, image.CameraMake, image.CameraModel, image.LensModel, image.FocalLength,
+                        image.Aperture, image.ExposureTime, image.IsoSpeed, image.WhiteBalance, image.Flash,
+                        image.ExposureProgram, image.MeteringMode, image.PhotoTakenDate, image.Latitude,
+                        image.Longitude, image.Altitude), analysis));
             }
             case "file.search-fields":
                 if (indexedSearch == null) return new(false, "数据库搜索服务不可用。");
-                return new(true, "已有数据库字段；所有筛选条件取交集，未持久化 EXIF 可通过 file.info 查看。", new
-                {
-                    AnalysisTagTypes = await indexedSearch.GetAnalysisFieldsAsync(),
-                    Filters = new[] { "query", "source", "extensions", "tags[{type,value}]", "fileTag", "person",
+                return new(true, "已有数据库字段；所有筛选条件取交集，未持久化 EXIF 可通过 file.info 查看。", new IndexedSearchFields(
+                    await indexedSearch.GetAnalysisFieldsAsync(),
+                    new[] { "query", "source", "extensions", "tags[{type,value}]", "fileTag", "person",
                         "minRating", "minSize", "maxSize", "createdFrom", "createdTo", "modifiedFrom", "modifiedTo",
-                        "takenFrom", "takenTo", "offset" },
-                    Sources = new[] { "all", "name", "content", "analysis" },
-                    DateRange = "from 包含，to 不包含；文件日期使用 ISO 8601 含时区，拍摄日期使用 yyyy-MM-dd。"
-                });
+                        "takenFrom", "takenTo", "offset" }, new[] { "all", "name", "content", "analysis" },
+                    "from 包含，to 不包含；文件日期使用 ISO 8601 含时区，拍摄日期使用 yyyy-MM-dd。"));
             case "file.search-index":
             {
                 if (indexedSearch == null) return new(false, "数据库搜索服务不可用。");
-                var query = JsonSerializer.Deserialize<IndexedFileQuery>(argumentsJson,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+                var query = JsonSerializer.Deserialize(argumentsJson, CopilotInputJsonContext.Default.IndexedFileQuery)!;
                 var options = new SearchOptions(appSettings?.Get("HideSystemFiles", true) ?? true,
                     appSettings?.Get("HideDotFiles", true) ?? true, appSettings?.Get("HideDotFolders", true) ?? true);
                 var result = await indexedSearch.SearchResourcesAsync(Required(args, "path"), query, options);
                 return new(true, $"现有数据库本页找到 {result.Items.Count} 项。只覆盖已索引属性与已分析内容；未分析、已过期或尚未索引的文件仍可能符合条件。", result.Items)
                 {
-                    Coverage = new { Scope = "existing-database", result.Offset, result.NextOffset, result.HasMore,
-                        result.AnalyzedFiles, result.IndexStatus, Content = "仅匹配未过期的已有分析，不返回正文；无命中不能证明文件不存在。" }
+                    Coverage = new IndexedSearchCoverage("existing-database", result.Offset, result.NextOffset,
+                        result.HasMore, result.AnalyzedFiles, result.IndexStatus,
+                        "仅匹配未过期的已有分析，不返回正文；无命中不能证明文件不存在。")
                 };
             }
             case "file.search":
             {
-                var results = new List<object>();
+                var results = new List<FileEntrySummary>();
                 await foreach (var entry in search.SearchAsync(Required(args, "path"), Required(args, "query"), 100))
-                    results.Add(new { entry.FullPath, entry.Name, entry.IsDirectory, entry.Size });
+                    results.Add(new FileEntrySummary(entry.FullPath, entry.Name, entry.IsDirectory, entry.Size));
                 return new(true, results.Count == 100
                     ? "返回前 100 项搜索结果，可能还有更多；请缩小搜索范围，不能将此结果视为全部文件。"
                     : $"找到 {results.Count} 项", results);
@@ -342,7 +329,7 @@ public sealed class AppCapabilityRegistry(
             case "ui.search":
                 if (pane == null) throw new InvalidOperationException("请先激活文件窗格。");
                 await pane.SearchAsync(Required(args, "query"));
-                return new(true, "已在当前窗格搜索。", new { pane.CurrentPath, pane.StatusText });
+                return new(true, "已在当前窗格搜索。", new PaneSearchResult(pane.CurrentPath, pane.StatusText));
             case "ui.view-mode":
                 if (pane == null) throw new InvalidOperationException("请先激活文件窗格。");
                 if (!Enum.TryParse<ViewMode>(Required(args, "mode"), false, out var mode)
@@ -417,37 +404,15 @@ public sealed class AppCapabilityRegistry(
             {
                 var entries = await archives.GetArchiveContentsAsync(Required(args, "path"));
                 return new(true, $"压缩包中有 {entries.Count} 项",
-                    entries.Take(200).Select(e => new { e.FullPath, e.Name, e.IsDirectory, e.Size }).ToArray());
+                    entries.Take(200).Select(e => new FileEntrySummary(e.FullPath, e.Name, e.IsDirectory, e.Size)).ToArray());
             }
             case "plugin.list":
-                return new(true, "已读取插件目录", plugins.Plugins.Select(p => new
-                {
-                    p.Manifest.Id, p.Manifest.Name, p.Enabled, p.Status, p.LastError,
-                    Commands = p.Manifest.Commands.Select(c => new { c.Id, c.Title }).ToArray()
-                }).ToArray());
-            case "plugin.market-list":
-            {
-                var query = args.TryGetProperty("query", out var keyword) ? keyword.GetString() ?? "" : "";
-                var pageIndex = args.TryGetProperty("page", out var pageValue) && pageValue.TryGetInt32(out var number)
-                    ? number : 0;
-                if (pageIndex is < 0 or > 20) throw new ArgumentException("市场页码须在 0 到 20 之间。");
-                var page = await market.ListAsync(query, pageIndex, CancellationToken.None);
-                return new(true, $"市场返回 {page.Items.Length} 项", new
-                {
-                    page.HasMore,
-                    Items = page.Items.Select(item => new
-                    {
-                        item.Manifest.Id, item.Manifest.Name, item.Manifest.Version,
-                        item.Manifest.Developer, item.Manifest.Description, item.Manifest.Paid,
-                        item.Manifest.TrialDays, item.Size, item.Sha256
-                    }).ToArray()
-                });
-            }
+                return new(true, "已读取插件目录", plugins.Plugins.Select(p => new PluginCatalogEntry(p.Manifest.Id,
+                    p.Manifest.Name, p.Enabled, p.Status, p.LastError,
+                    p.Manifest.Commands.Select(c => new PluginCommandSummary(c.Id, c.Title)).ToArray())).ToArray());
             case "sftp.servers":
-                return new(true, "已读取远程连接列表", remoteConnections.GetSavedServers().Select(server => new
-                {
-                    server.Id, server.DisplayName, IsConnected = remoteConnections.IsConnected(server.Id)
-                }).ToArray());
+                return new(true, "已读取远程连接列表", remoteConnections.GetSavedServers().Select(server => new RemoteServerSummary(
+                    server.Id, server.DisplayName, remoteConnections.IsConnected(server.Id))).ToArray());
             case "sftp.connect-dialog":
                 if (pane == null) throw new InvalidOperationException("请先激活文件窗格。");
                 pane.RaiseRequestRemoteConnection();
@@ -459,7 +424,7 @@ public sealed class AppCapabilityRegistry(
                     ?? throw new ArgumentException("服务器不存在。");
                 await pane.ConnectToServerAsync(server);
                 return new(remoteConnections.IsConnected(server.Id), pane.StatusText,
-                    new { server.Id, server.DisplayName, pane.CurrentPath });
+                    new RemoteConnectionResult(server.Id, server.DisplayName, pane.CurrentPath));
             }
             case "sftp.disconnect":
             {
@@ -472,20 +437,14 @@ public sealed class AppCapabilityRegistry(
             }
             case "script.list":
                 return new(true, "已读取已有脚本命令",
-                    homeWorkspace.GetCommands(Required(args, "path")).Select(c => new { c.Id, c.Name }).ToArray());
+                    homeWorkspace.GetCommands(Required(args, "path")).Select(c => new ScriptSummary(c.Id, c.Name)).ToArray());
             case "delivery.list":
                 return new(true, "已读取文件速递位置", delivery.Preferences.Entries.ToArray());
             case "settings.list":
                 if (pane == null) throw new InvalidOperationException("请先激活文件窗格。");
-                return new(true, "已读取常用设置", new
-                {
-                    Theme = themes.GetThemeMode(),
-                    HideSystem = pane.HideSystemFiles, HideDotFiles = pane.HideDotFiles,
-                    HideDotFolders = pane.HideDotFolders, ConfirmTrash = pane.ConfirmBeforeTrash,
-                    DoubleClickUp = pane.DoubleClickEmptyAreaGoUp,
-                    AiAnalysis = pane.IsAiAnalysisEnabled,
-                    FolderCovers = appSettings.Get(FileListViewModel.FolderPhotoCoverSettingKey, false)
-                });
+                return new(true, "已读取常用设置", new SettingsSummary(themes.GetThemeMode(), pane.HideSystemFiles,
+                    pane.HideDotFiles, pane.HideDotFolders, pane.ConfirmBeforeTrash, pane.DoubleClickEmptyAreaGoUp,
+                    pane.IsAiAnalysisEnabled, appSettings.Get(FileListViewModel.FolderPhotoCoverSettingKey, false)));
             case "tag.list":
                 return new(true, "已读取标签", await tags.GetSidebarTagsAsync());
             case "tag.files":
@@ -505,6 +464,8 @@ public sealed class AppCapabilityRegistry(
 
     public async Task<CapabilityPlan> PreviewAsync(string id, string argumentsJson, FileListViewModel? pane)
     {
+        if (id is "plugin.install" or "plugin.market-install" or "plugin.market-list")
+            throw PluginManager.ExternalPluginsUnavailable();
         var capability = Find(id) ?? throw new ArgumentException($"未知能力：{id}", nameof(id));
         if (capability.Impact == CapabilityImpact.Read)
             throw new InvalidOperationException("只读能力无需审批。");
@@ -534,7 +495,6 @@ public sealed class AppCapabilityRegistry(
                 throw new InvalidOperationException("请先在活动窗格打开源文件所在文件夹，再预览操作。");
         }
         string summary;
-        PluginMarketItem? marketItem = null;
         BatchRenamePlan? batchPreview = null;
         CopilotContentExtractor.Page? contentPage = null;
         FileStamp? contentSourceStamp = null;
@@ -683,48 +643,6 @@ public sealed class AppCapabilityRegistry(
                     throw new ArgumentException("标签不存在。");
                 summary = $"{(Boolean(args, "applied") ? "添加" : "移除")}标签 {tag}：{path}";
                 break;
-            case "plugin.enable":
-                var pluginId = Required(args, "id");
-                if (!plugins.Plugins.Any(p => p.Manifest.Id == pluginId))
-                    throw new ArgumentException("插件不存在。");
-                summary = $"{(Boolean(args, "enabled") ? "启用" : "禁用")}插件：{pluginId}";
-                break;
-            case "plugin.install":
-                if (!Path.IsPathFullyQualified(path) || !File.Exists(path)
-                    || !path.EndsWith(".mexplug", StringComparison.OrdinalIgnoreCase))
-                    throw new FileNotFoundException("请选择本地 .mexplug 插件包。", path);
-                var manifest = ReadPluginManifest(path);
-                summary = $"安装插件：{manifest.Name} {manifest.Version}（{manifest.Id}）。来源：{path}";
-                break;
-            case "plugin.market-install":
-                marketItem = await FindMarketItemAsync(Required(args, "id"), Required(args, "version"));
-                PluginMarketClient.RequireHttps(marketItem.DownloadUrl);
-                if (marketItem.Size is <= 0 or > 536870912
-                    || marketItem.Sha256 is not { Length: 64 })
-                    throw new InvalidDataException("市场插件下载信息无效。");
-                var currentPlugin = plugins.Plugins.FirstOrDefault(p =>
-                    p.Manifest.Id == marketItem.Manifest.Id && !p.Removed);
-                if (currentPlugin?.Manifest.Version == marketItem.Manifest.Version)
-                    throw new InvalidOperationException("此版本已经安装。");
-                if (currentPlugin != null
-                    && Version.TryParse(currentPlugin.Manifest.Version, out var currentVersion)
-                    && Version.TryParse(marketItem.Manifest.Version, out var targetVersion)
-                    && targetVersion <= currentVersion)
-                    throw new InvalidOperationException("不能安装比当前版本更旧的插件。");
-                summary = $"{(currentPlugin == null ? "安装" : "更新")}市场插件：{marketItem.Manifest.Name} "
-                    + $"{marketItem.Manifest.Version}（{marketItem.Manifest.Id}）。开发者：{marketItem.Manifest.Developer}。"
-                    + $"来源：{marketItem.DownloadUrl}。大小：{marketItem.Size} 字节；SHA-256：{marketItem.Sha256}。"
-                    + (marketItem.Manifest.Paid ? "此插件标记为付费。" : "此插件标记为免费。");
-                break;
-            case "plugin.uninstall":
-                var installed = plugins.Plugins.FirstOrDefault(p => p.Manifest.Id == Required(args, "id") && !p.Removed)
-                    ?? throw new ArgumentException("插件未安装。");
-                summary = $"卸载插件：{installed.Manifest.Name} {installed.Manifest.Version}"
-                    + (installed.Running ? "。当前任务将等待结束。" : "。");
-                break;
-            case "plugin.restore-built-in":
-                summary = "恢复内置文件转换插件。";
-                break;
             case "plugin.cancel":
                 var running = plugins.Plugins.FirstOrDefault(p => p.Manifest.Id == Required(args, "id") && p.Running)
                     ?? throw new InvalidOperationException("插件当前没有运行中的任务。");
@@ -780,12 +698,13 @@ public sealed class AppCapabilityRegistry(
         if (contentSourceStamp != null && stamps.First(stamp => stamp.Path == path) != contentSourceStamp)
             throw new IOException("文件在正文预览时发生变化，请重新预览。");
         var scriptSnapshot = id == "script.run"
-            ? JsonSerializer.Serialize(homeWorkspace.GetCommands(path).First(c => c.Id == Required(args, "id")))
+            ? JsonSerializer.Serialize(homeWorkspace.GetCommands(path).First(c => c.Id == Required(args, "id")),
+                AppJsonContext.Default.HomeScriptCommand)
             : null;
         var pluginSnapshot = id.StartsWith("plugin.", StringComparison.Ordinal)
             ? CurrentPluginSnapshot() : null;
         var tagSnapshot = id is "tag.rename" or "tag.delete" or "tag.pin" or "tag.color"
-            ? JsonSerializer.Serialize(await GetCustomTagAsync(Required(args, "name"))) : null;
+            ? JsonSerializer.Serialize(await GetCustomTagAsync(Required(args, "name")), CopilotJsonContext.Default.FileTag) : null;
         lock (_gate)
         {
             foreach (var expired in _pending.Where(item =>
@@ -793,7 +712,7 @@ public sealed class AppCapabilityRegistry(
                      .Select(item => item.Key).ToArray())
                 _pending.Remove(expired);
             _pending.Add(plan.Id, new Pending(plan, pane, pane.CurrentPath,
-                stamps, scriptSnapshot, pluginSnapshot, tagSnapshot, marketItem, batchPreview, contentPage));
+                stamps, scriptSnapshot, pluginSnapshot, tagSnapshot, batchPreview, contentPage));
         }
         return plan;
     }
@@ -826,12 +745,13 @@ public sealed class AppCapabilityRegistry(
             : isPluginCommand || isBatchRename ? string.Empty : Required(args, "path");
         var entry = string.IsNullOrEmpty(path) ? null : await files.GetEntryAsync(path);
         if (id == "script.run" && pending.ScriptSnapshot != JsonSerializer.Serialize(
-                homeWorkspace.GetCommands(path).FirstOrDefault(c => c.Id == Required(args, "id"))))
+                homeWorkspace.GetCommands(path).FirstOrDefault(c => c.Id == Required(args, "id")),
+                AppJsonContext.Default.HomeScriptCommand))
             throw new InvalidOperationException("脚本配置已变化，请重新预览。");
         if (pending.PluginSnapshot != null && pending.PluginSnapshot != CurrentPluginSnapshot())
             throw new InvalidOperationException("插件状态已变化，请重新预览。");
         if (pending.TagSnapshot != null && pending.TagSnapshot != JsonSerializer.Serialize(
-                await GetCustomTagAsync(Required(args, "name"))))
+                await GetCustomTagAsync(Required(args, "name")), CopilotJsonContext.Default.FileTag))
             throw new InvalidOperationException("收藏夹状态已变化，请重新预览。");
         switch (pending.Plan.Capability.Id)
         {
@@ -856,19 +776,15 @@ public sealed class AppCapabilityRegistry(
             {
                 if (pending.BatchRenamePreview == null) throw new InvalidOperationException("请重新预览。");
                 var currentPreview = await batchRename.GeneratePreviewAsync(pending.BatchRenamePreview.Request);
-                if (JsonSerializer.Serialize(currentPreview.Items.Select(item => new
-                    {
-                        item.OriginalPath, item.NewPath, item.HasError, item.HasConflict
-                    })) != JsonSerializer.Serialize(pending.BatchRenamePreview.Items.Select(item => new
-                    {
-                        item.OriginalPath, item.NewPath, item.HasError, item.HasConflict
-                    })))
+                static RenamePreviewSnapshot Snapshot(BatchRenamePreviewItem item) =>
+                    new(item.OriginalPath, item.NewPath, item.HasError, item.HasConflict);
+                if (!currentPreview.Items.Select(Snapshot).SequenceEqual(pending.BatchRenamePreview.Items.Select(Snapshot)))
                     throw new InvalidOperationException("批量重命名预览已变化，请重新确认。");
                 var result = await batchRenameOperation.ExecuteAsync(currentPreview);
                 await pane!.RefreshAsync();
                 return new(result.FailedCount == 0 && !result.WasCancelled,
                     $"批量重命名：成功 {result.SuccessCount}，跳过 {result.SkippedCount}，失败 {result.FailedCount}",
-                    new { result.SuccessfulItems, result.Errors, result.Warnings, result.WasCancelled });
+                    new BatchRenameReceipt(result.SuccessfulItems, result.Errors, result.Warnings, result.WasCancelled));
             }
             case "file.move":
                 var folder = await files.GetEntryAsync(Required(args, "destination"))
@@ -940,31 +856,6 @@ public sealed class AppCapabilityRegistry(
                 var tag = (await tags.GetSidebarTagsAsync()).First(t => t.Name == Required(args, "tag"));
                 await tags.SetTagAsync([path], tag, Boolean(args, "applied"));
                 break;
-            case "plugin.enable":
-                await plugins.SetEnabledAsync(Required(args, "id"), Boolean(args, "enabled"));
-                break;
-            case "plugin.install":
-                await plugins.InstallAsync(path);
-                break;
-            case "plugin.market-install":
-                var approvedMarketItem = pending.MarketItem
-                    ?? throw new InvalidOperationException("市场插件计划缺少来源信息。");
-                var latestMarketItem = await FindMarketItemAsync(
-                    approvedMarketItem.Manifest.Id, approvedMarketItem.Manifest.Version);
-                if (latestMarketItem.DownloadUrl != approvedMarketItem.DownloadUrl
-                    || latestMarketItem.Size != approvedMarketItem.Size
-                    || !latestMarketItem.Sha256.Equals(approvedMarketItem.Sha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("市场插件来源或校验值已变化，请重新预览。");
-                await market.InstallAsync(approvedMarketItem, plugins,
-                    new Progress<double?>(value => progress?.Report(
-                        $"下载 {approvedMarketItem.Manifest.Name}：{value:0}%")), CancellationToken.None);
-                return new(true, $"已安装市场插件：{approvedMarketItem.Manifest.Name} {approvedMarketItem.Manifest.Version}");
-            case "plugin.uninstall":
-                await plugins.UninstallAsync(Required(args, "id"));
-                break;
-            case "plugin.restore-built-in":
-                await plugins.RestoreBuiltInAsync();
-                break;
             case "plugin.cancel":
                 await plugins.CancelAsync(Required(args, "id"));
                 break;
@@ -1031,31 +922,8 @@ public sealed class AppCapabilityRegistry(
 
     private string CurrentPluginSnapshot() => JsonSerializer.Serialize(plugins.Plugins
         .OrderBy(p => p.Manifest.Id, StringComparer.Ordinal)
-        .Select(p => new { p.Manifest.Id, p.Manifest.Version, p.Enabled, p.Removed, p.Running }));
-
-    private async Task<PluginMarketItem> FindMarketItemAsync(string id, string version)
-    {
-        for (var page = 0; page < 10; page++)
-        {
-            var listing = await market.ListAsync(id, page, CancellationToken.None);
-            var item = listing.Items.FirstOrDefault(candidate => candidate.Manifest != null
-                && candidate.Manifest.Id == id
-                && candidate.Manifest.Version == version);
-            if (item != null) return item;
-            if (!listing.HasMore) break;
-        }
-        throw new ArgumentException("市场中找不到指定 ID 和版本的插件。");
-    }
-
-    private static PluginManifest ReadPluginManifest(string path)
-    {
-        using var zip = ZipFile.OpenRead(path);
-        var entry = zip.GetEntry("plugin.json") ?? throw new InvalidDataException("插件包缺少 plugin.json。");
-        if (entry.Length > 1024 * 1024) throw new InvalidDataException("插件清单过大。");
-        using var stream = entry.Open();
-        return JsonSerializer.Deserialize<PluginManifest>(stream, PluginProtocol.Json)
-            ?? throw new InvalidDataException("插件清单无效。");
-    }
+        .Select(p => new PluginSnapshot(p.Manifest.Id, p.Manifest.Version, p.Enabled, p.Running)).ToArray(),
+        CopilotJsonContext.Default.PluginSnapshotArray);
 
     private static string Required(JsonElement args, string name)
     {
@@ -1102,24 +970,17 @@ public sealed class AppCapabilityRegistry(
         {
             if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String)
                 throw new ArgumentException("每条规则需要 type。");
-            var rule = value.Deserialize<BatchRenameRule>(BatchRenameJsonOptions()) ?? throw new ArgumentException("规则无效。");
+            var rule = value.Deserialize(CopilotInputJsonContext.Default.BatchRenameRule) ?? throw new ArgumentException("规则无效。");
             BatchRenameRuleEngine.ValidateRule(rule);
             return rule;
         }).ToArray();
         return rules;
     }
 
-    private static JsonSerializerOptions BatchRenameJsonOptions()
-    {
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        options.Converters.Add(new JsonStringEnumConverter());
-        return options;
-    }
-
     private static BatchRenameOptions ParseBatchRenameOptions(JsonElement args)
     {
         var options = args.TryGetProperty("options", out var value)
-            ? value.Deserialize<BatchRenameOptions>(BatchRenameJsonOptions()) ?? new() : new BatchRenameOptions();
+            ? value.Deserialize(CopilotInputJsonContext.Default.BatchRenameOptions) ?? new() : new BatchRenameOptions();
         if (!Enum.IsDefined(options.Sort)) throw new ArgumentException("排序选项无效。");
         return options;
     }
@@ -1129,9 +990,7 @@ public sealed class AppCapabilityRegistry(
         if (!args.TryGetProperty("rule", out var value) || value.ValueKind != JsonValueKind.Object
             || !value.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String)
             throw new ArgumentException("缺少批量重命名规则及 type。");
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        options.Converters.Add(new JsonStringEnumConverter());
-        var rule = value.Deserialize<BatchRenameRule>(options)
+        var rule = value.Deserialize(CopilotInputJsonContext.Default.BatchRenameRule)
             ?? throw new ArgumentException("批量重命名规则无效。");
         if (!Enum.IsDefined(rule.Type) || !Enum.IsDefined(rule.CaseMode) || !rule.IsEnabled)
             throw new ArgumentException("批量重命名规则类型或大小写模式无效。");

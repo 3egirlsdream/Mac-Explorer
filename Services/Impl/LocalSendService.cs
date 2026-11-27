@@ -1,16 +1,15 @@
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Net.Http.Json;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Text.Json;
 using MacExplorer.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +21,6 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
 {
     private const int DiscoveryPort = 53317;
     private static readonly IPAddress DiscoveryGroup = IPAddress.Parse("224.0.0.167");
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly ISettingsService _settings;
     private readonly IBackgroundTaskManager _tasks;
     private readonly ILogger<LocalSendService>? _logger;
@@ -343,22 +341,40 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         // The existing IPv4 multicast discovery protocol remains unchanged.
         builder.WebHost.UseKestrel(options => options.ListenAnyIP(port, listen => listen.UseHttps(_certificate!)));
         var app = builder.Build();
-        const string prefix = "/api/localsend/v2";
-        IResult Info(HttpContext context)
-        {
-            var info = SelfInfo();
-            return string.Equals(context.Request.Query["fingerprint"].ToString(), info.Fingerprint, StringComparison.OrdinalIgnoreCase)
-                ? Results.StatusCode(412)
-                : Results.Json(info, Json);
-        }
-        app.MapGet("/api/localsend/v1/info", Info);
-        app.MapGet(prefix + "/info", Info);
-        app.MapPost(prefix + "/register", (Delegate)(Func<HttpContext, Task<IResult>>)RegisterAsync);
-        app.MapPost(prefix + "/prepare-upload", (Delegate)(Func<HttpContext, Task<IResult>>)PrepareUploadAsync);
-        app.MapPost(prefix + "/upload", (Delegate)(Func<HttpContext, Task<IResult>>)UploadAsync);
-        app.MapPost(prefix + "/cancel", (Delegate)(Func<HttpContext, IResult>)CancelIncomingAsync);
+        MapEndpoints(app);
         try { await app.StartAsync(cancellationToken); return app; }
         catch { await app.DisposeAsync(); throw; }
+    }
+
+    internal void MapEndpoints(IEndpointRouteBuilder app)
+    {
+        const string prefix = "/api/localsend/v2";
+        RequestDelegate infoEndpoint = context =>
+        {
+            var info = SelfInfo();
+            var result = string.Equals(context.Request.Query["fingerprint"].ToString(), info.Fingerprint, StringComparison.OrdinalIgnoreCase)
+                ? Results.StatusCode(412)
+                : Results.Json(info, LocalSendJsonContext.Default.PeerInfo);
+            return result.ExecuteAsync(context);
+        };
+        app.MapGet("/api/localsend/v1/info", infoEndpoint);
+        app.MapGet(prefix + "/info", infoEndpoint);
+        app.MapPost(prefix + "/register", (RequestDelegate)(async context =>
+        {
+            var result = await RegisterAsync(context);
+            await result.ExecuteAsync(context);
+        }));
+        app.MapPost(prefix + "/prepare-upload", (RequestDelegate)(async context =>
+        {
+            var result = await PrepareUploadAsync(context);
+            await result.ExecuteAsync(context);
+        }));
+        app.MapPost(prefix + "/upload", (RequestDelegate)(async context =>
+        {
+            var result = await UploadAsync(context);
+            await result.ExecuteAsync(context);
+        }));
+        app.MapPost(prefix + "/cancel", (RequestDelegate)(context => CancelIncomingAsync(context).ExecuteAsync(context)));
     }
 
     private X509Certificate2 LoadCertificate()
@@ -398,11 +414,11 @@ public sealed partial class LocalSendService : ILocalSendService, IAsyncDisposab
         return path == root || path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
-    private sealed record PeerInfo(string Alias, string Version, string? DeviceModel, string? DeviceType,
+    internal sealed record PeerInfo(string Alias, string Version, string? DeviceModel, string? DeviceType,
         string Fingerprint, int Port, string Protocol, bool Download, bool Announce);
-    private sealed record FileInfoDto(string Id, string FileName, long Size, string FileType, string? Sha256 = null);
-    private sealed record PrepareRequest(PeerInfo Info, Dictionary<string, FileInfoDto> Files);
-    private sealed record PrepareResponse(string SessionId, Dictionary<string, string> Files);
+    internal sealed record FileInfoDto(string Id, string FileName, long Size, string FileType, string? Sha256 = null);
+    internal sealed record PrepareRequest(PeerInfo Info, Dictionary<string, FileInfoDto> Files);
+    internal sealed record PrepareResponse(string SessionId, Dictionary<string, string> Files);
 
     private HttpClient CreatePeerClient(LocalSendDevice peer)
     {

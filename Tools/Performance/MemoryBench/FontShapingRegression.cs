@@ -56,7 +56,7 @@ internal static class FontShapingRegression
                 comparisons++;
             }
         }
-        MacExplorer.Services.MemoryDiagnostics.Record("fonts.shaping_regression", new { comparisons, passed = true });
+        Program.RecordDiagnostic("fonts.shaping_regression", new { comparisons, passed = true });
         _verified = true;
     }
 }

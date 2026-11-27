@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 
 namespace MacExplorer.Services.Impl;
@@ -20,14 +21,14 @@ internal sealed class DirectoryPreferencesService(DatabaseConnectionFactory data
         command.CommandText = "SELECT preferences FROM directory_preferences WHERE path=@path";
         command.Parameters.AddWithValue("@path", path);
         var json = command.ExecuteScalar() as string;
-        try { return json == null ? null : JsonSerializer.Deserialize<DirectoryPreferences>(json); }
+        try { return json == null ? null : JsonSerializer.Deserialize(json, AppJsonContext.Default.DirectoryPreferences); }
         catch (JsonException) { return null; }
     });
     public Task SaveAsync(string path, DirectoryPreferences preferences) => Queue(() =>
     {
         using var connection = database.GetConnection(); using var command = connection.CreateCommand();
         command.CommandText = "INSERT INTO directory_preferences(path,preferences) VALUES(@path,@json) ON CONFLICT(path) DO UPDATE SET preferences=excluded.preferences";
-        command.Parameters.AddWithValue("@path", path); command.Parameters.AddWithValue("@json", JsonSerializer.Serialize(preferences)); command.ExecuteNonQuery();
+        command.Parameters.AddWithValue("@path", path); command.Parameters.AddWithValue("@json", JsonSerializer.Serialize(preferences, AppJsonContext.Default.DirectoryPreferences)); command.ExecuteNonQuery();
         return true;
     });
     public Task RemoveAsync(string path) => Queue(() =>

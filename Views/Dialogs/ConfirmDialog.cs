@@ -11,7 +11,7 @@ internal sealed class ConfirmDialog : DialogWindow
     internal ConfirmDialog(string title, string message, string accept, string cancelText = "取消", bool isDanger = false)
     {
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         title = MacExplorer.Services.Impl.LocalizationText.Get(title);
         message = MacExplorer.Services.Impl.LocalizationText.Get(message);
         accept = MacExplorer.Services.Impl.LocalizationText.Get(accept);

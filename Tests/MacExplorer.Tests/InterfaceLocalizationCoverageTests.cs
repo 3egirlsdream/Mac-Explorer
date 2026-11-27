@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -77,8 +79,14 @@ public sealed class InterfaceLocalizationCoverageTests
     {
         using var language = new LocalizationService(new InMemorySettingsService(), () => AppLanguage.ChineseSimplified);
         var home = new HomeDashboard();
-        var label = new TextBlock { DataContext = new { Name = "我的项目" } };
-        label.Bind(TextBlock.TextProperty, (Avalonia.Data.MultiBinding)new LocFormatExtension { Path = "Name", Text = "搜索：{0}" }.ProvideValue(null!));
+        var source = new FormatSource();
+        var label = new TextBlock { DataContext = source };
+        var format = new LocFormatExtension
+        {
+            Text = "搜索：{0}",
+            Argument = new CompiledBinding(PropertyBinding.Path(nameof(FormatSource.Name), static (FormatSource value) => value.Name))
+        };
+        label.Bind(TextBlock.TextProperty, (MultiBinding)format.ProvideValue(null!));
         var window = new Window { Content = new StackPanel { Children = { home, label } } };
         try
         {
@@ -89,14 +97,20 @@ public sealed class InterfaceLocalizationCoverageTests
             Assert.Contains("Recent Files", labels);
             Assert.Contains("Collections & Tags", labels);
             Assert.Equal("Search: 我的项目", label.Text);
+            source.SetName("新项目");
+            Assert.Equal("Search: 新项目", label.Text);
             Assert.Equal("20 min ago", HomeItemActions.FormatAddedTime(DateTime.UtcNow.AddMinutes(-20), DateTime.UtcNow));
             var server = new RemoteServerInfo();
             Assert.Equal("Disconnected", server.StatusText);
             server.IsConnected = true;
             Assert.Equal("Connected", server.StatusText);
+            language.SetLanguage("fr");
+            Assert.Equal("Recherche : 新项目", label.Text);
+            language.SetLanguage("zh-Hant");
+            Assert.Equal("搜尋：新项目", label.Text);
             language.SetLanguage(AppLanguage.ChineseSimplified);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal("搜索：我的项目", label.Text);
+            Assert.Equal("搜索：新项目", label.Text);
             Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "刚刚处理");
             Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "收藏与标签");
         }
@@ -114,6 +128,19 @@ public sealed class InterfaceLocalizationCoverageTests
         Assert.Equal("Desktop", InterfaceLocationNames.Get("/tmp/home/Desktop", "/tmp/home"));
         Assert.Null(InterfaceLocationNames.Get("/tmp/home/Projects/Desktop", "/tmp/home"));
         Assert.Null(InterfaceLocationNames.Get("/tmp/我的文件", "/tmp/home"));
+    }
+
+
+    private sealed class FormatSource : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public string Name { get; private set; } = "我的项目";
+
+        public void SetName(string name)
+        {
+            Name = name;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+        }
     }
 
 }

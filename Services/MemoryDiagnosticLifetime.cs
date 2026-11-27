@@ -61,7 +61,7 @@ internal sealed class MemoryDiagnosticLifetimes
 
     internal void SetState(MemoryDiagnosticLifetime entry, DiagnosticObjectState state)
     {
-        object data;
+        LifetimeState data;
         lock (_sync)
         {
             if (entry.State == state || entry.Ended) return;
@@ -75,7 +75,7 @@ internal sealed class MemoryDiagnosticLifetimes
 
     internal void Link(MemoryDiagnosticLifetime entry, long relatedId)
     {
-        object data;
+        LifetimeState data;
         lock (_sync)
         {
             if (entry.Ended || relatedId == 0 || entry.RelatedId == relatedId) return;
@@ -88,18 +88,18 @@ internal sealed class MemoryDiagnosticLifetimes
     private static void Record(MemoryDiagnosticLifetime entry, string change)
         => MemoryDiagnostics.Record("lifetime.object", Snapshot(entry, change));
 
-    private static object Snapshot(MemoryDiagnosticLifetime entry, string change)
-        => new { objectId = entry.Id, kind = entry.Kind.ToString(), relatedId = entry.RelatedId, change, state = entry.State.ToString() };
+    private static LifetimeState Snapshot(MemoryDiagnosticLifetime entry, string change)
+        => new LifetimeState(entry.Id, entry.Kind.ToString(), entry.RelatedId, change, entry.State.ToString());
 
     internal void Sample(long sampleId = 0)
     {
-        object summary;
-        object? candidates = null;
+        LifetimeSample summary;
+        RetainedLifetimes? candidates = null;
         lock (_sync)
         {
             var gen2 = GC.CollectionCount(2);
             var summaries = new Dictionary<DiagnosticObjectKind, LifetimeCounts>();
-            var retained = new List<object>(16);
+            var retained = new List<RetainedLifetime>(16);
             foreach (var (id, entry) in _entries.ToArray())
             {
                 if (!summaries.TryGetValue(entry.Kind, out var counts)) summaries[entry.Kind] = counts = new();
@@ -119,14 +119,14 @@ internal sealed class MemoryDiagnosticLifetimes
                 var collections = gen2 - entry.EndGen2;
                 if (collections <= 0 || age < 30) continue;
                 counts.EndedAliveAfterGen2++;
-                if (retained.Count < 16) retained.Add(new { objectId = id, kind = entry.Kind.ToString(),
-                    relatedId = entry.RelatedId, state = entry.State.ToString(), ageSeconds = (long)age, gen2Collections = collections });
+                if (retained.Count < 16) retained.Add(new RetainedLifetime(id, entry.Kind.ToString(), entry.RelatedId,
+                        entry.State.ToString(), (long)age, collections));
             }
-            summary = new { sampleId, tracked = _entries.Count, capacity = Capacity, evicted = _evicted, expired = _expired,
-                kinds = summaries.Select(pair => new { kind = pair.Key.ToString(), alive = pair.Value.Alive,
-                    collectedSinceSample = pair.Value.Collected, detachedAlive = pair.Value.DetachedAlive,
-                    endedAlive = pair.Value.EndedAlive, endedAliveAfterGen2 = pair.Value.EndedAliveAfterGen2 }).ToArray() };
-            if (retained.Count > 0) candidates = new { sampleId, limit = 16, objects = retained };
+            summary = new LifetimeSample(sampleId, _entries.Count, Capacity, _evicted, _expired,
+                        summaries.Select(pair => new LifetimeKindSample(pair.Key.ToString(), pair.Value.Alive,
+                        pair.Value.Collected, pair.Value.DetachedAlive, pair.Value.EndedAlive,
+                        pair.Value.EndedAliveAfterGen2)).ToArray());
+            if (retained.Count > 0) candidates = new RetainedLifetimes(sampleId, 16, retained);
         }
         MemoryDiagnostics.Record("lifetime.sample", summary);
         if (candidates != null) MemoryDiagnostics.Record("lifetime.retained", candidates);
@@ -150,15 +150,16 @@ internal sealed class MemoryDiagnosticOperation : IDisposable
     internal MemoryDiagnosticOperation(DiagnosticAction action, long objectId, long relatedId)
     {
         _action = action; _objectId = objectId; _relatedId = relatedId;
-        MemoryDiagnostics.Record("operation.start", new { operationId = _id, action = action.ToString(), objectId, relatedId });
+        MemoryDiagnostics.Record("operation.start", new DiagnosticOperationStart(_id, action.ToString(), objectId,
+                                                        relatedId));
     }
 
     internal void Complete(DiagnosticOutcome outcome = DiagnosticOutcome.Completed, int? count = null)
     {
         if (_finished) return;
         _finished = true;
-        MemoryDiagnostics.Record("operation.end", new { operationId = _id, action = _action.ToString(), objectId = _objectId,
-            relatedId = _relatedId, outcome = outcome.ToString(), count, elapsedMs = Stopwatch.GetElapsedTime(_started).TotalMilliseconds });
+        MemoryDiagnostics.Record("operation.end", new DiagnosticOperationEnd(_id, _action.ToString(), _objectId,
+                _relatedId, outcome.ToString(), count, Stopwatch.GetElapsedTime(_started).TotalMilliseconds));
     }
 
     public void Dispose() => Complete(DiagnosticOutcome.Interrupted);

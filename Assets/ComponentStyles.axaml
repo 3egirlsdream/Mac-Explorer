@@ -551,12 +551,12 @@
     <Style Selector="TextBox /template/ Border#PART_BorderElement">
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+        <Setter Property="Background" Value="{Binding $self.((TextBox)TemplatedParent).Background}"/>
     </Style>
     <Style Selector="TextBox:focus /template/ Border#PART_BorderElement, TextBox:pointerover /template/ Border#PART_BorderElement">
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+        <Setter Property="Background" Value="{Binding $self.((TextBox)TemplatedParent).Background}"/>
     </Style>
     <!-- Embedded inputs share their container's surface in every interaction state. -->
     <Style Selector="TextBox.search-input, TextBox.omnibox-input, TextBox.breadcrumb-input, TextBox.home-search-input">

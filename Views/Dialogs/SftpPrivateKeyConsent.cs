@@ -17,7 +17,7 @@ internal static class SftpPrivateKeyConsent
         var pending = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            var owner = desktop?.Windows.FirstOrDefault(window => window.IsActive) ?? desktop?.MainWindow;
+            var owner = App.ResolveLiveWindow(desktop);
             return owner == null || ct.IsCancellationRequested
                 ? Task.FromResult<(string Passphrase, bool Remember)?>(null) : ShowAsync(owner, server, ct);
         });
@@ -29,8 +29,7 @@ internal static class SftpPrivateKeyConsent
         var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("私钥口令 · ") + Path.GetFileName(server.PrivateKeyPath),
             Width = 420, MinWidth = 340, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-            { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        dialog.Styles.Add(new DialogSettingsStyles());
         var input = new TextBox { PasswordChar = '•', Classes = { "settings-inline-input" }, PlaceholderText = MacExplorer.Services.Impl.LocalizationText.Get("私钥解密口令") };
         Avalonia.Automation.AutomationProperties.SetName(input, MacExplorer.Services.Impl.LocalizationText.Get("私钥解密口令"));
         var remember = new CheckBox { Content = MacExplorer.Services.Impl.LocalizationText.Get("将私钥口令保存到本机数据库"), IsChecked = false };

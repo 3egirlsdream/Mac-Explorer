@@ -1,3 +1,4 @@
+using MacExplorer.Copilot;
 using MacExplorer.Services.Subscriptions;
 using System;
 using System.Collections.Generic;
@@ -92,6 +93,7 @@ public partial class MainWindow : AppWindow
     private long _paneLayoutGeneration;
     private bool _shutdownStarted;
     private bool _shutdownCompleted;
+    private FeatureAccessService? _subscribedFeatureAccess;
 
     private ExplorerWorkspaceView? ActiveWorkspace
         => _vm?.SelectedTab != null && _workspaceViews.TryGetValue(_vm.SelectedTab, out var workspace)
@@ -137,9 +139,9 @@ public partial class MainWindow : AppWindow
             && _vm?.VisiblePanes.Contains(view.Tab) == true);
         DataContextChanged += OnDataContextChanged;
         Opened += OnOpened;
-        Opened += (_, _) => { if (FeatureAccess.Current is { } access) access.Changed += OnFeatureAccessChanged; };
+        Opened += (_, _) => AttachFeatureAccessChanged();
         Activated += (_, _) => OnFeatureAccessChanged();
-        Closed += (_, _) => { if (FeatureAccess.Current is { } access) access.Changed -= OnFeatureAccessChanged; };
+        Closed += (_, _) => DetachFeatureAccessChanged();
         RootLayout.SizeChanged += (_, e) =>
         {
             CopilotPanel.MaxWidth = Math.Max(0, e.NewSize.Width - CopilotPanel.Margin.Left - CopilotPanel.Margin.Right);
@@ -867,9 +869,13 @@ public partial class MainWindow : AppWindow
         _copilotDismissGhost?.Dispose();
         _copilotDismissGhost = null;
         CloseGlobalSearchPreview();
+        _globalSearchPreview?.ReleaseDiagnosticLifetime();
+        _globalSearchPreview = null;
+        GlobalSearchPreviewHost.Content = null;
         DisposeMarkdownEditor();
-        SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
         SuperPreviewControl.Close();
+        SuperPreviewControl.RequestClose -= OnSuperPreviewClosed;
+        ClearSuperPreviewContext();
         SuperPreviewControl.ReleaseDiagnosticLifetime();
         _taskManager.TasksChanged -= OnTasksChanged;
         if (_taskLocalization != null) _taskLocalization.LanguageChanged -= OnTasksChanged;
@@ -899,6 +905,11 @@ public partial class MainWindow : AppWindow
     {
         if (SuperPreviewControl.IsVisible)
             return;
+        ClearSuperPreviewContext();
+    }
+
+    private void ClearSuperPreviewContext()
+    {
         SuperPreviewControl.PasswordPrompt = null;
         SuperPreviewControl.ExtractToNamedFolder = null;
         SuperPreviewControl.AttachFileListContext(null);
@@ -1270,7 +1281,7 @@ public partial class MainWindow : AppWindow
             return;
 
         await ExecuteWindowCapabilityAsync("ui.pane-layout",
-            System.Text.Json.JsonSerializer.Serialize(new { layout = layout.ToString() }));
+            System.Text.Json.JsonSerializer.Serialize(new PaneLayoutArguments(layout.ToString()), CopilotJsonContext.Default.PaneLayoutArguments));
         e.Handled = true;
     }
 
@@ -1512,6 +1523,26 @@ public partial class MainWindow : AppWindow
     {
         try { await task; }
         finally { _workspaceDetachTasks.Remove(workspace); }
+    }
+
+    private void AttachFeatureAccessChanged()
+    {
+        var access = FeatureAccess.Current;
+        if (ReferenceEquals(_subscribedFeatureAccess, access))
+            return;
+        DetachFeatureAccessChanged();
+        if (access == null)
+            return;
+        access.Changed += OnFeatureAccessChanged;
+        _subscribedFeatureAccess = access;
+    }
+
+    private void DetachFeatureAccessChanged()
+    {
+        if (_subscribedFeatureAccess == null)
+            return;
+        _subscribedFeatureAccess.Changed -= OnFeatureAccessChanged;
+        _subscribedFeatureAccess = null;
     }
 
     private void OnFeatureAccessChanged() => Dispatcher.UIThread.Post(async () =>

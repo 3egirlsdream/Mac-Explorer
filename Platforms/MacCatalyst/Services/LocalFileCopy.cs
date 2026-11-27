@@ -8,15 +8,28 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 
 internal static class LocalFileCopy
 {
-    private sealed class PartialCopy
+    private sealed class PartialCopy : IRetainedState
     {
         public required string Temporary;
         public long Offset;
         public bool Created;
         public bool Committed;
         public string? Identity;
+
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth)
+        {
+            size.AddScalars(3, depth); // Offset, Created, Committed
+            size.Visit(Temporary, depth);
+            size.Visit(Identity, depth);
+        }
     }
-    private sealed class OutputIdentity { public FileIdentitySnapshot? Snapshot; }
+
+    private sealed class OutputIdentity : IRetainedState
+    {
+        public FileIdentitySnapshot? Snapshot;
+
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth) => size.Visit(Snapshot, depth);
+    }
     internal static bool OwnsDirectory(FileTaskContext context, string source, string target)
         => context.IsDone("local-copy:" + source + ":" + target) && Directory.Exists(target) &&
             context.Recall<OutputIdentity>("local-output-identity:" + target)?.Snapshot is { } identity &&

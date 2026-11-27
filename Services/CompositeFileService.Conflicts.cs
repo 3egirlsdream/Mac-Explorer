@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
 using System.Text.Json;
@@ -6,8 +7,19 @@ namespace MacExplorer.Services;
 
 public sealed partial class CompositeFileService
 {
-    private sealed record LocalReplacementPublication(string Backup, string Root, FileIdentitySnapshot Snapshot, FileIdentitySnapshot? SourceIdentity)
-    { internal bool SourceRemoved; }
+    private sealed record LocalReplacementPublication(string Backup, string Root, FileIdentitySnapshot Snapshot, FileIdentitySnapshot? SourceIdentity) : IRetainedState
+    {
+        internal bool SourceRemoved;
+
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth)
+        {
+            size.AddScalars(1, depth); // SourceRemoved
+            size.Visit(Backup, depth);
+            size.Visit(Root, depth);
+            size.Visit(Snapshot, depth);
+            size.Visit(SourceIdentity, depth);
+        }
+    }
     private static string ReplacementKey(string source, string target, bool move)
         => "local-replacement:" + source + ":" + target + ":" + move;
     private async Task<string> CopyOrMovePlannedAsync(string source, string directory, bool move,
@@ -185,7 +197,7 @@ public sealed partial class CompositeFileService
         {
             Directory.CreateDirectory(incoming);
             Directory.CreateDirectory(Path.GetDirectoryName(backup)!);
-            await File.WriteAllTextAsync(Path.Combine(root, "recovery.json"), JsonSerializer.Serialize(new { Source = source, Destination = target, Backup = backup, Move = move }), context.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, "recovery.json"), JsonSerializer.Serialize(new FileRecoveryRecord(source, target, backup, move), AppJsonContext.Default.FileRecoveryRecord), context.CancellationToken);
             var staged = await CopyToExactAsync(source, Path.Combine(incoming, Path.GetFileName(target)), context, progress);
             if (move) await VerifyCopyAsync(source, staged, context);
             var published = await Task.Run(() => FileIdentitySnapshot.Capture(staged, true, context.CancellationToken), context.CancellationToken)

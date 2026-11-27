@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -27,7 +28,7 @@ internal sealed class SftpHostKeyStore(string path)
         if (!File.Exists(path)) return new();
         try
         {
-            return JsonSerializer.Deserialize<Dictionary<string, SftpHostKey>>(File.ReadAllText(path))
+            return JsonSerializer.Deserialize(File.ReadAllText(path), AppJsonContext.Default.DictionaryStringSftpHostKey)
                 ?? throw new JsonException("empty host-key store");
         }
         catch (Exception ex)
@@ -89,7 +90,7 @@ internal sealed class SftpHostKeyStore(string path)
         var temporary = path + ".tmp";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(records, IndentedAppJsonContext.Default.DictionaryStringSftpHostKey));
             File.Move(temporary, path, true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }

@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**</DefaultItemExcludes>
     <DistributionChannel Condition="'$(DistributionChannel)' == ''">Website</DistributionChannel>
     <PrivacyPolicyUrl Condition="'$(PrivacyPolicyUrl)' == ''">https://macexplorer.top/privacy/</PrivacyPolicyUrl>
     <MacOSMinimumVersion>14.0</MacOSMinimumVersion>

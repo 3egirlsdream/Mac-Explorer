@@ -694,7 +694,8 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
             if (process.ExitCode != 0 || !File.Exists(generatedPath))
             {
                 if (process.ExitCode != 4 || imageArguments?.FirstOrDefault() != "artwork")
-                    MemoryDiagnostics.Record("image.helper_failed", new { backend = "thumbnail-helper", process.ExitCode, maxPixelSize });
+                    MemoryDiagnostics.Record("image.helper_failed", new ThumbnailHelperFailure("thumbnail-helper",
+                                                                        process.ExitCode, maxPixelSize));
                 return null;
             }
 
@@ -705,7 +706,8 @@ public class MacThumbnailService : IThumbnailService, IIdleMemoryCache, IMemoryD
         }
         catch (OperationCanceledException)
         {
-            MemoryDiagnostics.Record("image.helper_cancelled", new { backend = "thumbnail-helper", maxPixelSize });
+            MemoryDiagnostics.Record("image.helper_cancelled", new ThumbnailHelperCancellation("thumbnail-helper",
+                                                                   maxPixelSize));
             if (process != null) TryKillProcess(process);
             throw;
         }

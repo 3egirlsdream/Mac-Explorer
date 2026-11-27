@@ -29,22 +29,52 @@ internal static class MemoryCacheMaintenance
 
     private static void ScheduleTrim()
     {
-        if (Interlocked.Exchange(ref _pending, 1) != 0) return;
-        Dispatcher.UIThread.Post(() =>
+        lock (Caches)
         {
-            try
+            if (Caches.Count == 0) return;
+        }
+        if (Interlocked.Exchange(ref _pending, 1) != 0) return;
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
             {
-                IIdleMemoryCache[] alive;
-                lock (Caches)
+                try { TrimNow(); }
+                finally { Volatile.Write(ref _pending, 0); }
+            }, DispatcherPriority.Background);
+        }
+        catch { Volatile.Write(ref _pending, 0); }
+    }
+
+    internal static void TrimNow(DateTime? cutoff = null)
+    {
+        List<IIdleMemoryCache>? alive = null;
+        lock (Caches)
+        {
+            if (Caches.Count == 0) return;
+            var write = 0;
+            for (var i = 0; i < Caches.Count; i++)
+            {
+                var reference = Caches[i];
+                if (reference.TryGetTarget(out var cache))
                 {
-                    Caches.RemoveAll(reference => !reference.TryGetTarget(out _));
-                    alive = Caches.Select(reference => reference.TryGetTarget(out var cache) ? cache : null)
-                        .OfType<IIdleMemoryCache>().ToArray();
+                    Caches[write++] = reference;
+                    (alive ??= new List<IIdleMemoryCache>(Caches.Count)).Add(cache);
                 }
-                var cutoff = DateTime.UtcNow.AddMinutes(-1);
-                foreach (var cache in alive) cache.TrimMemory(cutoff);
             }
-            finally { Volatile.Write(ref _pending, 0); }
-        }, DispatcherPriority.Background);
+            if (write < Caches.Count) Caches.RemoveRange(write, Caches.Count - write);
+        }
+        if (alive == null || alive.Count == 0) return;
+        var effectiveCutoff = cutoff ?? DateTime.UtcNow.AddMinutes(-1);
+        for (var i = 0; i < alive.Count; i++)
+        {
+            var cache = alive[i];
+            try { cache.TrimMemory(effectiveCutoff); }
+            catch (Exception ex)
+            {
+                if (MemoryDiagnostics.IsEnabled)
+                    MemoryDiagnostics.Record("memory.trim_failed",
+                        new MemorySourceFailure(cache.GetType().Name, ex.GetType().Name));
+            }
+        }
     }
 }

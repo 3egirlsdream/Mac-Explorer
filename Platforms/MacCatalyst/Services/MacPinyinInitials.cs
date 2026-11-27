@@ -15,19 +15,36 @@ public sealed class MacPinyinInitials : IPinyinInitials
 
     public string GetInitials(string name)
     {
-        if (!OperatingSystem.IsMacOS()) return string.Empty;
+        if (!OperatingSystem.IsMacOS() || string.IsNullOrEmpty(name) || !ContainsHan(name))
+            return string.Empty;
         var result = new StringBuilder(name.Length);
-        var containsHan = false;
+        Span<char> utf16 = stackalloc char[2];
         foreach (var rune in name.EnumerateRunes())
         {
             if (IsHan(rune.Value))
-            {
-                containsHan = true;
                 result.Append(_initials.GetOrAdd(rune.Value, TransliterateInitial));
-            }
-            else result.Append(rune.ToString());
+            else if (rune.IsBmp)
+                result.Append((char)rune.Value);
+            else
+                result.Append(utf16[..rune.EncodeToUtf16(utf16)]);
         }
-        return containsHan ? SearchQuery.Fold(result.ToString()) : string.Empty;
+        return SearchQuery.Fold(result.ToString());
+    }
+
+    internal static bool ContainsHan(ReadOnlySpan<char> text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c < '\u3400') continue;
+            if (c <= '\u9FFF' || (c >= '\uF900' && c <= '\uFAFF')) return true;
+            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                if (IsHan(char.ConvertToUtf32(c, text[i + 1]))) return true;
+                i++;
+            }
+        }
+        return false;
     }
 
     private static bool IsHan(int value) => value is >= 0x3400 and <= 0x9FFF

@@ -54,7 +54,7 @@ public sealed partial class LocalSendService
         if (!Enabled || _running == null) return Results.StatusCode(503);
         context.Features.Get<IHttpMaxRequestBodySizeFeature>()!.MaxRequestBodySize = 4 * 1024 * 1024;
         PrepareRequest? request;
-        try { request = await context.Request.ReadFromJsonAsync<PrepareRequest>(Json, context.RequestAborted); }
+        try { request = await context.Request.ReadFromJsonAsync(LocalSendJsonContext.Default.PrepareRequest, context.RequestAborted); }
         catch (JsonException) { return Results.BadRequest(); }
         if (request?.Info == null || request.Files == null || request.Files.Count is < 1 or > 10000
             || request.Info.Version is null || !request.Info.Version.StartsWith("2.", StringComparison.Ordinal))
@@ -132,7 +132,7 @@ public sealed partial class LocalSendService
             _tasks.UpdateProgress(session.Task.Id, 0, acceptedFiles.Count + " 个文件，等待上传");
             _ = ExpireSessionAsync(session);
             return Results.Json(new PrepareResponse(session.Id,
-                acceptedFiles.ToDictionary(item => item.Key, item => item.Value.Token, StringComparer.Ordinal)), Json);
+                acceptedFiles.ToDictionary(item => item.Key, item => item.Value.Token, StringComparer.Ordinal)), LocalSendJsonContext.Default.PrepareResponse);
         }
         catch (OperationCanceledException) { return Results.StatusCode(403); }
         catch (Exception ex)

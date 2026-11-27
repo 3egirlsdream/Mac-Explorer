@@ -197,6 +197,7 @@ namespace LiquidGlassAvaloniaUI
         private DispatcherTimer? _adaptiveLuminanceTimer;
         private EventHandler? _adaptiveLuminanceTickHandler;
         private double _adaptiveLuminance;
+        private WeakReference<TopLevel>? _backdropRoot;
 
         /// <summary>
         /// Last sampled backdrop luminance (0..1) when <see cref="AdaptiveLuminanceEnabled"/> is true.
@@ -483,7 +484,9 @@ namespace LiquidGlassAvaloniaUI
             LiquidGlassBackdropProvider.EnsureSnapshot(this);
             LiquidGlassBackdropSnapshot? snapshot = LiquidGlassBackdropProvider.TryGetSnapshot(this);
 
-            var topLevel = LiquidGlassBackdropProvider.GetBackdropRoot(this);
+            TopLevel? topLevel = LiquidGlassBackdropProvider.GetBackdropRoot(this);
+            if (topLevel is not null)
+                _backdropRoot = new WeakReference<TopLevel>(topLevel);
             Matrix? backdropTransform = topLevel is null ? null : LiquidGlassBackdropProvider.GetBackdropTransform(this, topLevel);
             context.Custom(new LiquidGlassDrawOperation(controlBounds, parameters, snapshot, LiquidGlassDrawPass.Lens, backdropTransform));
         }
@@ -650,13 +653,23 @@ namespace LiquidGlassAvaloniaUI
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            TopLevel? topLevel = LiquidGlassBackdropProvider.GetBackdropRoot(this);
+            if (topLevel is not null)
+                _backdropRoot = new WeakReference<TopLevel>(topLevel);
             UpdateAdaptiveLuminanceTimer();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            TopLevel? root = LiquidGlassBackdropProvider.GetBackdropRoot(this)
+                             ?? LiquidGlassBackdropProvider.ResolveBackdropRoot(e.RootVisual as TopLevel);
+            if (root is null && _backdropRoot is not null && _backdropRoot.TryGetTarget(out TopLevel? cachedRoot))
+                root = cachedRoot;
+            _backdropRoot = null;
+
             StopAdaptiveLuminanceTimer();
             base.OnDetachedFromVisualTree(e);
+            LiquidGlassBackdropProvider.DetachSubscriber(this, root);
         }
 
         private void UpdateAdaptiveLuminanceTimer()

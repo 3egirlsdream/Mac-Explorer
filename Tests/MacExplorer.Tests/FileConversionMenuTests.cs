@@ -101,7 +101,6 @@ public sealed class FileConversionMenuViewModelTests : FileListViewModelTestBase
     public async Task PluginTaskPanelEntryAppearsOnlyWhenPluginRequestsIt()
     {
         using var plugins = new PluginTestEnvironment();
-        await plugins.Manager.InstallAsync(plugins.CreateFixture());
         var root = Path.Combine(Path.GetTempPath(), "fkfinder-plugin-tasks-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var window = new Window();
@@ -118,16 +117,16 @@ public sealed class FileConversionMenuViewModelTests : FileListViewModelTestBase
             await vm.RefreshAsync();
 
             vm.SetSelection([first]);
-            await RunPluginCommandAsync(vm, first, "run");
+            await RunPluginCommandAsync(vm, first, "转为 Word（.docx）");
             Assert.Empty(tasks.Tasks);
+            File.Delete(Assert.Single(Directory.GetFiles(root, "*.docx")));
 
             vm.SetSelection([first, second]);
-            await RunPluginCommandAsync(vm, first, "batch");
+            await RunPluginCommandAsync(vm, first, "转为 Word（.docx）");
             var task = Assert.Single(tasks.Tasks);
-            Assert.Equal("测试批量", task.Label);
             Assert.Equal(BackgroundTaskState.Completed, task.State);
-            Assert.Equal([Path.Combine(root, "first.txt.copy"), Path.Combine(root, "second.txt.copy")],
-                Directory.GetFiles(root, "*.copy").Order(StringComparer.Ordinal));
+            Assert.Equal([Path.Combine(root, "first.docx"), Path.Combine(root, "second.docx")],
+                Directory.GetFiles(root, "*.docx").Order(StringComparer.Ordinal));
         }
         finally { window.Close(); Directory.Delete(root, true); }
     }
@@ -217,7 +216,7 @@ public abstract partial class FileListViewModelTestBase
 {
     protected static async Task RunPluginCommandAsync(FileListViewModel viewModel, FileSystemEntry entry, string commandLabel)
     {
-        var plugin = Assert.Single(await viewModel.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "测试插件");
+        var plugin = Assert.Single(await viewModel.LoadCompleteFileContextMenuAsync(entry), item => item.Label == "文件转换");
         var execution = Assert.Single(plugin.SubItems!, item => item.Label == commandLabel).Execute!();
         var deadline = DateTime.UtcNow.AddSeconds(30);
         while (!execution.IsCompleted && DateTime.UtcNow < deadline)

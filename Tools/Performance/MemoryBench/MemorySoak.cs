@@ -83,7 +83,7 @@ internal static class MemorySoak
                 } while (Clock.Elapsed < idleUntil);
             }
             Checkpoint("natural.final", 6, duration);
-            MemoryDiagnostics.Record("soak.forced_gc", new { stage = "final-only" });
+            Program.RecordDiagnostic("soak.forced_gc", new { stage = "final-only" });
             GC.Collect(2, GCCollectionMode.Forced, true, true);
             GC.WaitForPendingFinalizers();
             GC.Collect(2, GCCollectionMode.Forced, true, true);
@@ -124,7 +124,7 @@ internal static class MemorySoak
     private static void Phase(string phase, int block, TimeSpan duration)
     {
         _stage = phase;
-        MemoryDiagnostics.Record("soak.phase", new { phase, block, cycle = _cycle });
+        Program.RecordDiagnostic("soak.phase", new { phase, block, cycle = _cycle });
         Checkpoint(phase, block, duration);
     }
 
@@ -364,7 +364,7 @@ internal static class MemorySoak
         if (directories.Length < 4) directories = directories.Concat(Enumerable.Repeat(root, 4 - directories.Length)).ToArray();
         var preview = candidates.OrderByDescending(item => item.Previews).FirstOrDefault();
         if (preview.Previews == 0) throw new InvalidOperationException("No supported real preview files were found.");
-        MemoryDiagnostics.Record("soak.real_data", new
+        Program.RecordDiagnostic("soak.real_data", new
         {
             scannedDirectories = scanned, scanElapsedMs = scan.ElapsedMilliseconds,
             selectedEntryCounts = directories.Select(path => candidates.FirstOrDefault(item => item.Path == path).Entries).ToArray(),

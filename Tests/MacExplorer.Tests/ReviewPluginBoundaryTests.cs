@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MacExplorer.PluginSdk;
@@ -51,7 +52,6 @@ public sealed class ReviewPluginBoundaryTests : IDisposable
     [InlineData("null-command-id")]
     public void MalformedManifestProducesAValidationErrorInsteadOfANullReference(string scenario)
     {
-        File.Copy(typeof(IFileActionPlugin).Assembly.Location, Path.Combine(_root, "entry.dll"));
         var json = JsonSerializer.SerializeToNode(new PluginManifest
         {
             Id = "test.boundary", Name = "Test", Version = "1.0.0", ApiVersion = PluginProtocol.ApiVersion,
@@ -75,40 +75,33 @@ public sealed class ReviewPluginBoundaryTests : IDisposable
         Assert.Contains("过大", Assert.Throws<InvalidDataException>(() => PluginPackage.ReadManifest(_root)).Message);
     }
 
-    [Theory(Explicit = true)]
-    [Trait("Kind", "Integration")]
-    [InlineData("id")]
-    [InlineData("version")]
-    [InlineData("api")]
-    [InlineData("paid")]
-    [InlineData("trial")]
-    [InlineData("ui")]
-    [InlineData("platform")]
-    [InlineData("architecture")]
-    public async Task MarketDeclarationMismatchDoesNotReplaceTheInstalledVersion(string field)
+    [Fact]
+    [Trait("Kind", "Unit")]
+    public async Task ExternalDllPackageIsRejectedWithoutTouchingTheBuiltInConversion()
     {
-        using var environment = new PluginTestEnvironment();
-        var package = environment.CreateFixture();
-        await environment.Manager.InstallAsync(package);
-        var previous = environment.Manager.Plugins.Single(plugin => plugin.Manifest.Id == "test.fixture");
-        var expected = field switch
-        {
-            "id" => previous.Manifest with { Id = "test.other" },
-            "version" => previous.Manifest with { Version = "2.0.0" },
-            "api" => previous.Manifest with { ApiVersion = 2 },
-            "paid" => previous.Manifest with { Paid = true },
-            "trial" => previous.Manifest with { TrialDays = 30 },
-            "ui" => previous.Manifest with { HasUserInterface = true },
-            "platform" => previous.Manifest with { Platform = "windows" },
-            _ => previous.Manifest with { Architecture = "x64" }
-        };
-        var state = environment.Settings.Get("plugins_state_v1");
-        await Assert.ThrowsAsync<InvalidDataException>(() => environment.Manager.InstallAsync(package,
-            fromMarket: true, expectedManifest: expected));
-        Assert.Equal(state, environment.Settings.Get("plugins_state_v1"));
-        Assert.Equal(previous.Directory, environment.Manager.Plugins.Single(plugin => plugin.Manifest.Id == "test.fixture").Directory);
-        Assert.True(Directory.Exists(previous.Directory));
-        Assert.Empty(Directory.GetDirectories(environment.Manager.RootDirectory, ".install-*"));
-    }
+        await using var manager = new PluginManager(Path.Combine(_root, "work"));
+        await manager.InitializeAsync();
+        var conversion = Assert.Single(manager.Plugins);
+        Assert.Equal(PluginManager.BuiltInId, conversion.Manifest.Id);
+        Assert.True(conversion.Enabled);
 
+        var package = Path.Combine(_root, "external.mexplug");
+        using (var archive = ZipFile.Open(package, ZipArchiveMode.Create))
+        {
+            const string entry = "MacExplorer.PluginSdk.dll";
+            archive.CreateEntryFromFile(Path.Combine(AppContext.BaseDirectory, entry), entry);
+            using var manifest = archive.CreateEntry("plugin.json").Open();
+            await JsonSerializer.SerializeAsync(manifest, new PluginManifest
+            {
+                Id = "test.external", Name = "External", Version = "1.0.0",
+                ApiVersion = PluginProtocol.ApiVersion, Entry = entry, Commands = [new() { Id = "run", Title = "Run" }]
+            }, PluginJsonContext.Default.PluginManifest);
+        }
+
+        var error = await Assert.ThrowsAsync<NotSupportedException>(() => manager.InstallAsync(package));
+        Assert.Equal(Services.Impl.LocalizationText.Get("plugin.nativeOnly"), error.Message);
+        await Assert.ThrowsAsync<NotSupportedException>(() => manager.StartAsync("external", "run", []));
+        Assert.Same(conversion, Assert.Single(manager.Plugins));
+        Assert.Single(Directory.EnumerateFileSystemEntries(_root));
+    }
 }

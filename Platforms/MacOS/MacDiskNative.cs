@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using MacExplorer.Models;
@@ -14,7 +15,7 @@ internal static class MacDiskNative
         try
         {
             if (pointer == IntPtr.Zero) throw new IOException(Services.Impl.LocalizationText.Get("disk.read-error"));
-            return JsonSerializer.Deserialize<DiskInfo[]>(Marshal.PtrToStringUTF8(pointer)!) ?? [];
+            return JsonSerializer.Deserialize(Marshal.PtrToStringUTF8(pointer)!, AppJsonContext.Default.DiskInfoArray) ?? [];
         }
         finally { me_string_free(pointer); }
     }

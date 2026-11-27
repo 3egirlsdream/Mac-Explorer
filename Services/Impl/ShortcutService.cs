@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 using Avalonia.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,7 +100,7 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
 
     private void Save()
     {
-        if (_settings != null) _settings.Set(BindingsKey, JsonSerializer.Serialize(_overrides));
+        if (_settings != null) _settings.Set(BindingsKey, JsonSerializer.Serialize(_overrides, AppJsonContext.Default.DictionaryStringShortcutBinding));
         else Changed?.Invoke();
     }
     private void OnSettingChanged(string key)
@@ -114,7 +115,7 @@ internal sealed class ShortcutService : IShortcutService, IDisposable
         if (string.IsNullOrWhiteSpace(json)) return;
         try
         {
-            var saved = JsonSerializer.Deserialize<Dictionary<string, ShortcutBinding>>(json);
+            var saved = JsonSerializer.Deserialize(json, AppJsonContext.Default.DictionaryStringShortcutBinding);
             if (saved == null) return;
             foreach (var (id, binding) in saved)
                 if (binding != null && Definitions.FirstOrDefault(d => d.Id == id) is { } definition

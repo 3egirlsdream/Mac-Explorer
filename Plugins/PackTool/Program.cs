@@ -1,7 +1,7 @@
+using System.Text.Json;
 using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using MacExplorer.PluginSdk;
 
@@ -41,7 +41,7 @@ try
     }
     var manifestPath = Path.Combine(root, "plugin.json");
     if (!File.Exists(manifestPath) || new FileInfo(manifestPath).Length > 1024 * 1024) throw new InvalidDataException("缺少 plugin.json 或清单过大。");
-    var manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(manifestPath), PluginProtocol.Json)
+    var manifest = JsonSerializer.Deserialize(File.ReadAllText(manifestPath), PluginJsonContext.Default.PluginManifest)
         ?? throw new InvalidDataException("清单为空。");
     bool Identifier(string? value) => value != null && Regex.IsMatch(value, "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$");
     if (!Identifier(manifest.Id) || !Identifier(manifest.Version) || !Version.TryParse(manifest.Version, out _) ||

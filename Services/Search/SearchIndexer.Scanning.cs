@@ -2,13 +2,17 @@ namespace MacExplorer.Services.Search;
 
 public sealed partial class SearchIndexer
 {
+    private readonly List<SearchEntry> _scanBatch = new(16);
+    internal Action<string>? EntryInspected { get; set; }
+
     private SearchEntry ReadEntry(FileSystemInfo entry, string parent, string parentKey)
     {
-        lock (_gate) _checkedEntries++;
+        Interlocked.Increment(ref _checkedEntries);
         var attributes = entry.Attributes;
         var directory = attributes.HasFlag(FileAttributes.Directory);
         var link = attributes.HasFlag(FileAttributes.ReparsePoint);
         var name = entry.Name;
+        EntryInspected?.Invoke(name);
         return new(entry.FullName, name, parent, Path.GetExtension(name), SearchQuery.Fold(name),
             _pinyin.GetInitials(name), parentKey, directory || link ? 0 : ((FileInfo)entry).Length,
             directory, attributes.HasFlag(FileAttributes.Hidden), entry.CreationTimeUtc.Ticks,
@@ -38,13 +42,16 @@ public sealed partial class SearchIndexer
             catch (Exception ex) when (ex is DirectoryNotFoundException or FileNotFoundException) { reconcile.Add(parent); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { SetError(state, parent, path, ex); }
         }
-        try
+        if (entries.Count > 0)
         {
-            foreach (var entry in entries) _access.EnsureAccess(entry.Path);
-            RecordWrites(await _catalog.ApplyEntriesAsync(entries, ct).ConfigureAwait(false));
+            try
+            {
+                foreach (var entry in entries) _access.EnsureAccess(entry.Path);
+                RecordWrites(await _catalog.ApplyEntriesAsync(entries, ct).ConfigureAwait(false));
+            }
+            catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
+            { foreach (var parent in entries.Select(entry => entry.ParentPath).Distinct(StringComparer.Ordinal)) SetError(state, parent, null, ex); }
         }
-        catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
-        { foreach (var parent in entries.Select(entry => entry.ParentPath).Distinct(StringComparer.Ordinal)) SetError(state, parent, null, ex); }
         foreach (var parent in reconcile) generation.Work.Enqueue(new(parent, SearchWorkKind.Directory));
     }
 
@@ -52,8 +59,11 @@ public sealed partial class SearchIndexer
         string current, bool recursive, CancellationToken ct)
     {
         var children = new List<string>();
-        var batch = new List<SearchEntry>(256);
+        var batch = _scanBatch;
+        batch.Clear();
         var complete = true;
+        var checkedInDir = 0;
+        var progressPending = 0;
         lock (_gate) _directoryScans++;
         try
         {
@@ -62,38 +72,68 @@ public sealed partial class SearchIndexer
             if (!attributes.HasFlag(FileAttributes.Directory)) throw new DirectoryNotFoundException(current);
             if (current != state.Root && attributes.HasFlag(FileAttributes.ReparsePoint)) return children;
             await using var scan = await _catalog.BeginDirectoryScanAsync(current, ct).ConfigureAwait(false);
-            var parentKey = SearchQuery.Fold(current);
+            string? parentKey = null;
             foreach (var item in new DirectoryInfo(current).EnumerateFileSystemInfos("*", new EnumerationOptions
             { RecurseSubdirectories = false, IgnoreInaccessible = false, AttributesToSkip = 0 }))
             {
                 ct.ThrowIfCancellationRequested();
                 _access.EnsureAccess(current);
-                if (IsIndexArtifact(item.FullName) || item.Name.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!_access.CanAccess(item.FullName))
+                var fullName = item.FullName;
+                var name = item.Name;
+                if (IsIndexArtifact(fullName) || name.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!_access.CanAccess(fullName))
                 {
                     complete = false;
-                    SetError(state, current, item.FullName, new UnauthorizedAccessException());
+                    SetError(state, current, fullName, new UnauthorizedAccessException());
                     continue;
                 }
                 try
                 {
-                    var entry = ReadEntry(item, current, parentKey);
-                    batch.Add(entry);
-                    if (recursive && entry.IsDirectory && !entry.IsSymbolicLink && CanDescend(state, entry.Path)) children.Add(entry.Path);
+                    checkedInDir++;
+                    var entryAttributes = item.Attributes;
+                    var directory = entryAttributes.HasFlag(FileAttributes.Directory);
+                    var link = entryAttributes.HasFlag(FileAttributes.ReparsePoint);
+                    var hidden = entryAttributes.HasFlag(FileAttributes.Hidden);
+                    var size = directory || link ? 0 : ((FileInfo)item).Length;
+                    var createdTicks = item.CreationTimeUtc.Ticks;
+                    var modifiedTicks = item.LastWriteTimeUtc.Ticks;
+                    if (EntryInspected is { } inspect)
+                    {
+                        if (checkedInDir > 0) { Interlocked.Add(ref _checkedEntries, checkedInDir); checkedInDir = 0; }
+                        inspect(name);
+                    }
+                    if (!scan.TryMarkUnchanged(fullName, size, createdTicks, modifiedTicks, directory, hidden, link))
+                    {
+                        parentKey ??= SearchQuery.Fold(current);
+                        batch.Add(new SearchEntry(fullName, name, current, Path.GetExtension(name), SearchQuery.Fold(name),
+                            _pinyin.GetInitials(name), parentKey, size, directory, hidden, createdTicks, modifiedTicks, link));
+                    }
+                    progressPending++;
+                    if (recursive && directory && !link && CanDescend(state, fullName)) children.Add(fullName);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                { complete = false; SetError(state, current, item.FullName, ex); }
-                if (batch.Count < 256) continue;
-                _access.EnsureAccess(current);
-                RecordWrites(await scan.RecordAsync(batch, ct).ConfigureAwait(false));
-                PublishProgress(state, batch.Count); batch.Clear();
+                { complete = false; SetError(state, current, fullName, ex); }
+                if (batch.Count >= 256)
+                {
+                    _access.EnsureAccess(current);
+                    RecordWrites(await scan.RecordAsync(batch, ct).ConfigureAwait(false));
+                    PublishProgress(state, progressPending);
+                    progressPending = 0;
+                    batch.Clear();
+                }
+                else if (progressPending >= 256)
+                {
+                    PublishProgress(state, progressPending);
+                    progressPending = 0;
+                }
             }
             if (batch.Count > 0)
             {
                 _access.EnsureAccess(current);
                 RecordWrites(await scan.RecordAsync(batch, ct).ConfigureAwait(false));
-                PublishProgress(state, batch.Count);
             }
+            if (progressPending > 0)
+                PublishProgress(state, progressPending);
             _access.EnsureAccess(current);
             if (complete)
             {
@@ -104,13 +144,19 @@ public sealed partial class SearchIndexer
         catch (Exception ex) when (current != state.Root && ex is DirectoryNotFoundException or FileNotFoundException)
         {
             lock (_gate)
-                foreach (var path in state.DirectoryErrors.Keys.Where(path => SearchPath.IsWithin(path, current)).ToArray())
+                foreach (var path in state.DirectoryErrors.Keys.Where(path => IsWithinNoAlloc(path, current)).ToArray())
                     state.DirectoryErrors.Remove(path);
             var parent = Path.GetDirectoryName(current);
             if (parent != null && CanDescend(state, parent)) generation.Work.Enqueue(new(parent, SearchWorkKind.Directory));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { SetError(state, current, null, ex); }
+        finally
+        {
+            if (checkedInDir > 0) Interlocked.Add(ref _checkedEntries, checkedInDir);
+            batch.Clear();
+            if (batch.Capacity > 256) batch.Capacity = 16;
+        }
         children.Sort(StringComparer.Ordinal);
         return children;
     }

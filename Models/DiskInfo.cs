@@ -2,9 +2,9 @@ namespace MacExplorer.Models;
 
 public sealed record DiskInfo
 {
-    public string Identity { get; init; } = "";
-    public string Path { get; init; } = "";
-    public string Name { get; init; } = "";
+    public string Identity { get; set; } = "";
+    public string Path { get; set; } = "";
+    public string Name { get; set; } = "";
     public string? Format { get; init; }
     public string? Connection { get; init; }
     public string? DeviceIdentifier { get; init; }

@@ -22,8 +22,7 @@ internal sealed class FileConflictDialog : DialogWindow
         Title = LocalizationText.Get("conflict.title");
         TitleBarContent = new TextBlock { Text = Title, Classes = { "dialog-window-title", "centered" } };
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-        { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         Width = DefaultWidth;
         MinWidth = 400;
         MinHeight = 320;

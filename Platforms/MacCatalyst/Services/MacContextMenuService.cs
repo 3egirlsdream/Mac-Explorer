@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using MacExplorer.Models;
@@ -5,15 +6,33 @@ using MacExplorer.Services;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
-public class MacContextMenuService : IContextMenuService
+public class MacContextMenuService : IContextMenuService, IIdleMemoryCache
 {
+    internal const int DefaultMaxApplicationTypeEntries = 256;
+    internal const int DefaultMaxInstalledAppEntries = 512;
+
+    private sealed record InstalledAppEntry(string BundleId, bool Installed)
+    {
+        public DateTime LastUsedUtc = DateTime.UtcNow;
+    }
+
+    private sealed record ApplicationTypeEntry((string Extension, bool IsDirectory) Key, IReadOnlyList<RegisteredApp> Apps)
+    {
+        public DateTime LastUsedUtc = DateTime.UtcNow;
+    }
+
     private readonly IApplicationLauncherService _launcher;
     private readonly IOpenWithAppService _openWithService;
     private readonly Func<string, IReadOnlyList<RegisteredApp>> _queryRegisteredApplications;
     private readonly Func<string, string?> _queryDefaultApplicationPath;
-    private readonly ConcurrentDictionary<string, bool> _installedApps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly int _maxApplicationTypeEntries;
+    private readonly int _maxInstalledAppEntries;
+    private readonly object _cacheLock = new();
+    private readonly Dictionary<string, LinkedListNode<InstalledAppEntry>> _installedApps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LinkedList<InstalledAppEntry> _installedAppsLru = [];
     private readonly ConcurrentDictionary<string, byte> _installChecks = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<(string Extension, bool IsDirectory), IReadOnlyList<RegisteredApp>> _applicationsByType = new();
+    private readonly Dictionary<(string Extension, bool IsDirectory), LinkedListNode<ApplicationTypeEntry>> _applicationsByType = new();
+    private readonly LinkedList<ApplicationTypeEntry> _applicationsByTypeLru = [];
 
     public MacContextMenuService(
         IApplicationLauncherService launcher,
@@ -26,12 +45,17 @@ public class MacContextMenuService : IContextMenuService
         IApplicationLauncherService launcher,
         IOpenWithAppService openWithService,
         Func<string, IReadOnlyList<RegisteredApp>> queryRegisteredApplications,
-        Func<string, string?>? queryDefaultApplicationPath = null)
+        Func<string, string?>? queryDefaultApplicationPath = null,
+        int maxApplicationTypeEntries = DefaultMaxApplicationTypeEntries,
+        int maxInstalledAppEntries = DefaultMaxInstalledAppEntries)
     {
         _launcher = launcher;
         _openWithService = openWithService;
         _queryRegisteredApplications = queryRegisteredApplications;
         _queryDefaultApplicationPath = queryDefaultApplicationPath ?? Platforms.MacOS.MacSandboxNative.DefaultApplication;
+        _maxApplicationTypeEntries = Math.Max(1, maxApplicationTypeEntries);
+        _maxInstalledAppEntries = Math.Max(1, maxInstalledAppEntries);
+        MemoryCacheMaintenance.Register(this);
 
         foreach (var bundleId in new[]
         {
@@ -53,6 +77,116 @@ public class MacContextMenuService : IContextMenuService
             foreach (var app in await _openWithService.GetAllAsync())
                 StartAppInstalledCheck(app.BundleId);
         });
+    }
+
+    internal int CachedApplicationTypeCount
+    {
+        get { lock (_cacheLock) return _applicationsByType.Count; }
+    }
+
+    internal int CachedInstalledAppCount
+    {
+        get { lock (_cacheLock) return _installedApps.Count; }
+    }
+
+    internal void TrimMemory(DateTime unusedBefore)
+    {
+        lock (_cacheLock)
+        {
+            while (_applicationsByTypeLru.Last is { } last && last.Value.LastUsedUtc < unusedBefore)
+            {
+                _applicationsByType.Remove(last.Value.Key);
+                _applicationsByTypeLru.Remove(last);
+            }
+            while (_installedAppsLru.Last is { } last && last.Value.LastUsedUtc < unusedBefore)
+            {
+                _installedApps.Remove(last.Value.BundleId);
+                _installedAppsLru.Remove(last);
+            }
+        }
+    }
+
+    void IIdleMemoryCache.TrimMemory(DateTime unusedBefore) => TrimMemory(unusedBefore);
+
+    private bool TryGetCachedApplications((string Extension, bool IsDirectory) type, out IReadOnlyList<RegisteredApp> apps)
+    {
+        lock (_cacheLock)
+        {
+            if (!_applicationsByType.TryGetValue(type, out var node))
+            {
+                apps = [];
+                return false;
+            }
+            node.Value.LastUsedUtc = DateTime.UtcNow;
+            if (!ReferenceEquals(_applicationsByTypeLru.First, node))
+            {
+                _applicationsByTypeLru.Remove(node);
+                _applicationsByTypeLru.AddFirst(node);
+            }
+            apps = node.Value.Apps;
+            return true;
+        }
+    }
+
+    private IReadOnlyList<RegisteredApp> CacheApplications((string Extension, bool IsDirectory) type, IReadOnlyList<RegisteredApp> apps)
+    {
+        lock (_cacheLock)
+        {
+            if (_applicationsByType.TryGetValue(type, out var existing))
+            {
+                existing.Value.LastUsedUtc = DateTime.UtcNow;
+                if (!ReferenceEquals(_applicationsByTypeLru.First, existing))
+                {
+                    _applicationsByTypeLru.Remove(existing);
+                    _applicationsByTypeLru.AddFirst(existing);
+                }
+                return existing.Value.Apps;
+            }
+            var node = _applicationsByTypeLru.AddFirst(new ApplicationTypeEntry(type, apps));
+            _applicationsByType[type] = node;
+            while (_applicationsByType.Count > _maxApplicationTypeEntries && _applicationsByTypeLru.Last is { } last)
+            {
+                _applicationsByType.Remove(last.Value.Key);
+                _applicationsByTypeLru.Remove(last);
+            }
+            return apps;
+        }
+    }
+
+    private bool TryGetCachedInstalledApp(string bundleIdentifier, out bool installed)
+    {
+        lock (_cacheLock)
+        {
+            if (!_installedApps.TryGetValue(bundleIdentifier, out var node))
+            {
+                installed = false;
+                return false;
+            }
+            node.Value.LastUsedUtc = DateTime.UtcNow;
+            if (!ReferenceEquals(_installedAppsLru.First, node))
+            {
+                _installedAppsLru.Remove(node);
+                _installedAppsLru.AddFirst(node);
+            }
+            installed = node.Value.Installed;
+            return true;
+        }
+    }
+
+    private void SetCachedInstalledApp(string bundleIdentifier, bool installed)
+    {
+        lock (_cacheLock)
+        {
+            if (_installedApps.TryGetValue(bundleIdentifier, out var existing))
+                _installedAppsLru.Remove(existing);
+            var node = _installedAppsLru.AddFirst(new InstalledAppEntry(bundleIdentifier, installed));
+            _installedApps[bundleIdentifier] = node;
+            while (_installedApps.Count > _maxInstalledAppEntries && _installedAppsLru.Last is { } last)
+            {
+                _installedApps.Remove(last.Value.BundleId);
+                _installedAppsLru.Remove(last);
+            }
+        }
     }
 
     public Task<IReadOnlyList<ContextMenuAction>> GetFileContextMenuActionsAsync(FileSystemEntry entry)
@@ -185,12 +319,12 @@ public class MacContextMenuService : IContextMenuService
     private IReadOnlyList<RegisteredApp> GetApplicationsForFile(string filePath, (string Extension, bool IsDirectory) type)
     {
         var cacheable = type.Extension.Length > 0 || type.IsDirectory;
-        if (cacheable && _applicationsByType.TryGetValue(type, out var cachedApps))
+        if (cacheable && TryGetCachedApplications(type, out var cachedApps))
             return cachedApps;
 
         var apps = _queryRegisteredApplications(filePath);
         if (apps.Count > 0)
-            return cacheable ? _applicationsByType.GetOrAdd(type, apps) : apps;
+            return cacheable ? CacheApplications(type, apps) : apps;
 
         return type.IsDirectory ? [] : GetKnownAppsForExtension(type.Extension)
             .Where(app => IsAppInstalledForMenu(app.BundleIdentifier))
@@ -216,9 +350,9 @@ public class MacContextMenuService : IContextMenuService
     {
         try
         {
-            var results = JsonSerializer.Deserialize<List<LaunchServicesApp>>(
+            var results = JsonSerializer.Deserialize(
                 Platforms.MacOS.MacSandboxNative.RegisteredApplications(filePath),
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+                NativeJsonContext.Default.ListLaunchServicesApp) ?? [];
             return results
                 .Where(app => !string.IsNullOrWhiteSpace(app.BundleId))
                 .DistinctBy(app => app.BundleId, StringComparer.OrdinalIgnoreCase)
@@ -237,7 +371,7 @@ public class MacContextMenuService : IContextMenuService
         }
     }
 
-    private sealed class LaunchServicesApp
+    internal sealed class LaunchServicesApp
     {
         public string Name { get; set; } = string.Empty;
         public string BundleId { get; set; } = string.Empty;
@@ -246,12 +380,17 @@ public class MacContextMenuService : IContextMenuService
 
     public bool IsAppInstalled(string bundleIdentifier)
     {
-        return _installedApps.GetOrAdd(bundleIdentifier, DetectAppInstalled);
+        if (TryGetCachedInstalledApp(bundleIdentifier, out var installed))
+            return installed;
+
+        installed = DetectAppInstalled(bundleIdentifier);
+        SetCachedInstalledApp(bundleIdentifier, installed);
+        return installed;
     }
 
     private bool IsAppInstalledForMenu(string bundleIdentifier)
     {
-        if (_installedApps.TryGetValue(bundleIdentifier, out var installed))
+        if (TryGetCachedInstalledApp(bundleIdentifier, out var installed))
             return installed;
 
         StartAppInstalledCheck(bundleIdentifier);
@@ -266,7 +405,7 @@ public class MacContextMenuService : IContextMenuService
         {
             try
             {
-                _installedApps[bundleIdentifier] = DetectAppInstalled(bundleIdentifier);
+                SetCachedInstalledApp(bundleIdentifier, DetectAppInstalled(bundleIdentifier));
             }
             finally
             {

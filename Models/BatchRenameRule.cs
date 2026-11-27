@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace MacExplorer.Models;
@@ -15,39 +16,52 @@ public enum RenameDateSource { Current, Created, Modified, PhotoTaken }
 public enum RenameSort { Input, Name, Created, Modified, PhotoTaken, Manual }
 public enum RenameAppliesTo { All, Files, Folders }
 
-public partial class BatchRenameRule : ObservableObject
+public class BatchRenameRule : ObservableObject
 {
-    [ObservableProperty] private BatchRenameRuleType type;
-    [ObservableProperty] private string findText = "";
-    [ObservableProperty] private string replaceText = "";
-    [ObservableProperty] private string prefixText = "";
-    [ObservableProperty] private string suffixText = "";
-    [ObservableProperty] private int sequenceStart = 1;
-    [ObservableProperty] private int sequenceStep = 1;
-    [ObservableProperty] private int sequencePadding = 3;
-    [ObservableProperty] private string separator = "_";
-    [ObservableProperty] private string dateFormat = "yyyy-MM-dd";
-    [ObservableProperty] private CaseConversionMode caseMode;
-    [ObservableProperty] private bool applyToExtension;
-    [ObservableProperty] private bool isEnabled = true;
-    [ObservableProperty] private RenameTarget target;
-    [ObservableProperty] private bool useRegex;
-    [ObservableProperty] private bool caseSensitive;
-    [ObservableProperty] private int matchOccurrence;
-    [ObservableProperty] private RenamePosition placement = RenamePosition.After;
-    [ObservableProperty] private int position;
-    [ObservableProperty] private int removeLength = 1;
-    [ObservableProperty] private string text = "";
-    [ObservableProperty] private string templateText = "{name}_{n:000}";
-    [ObservableProperty] private RenameDateSource dateSource;
-    [ObservableProperty] private bool fallbackToModified;
-    [ObservableProperty] private bool trimWhitespace = true;
-    [ObservableProperty] private bool collapseWhitespace = true;
-    [ObservableProperty] private bool normalizeSeparators;
-    [ObservableProperty] private string extensionText = "";
-    [ObservableProperty] private RenameAppliesTo appliesTo;
-    [ObservableProperty] private string fileExtensions = "";
+    public BatchRenameRuleType Type
+    {
+        get => field;
+        set
+        {
+            if (field == value) return;
+            OnPropertyChanging();
+            field = value;
+            OnPropertyChanged(nameof(Label));
+            OnPropertyChanged();
+        }
+    }
 
+    public string FindText { get; set => SetProperty(ref field, value); } = "";
+    public string ReplaceText { get; set => SetProperty(ref field, value); } = "";
+    public string PrefixText { get; set => SetProperty(ref field, value); } = "";
+    public string SuffixText { get; set => SetProperty(ref field, value); } = "";
+    public int SequenceStart { get; set => SetProperty(ref field, value); } = 1;
+    public int SequenceStep { get; set => SetProperty(ref field, value); } = 1;
+    public int SequencePadding { get; set => SetProperty(ref field, value); } = 3;
+    public string Separator { get; set => SetProperty(ref field, value); } = "_";
+    public string DateFormat { get; set => SetProperty(ref field, value); } = "yyyy-MM-dd";
+    public CaseConversionMode CaseMode { get; set => SetProperty(ref field, value); }
+    public bool ApplyToExtension { get; set => SetProperty(ref field, value); }
+    public bool IsEnabled { get; set => SetProperty(ref field, value); } = true;
+    public RenameTarget Target { get; set => SetProperty(ref field, value); }
+    public bool UseRegex { get; set => SetProperty(ref field, value); }
+    public bool CaseSensitive { get; set => SetProperty(ref field, value); }
+    public int MatchOccurrence { get; set => SetProperty(ref field, value); }
+    public RenamePosition Placement { get; set => SetProperty(ref field, value); } = RenamePosition.After;
+    public int Position { get; set => SetProperty(ref field, value); }
+    public int RemoveLength { get; set => SetProperty(ref field, value); } = 1;
+    public string Text { get; set => SetProperty(ref field, value); } = "";
+    public string TemplateText { get; set => SetProperty(ref field, value); } = "{name}_{n:000}";
+    public RenameDateSource DateSource { get; set => SetProperty(ref field, value); }
+    public bool FallbackToModified { get; set => SetProperty(ref field, value); }
+    public bool TrimWhitespace { get; set => SetProperty(ref field, value); } = true;
+    public bool CollapseWhitespace { get; set => SetProperty(ref field, value); } = true;
+    public bool NormalizeSeparators { get; set => SetProperty(ref field, value); }
+    public string ExtensionText { get; set => SetProperty(ref field, value); } = "";
+    public RenameAppliesTo AppliesTo { get; set => SetProperty(ref field, value); }
+    public string FileExtensions { get; set => SetProperty(ref field, value); } = "";
+
+    [System.Text.Json.Serialization.JsonPropertyOrder(-1)]
     public string Label => Type switch
     {
         BatchRenameRuleType.FindReplace => "替换文本",
@@ -62,7 +76,6 @@ public partial class BatchRenameRule : ObservableObject
         BatchRenameRuleType.Cleanup => "清理名称",
         _ => "修改扩展名"
     };
-    partial void OnTypeChanged(BatchRenameRuleType value) => OnPropertyChanged(nameof(Label));
-    public BatchRenameRule Clone() => System.Text.Json.JsonSerializer.Deserialize<BatchRenameRule>(
-        System.Text.Json.JsonSerializer.Serialize(this))!;
+    public BatchRenameRule Clone() => System.Text.Json.JsonSerializer.Deserialize(
+        System.Text.Json.JsonSerializer.Serialize(this, AppJsonContext.Default.BatchRenameRule), AppJsonContext.Default.BatchRenameRule)!;
 }

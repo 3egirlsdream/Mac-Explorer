@@ -1,16 +1,37 @@
 #!/bin/bash
 set -euo pipefail
-app=$1; channel=$2; identity=${3:--}; team=${4:-}
-if [ -z "$identity" ]; then identity=-; fi
+app=$1; channel=$2; raw_identity=${3:-}; team=${4:-}
 root=$(cd "$(dirname "$0")/../.." && pwd)
+auto_local_identity=false
+if [ -n "$raw_identity" ]; then
+    identity=$raw_identity
+elif [ "$channel" = Website ] && [ -z "${CI:-}" ]; then
+    website_ou=$(sed -n 's/.*subject\.OU\] = \([A-Z0-9]*\).*/\1/p' "$root/Tools/Distribution/website-signing.requirement" 2>/dev/null | head -n 1 || true)
+    detected=""
+    if [ -n "$website_ou" ]; then
+        detected=$(security find-identity -v -p codesigning 2>/dev/null | awk -v ou="($website_ou)" '/"Developer ID Application: / && index($0, ou) { print $2; exit }' || true)
+    fi
+    if [ -n "$detected" ]; then
+        identity=$detected
+        auto_local_identity=true
+    else
+        identity=-
+    fi
+else
+    identity=-
+fi
 signing_options=(--force --sign "$identity")
 if [ "$identity" != - ]; then
-    signing_options+=(--timestamp --options runtime)
+    if [ "$auto_local_identity" = true ]; then
+        signing_options+=(--options runtime)
+    else
+        signing_options+=(--timestamp --options runtime)
+    fi
     if [ "$channel" = Website ] && [ -n "${WEBSITE_SIGNING_KEYCHAIN:-}" ]; then
         signing_options+=(--keychain "$WEBSITE_SIGNING_KEYCHAIN")
     fi
 fi
-# Sign every Mach-O from the inside out; managed DLL/JSON files remain bundle resources.
+# Sign nested Mach-O files before sealing the app.
 sign_native_files() {
     local file_path args
     while IFS= read -r -d '' file_path; do
@@ -18,8 +39,6 @@ sign_native_files() {
             args=("${signing_options[@]}")
             if [ "$channel" = AppStore ] && [[ "$(basename "$file_path")" == MacExplorer.* ]]; then
                 args+=(--entitlements "$root/Platforms/MacOS/Helper.entitlements")
-            elif [ "$channel" = Website ] && [ "$file_path" = "$app/Contents/MacOS/MacExplorer.PluginWorker" ]; then
-                args+=(--entitlements "$root/Platforms/MacOS/WebsitePluginWorker.entitlements")
             fi
             codesign "${args[@]}" "$file_path"
         fi
@@ -28,16 +47,6 @@ sign_native_files() {
 
 task_sign_dir=$(mktemp -d)
 trap 'rm -rf "$task_sign_dir"' EXIT
-if [ "$channel" = Website ] && [ "$identity" != - ]; then
-    for package in "$app/Contents/Resources/BundledPlugins/"*.mexplug; do
-        [ -f "$package" ] || continue
-        plugin_dir=$(mktemp -d "$task_sign_dir/plugin.XXXXXX")
-        unzip -q "$package" -d "$plugin_dir"
-        sign_native_files "$plugin_dir"
-        (cd "$plugin_dir" && zip -qry "$task_sign_dir/signed.mexplug" .)
-        mv "$task_sign_dir/signed.mexplug" "$package"
-    done
-fi
 sign_native_files "$app/Contents"
 
 cp "$root/Platforms/MacOS/$channel.entitlements" "$task_sign_dir/main.plist"

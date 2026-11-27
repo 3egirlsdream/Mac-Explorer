@@ -16,8 +16,7 @@ internal sealed class GitDiffDialog : DialogWindow
         Title = LocalizationText.Get(staged ? "git.staged" : "git.unstaged");
         TitleBarContent = new TextBlock { Text = Title, Classes = { "dialog-window-title" } };
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-        { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         Width = 1000; MinWidth = 360; MaxHeight = 780;
         VerticalContentAlignment = VerticalAlignment.Stretch;
         CanResize = true; Height = 660; MinHeight = 360; SizeToContent = SizeToContent.Manual;

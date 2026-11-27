@@ -4324,7 +4324,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             StatusText = MacExplorer.Services.Impl.LocalizationText.Get("搜索 \"{0}\" — 找到 {1} 项", entry.SearchQuery, entry.SearchResults.Count);
             return;
         }
-        MemoryDiagnostics.Record("search.history_reloaded", new { });
+        MemoryDiagnostics.Record("search.history_reloaded", new EmptyDiagnosticData());
         ApplyEntries([]);
         // Live search can keep streaming until the next navigation. It must not
         // suppress recording that next navigation as another back/forward action.

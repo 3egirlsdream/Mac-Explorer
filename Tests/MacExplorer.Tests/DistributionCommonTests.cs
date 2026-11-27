@@ -445,9 +445,10 @@ public sealed class DistributionCommonTests : IDisposable
         var input = Path.Combine(_root, "input.txt"); await File.WriteAllTextAsync(input, "shared conversion", Token);
         var native = new FakeBookmarks(); using var access = new DirectoryAccess(Path.Combine(_root, "access.json"), true, native, []);
         access.RememberSelection(_root); using var testAccess = DirectoryAccess.UseForTests(access);
-        await using var session = new PluginSession(Path.Combine(AppContext.BaseDirectory, "BuiltInConversion"), Path.Combine(_root, "work"), Path.Combine(_root, "log"), () => Task.CompletedTask);
+        await using var manager = new PluginManager(Path.Combine(_root, "work"));
+        await using var session = await manager.StartAsync(PluginManager.BuiltInId, "to-docx", [new PluginFile(input)], Token);
         var request = new PluginInvocation("test", "to-docx", [new PluginFile(input)], session.WorkDirectory);
-        var result = await session.CallAsync<PluginResult>("execute", request, TimeSpan.FromSeconds(30), Token);
+        var result = await session.ExecuteAsync(request, TimeSpan.FromSeconds(30), Token);
         Assert.Single(result.Outputs); Assert.True(File.Exists(result.Outputs[0].Path));
         using var zip = System.IO.Compression.ZipFile.OpenRead(result.Outputs[0].Path);
         Assert.Contains(zip.Entries, e => e.FullName == "word/document.xml");
@@ -491,12 +492,8 @@ public sealed class DistributionCommonTests : IDisposable
     public async Task StoreChannelRejectsExternalExecutionAtServiceBoundary()
     {
         Assert.SkipWhen(!DistributionChannel.IsAppStore, "Requires the App Store channel.");
-        var manager = new PluginManager(new PluginTestEnvironment.MemorySettings(), Path.Combine(_root, "Plugins"), "missing", "missing", "missing");
-        await Assert.ThrowsAsync<NotSupportedException>(() => manager.InstallAsync("missing", Token));
-        await Assert.ThrowsAsync<NotSupportedException>(() => manager.StartAsync("external", "command", [], Token));
         Assert.Throws<NotSupportedException>(() => HomeScriptRunner.BuildTerminalScript("missing", new HomeScriptCommand("id", "title", "command", "/bin/zsh", "")));
         await Assert.ThrowsAsync<NotSupportedException>(() => new MacExplorer.Platforms.MacCatalyst.Services.MacFileService().EmptyTrashAsync());
-        await manager.DisposeAsync();
     }
 
     private sealed class MemoryCredentials : ICredentialStore

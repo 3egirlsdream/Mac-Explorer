@@ -76,7 +76,7 @@ internal sealed class ReasoningReplayHandler(
         modified |= PruneOldContentPages(messages);
 
         var saved = store.LoadReasoning(requestSessionId).Select(item => new ReplayEntry(
-            item.Content, JsonSerializer.Deserialize<string[]>(item.ToolCallIdsJson) ?? [],
+            item.Content, JsonSerializer.Deserialize(item.ToolCallIdsJson, CopilotJsonContext.Default.StringArray) ?? [],
             item.ReasoningContent)).ToArray();
         var used = new bool[saved.Length];
         foreach (var node in messages)
@@ -109,7 +109,7 @@ internal sealed class ReasoningReplayHandler(
             }
         }
         if (!modified) return;
-        var replacement = new ByteArrayContent(Encoding.UTF8.GetBytes(body.ToJsonString()));
+        var replacement = new ByteArrayContent(Encoding.UTF8.GetBytes(body.ToJsonString(CopilotJsonContext.Default.Options)));
         CopyHeaders(request.Content.Headers, replacement.Headers);
         request.Content.Dispose();
         request.Content = replacement;
@@ -138,7 +138,7 @@ internal sealed class ReasoningReplayHandler(
                     && callId.ValueKind == JsonValueKind.String ? callId.GetString() ?? "" : "").ToArray()
                 : [];
             store.SaveReasoning(requestSessionId, responseId, content,
-                JsonSerializer.Serialize(callIds), reasoning.ValueKind == JsonValueKind.String ? reasoning.GetString()! : "");
+                JsonSerializer.Serialize(callIds, CopilotJsonContext.Default.StringArray), reasoning.ValueKind == JsonValueKind.String ? reasoning.GetString()! : "");
         }
         catch (JsonException) { /* Keep the provider response intact. */ }
     }
@@ -186,13 +186,13 @@ internal sealed class ReasoningReplayHandler(
         {
             page["Text"] = PrunedContent;
             page["Pruned"] = true;
-            return result.ToJsonString();
+            return result.ToJsonString(CopilotJsonContext.Default.Options);
         }
         // Older sessions stored an excerpt directly as Data instead of a page.
         if (result["Data"] is JsonValue && Text(result["Message"]).StartsWith("已提取 ", StringComparison.Ordinal))
         {
             result["Data"] = PrunedContent;
-            return result.ToJsonString();
+            return result.ToJsonString(CopilotJsonContext.Default.Options);
         }
         return null;
     }
@@ -317,7 +317,7 @@ internal sealed class ReasoningReplayHandler(
             if (_saved || (!_hasReasoningField && !replayEmptyReasoning)) return;
             _saved = true;
             store.SaveReasoning(sessionId, _responseId ?? Guid.NewGuid().ToString("N"),
-                _content.ToString(), JsonSerializer.Serialize(_callIds.Values), _reasoning.ToString());
+                _content.ToString(), JsonSerializer.Serialize(_callIds.Values, CopilotJsonContext.Default.IEnumerableString), _reasoning.ToString());
         }
 
         protected override void Dispose(bool disposing)

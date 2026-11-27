@@ -1,0 +1,76 @@
+<Project>
+  <UsingTask TaskName="UseDirectSvgUnitConverter" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Model ParameterType="System.String" Required="true" />
+      <Custom ParameterType="System.String" Required="true" />
+      <Output ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Reference Include="$([System.IO.Path]::GetDirectoryName('$(ILLinkTasksAssembly)'))/Mono.Cecil.dll" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="Mono.Cecil" />
+      <Using Namespace="Mono.Cecil.Cil" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        using var custom = ModuleDefinition.ReadModule(Custom);
+        using var model = ModuleDefinition.ReadModule(Model);
+        var converter = custom.GetType("Svg.SvgUnitConverter");
+        var constructor = model.ImportReference(converter.Methods.Single(method =>
+            method.IsConstructor && method.IsPublic && !method.HasParameters));
+
+        // Svg.Model 5.0.0 uses TypeDescriptor to find this fixed converter at two sites.
+        // Keep the converter and its parsing rules by calling its constructor directly.
+        foreach (var (type, name) in new[]
+        {
+            ("TransformsService", "TryResolveTransformOriginComponent"),
+            ("SvgGeometryService", "GetComputedUnit")
+        })
+        {
+            var methods = model.GetType("Svg.Model.Services." + type).Methods
+                .Where(method => method.Name == name && method.HasBody);
+            var lookup = methods.SelectMany(method => method.Body.Instructions).Single(instruction =>
+                instruction.OpCode == OpCodes.Call && instruction.Operand is MethodReference method
+                && method.DeclaringType.FullName == "System.ComponentModel.TypeDescriptor"
+                && method.Name == "GetConverter" && method.Parameters.Count == 1);
+            var getType = lookup.Previous;
+            var loadType = getType.Previous;
+            if (getType.OpCode != OpCodes.Call || getType.Operand is not MethodReference typeMethod
+                || typeMethod.DeclaringType.FullName != "System.Type" || typeMethod.Name != "GetTypeFromHandle"
+                || loadType.OpCode != OpCodes.Ldtoken || loadType.Operand is not TypeReference unit
+                || unit.FullName != "Svg.SvgUnit")
+            {
+                Log.LogError("Unexpected SvgUnit conversion in {0}.{1}. Review the NativeAOT fix for this Svg.Model version.", type, name);
+                return false;
+            }
+            loadType.OpCode = OpCodes.Newobj;
+            loadType.Operand = constructor;
+            getType.OpCode = lookup.OpCode = OpCodes.Nop;
+            getType.Operand = lookup.Operand = null;
+        }
+
+        using var patched = new MemoryStream();
+        model.Write(patched, new WriterParameters { DeterministicMvid = true });
+        var bytes = patched.ToArray();
+        if (!File.Exists(Output) || !File.ReadAllBytes(Output).SequenceEqual(bytes))
+            File.WriteAllBytes(Output, bytes);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PrepareSvgForNativeAot" AfterTargets="_ComputeIlcCompileInputs">
+    <ItemGroup>
+      <_OriginalSvgModel Include="@(IlcReference)" Condition="'%(IlcReference.Filename)' == 'Svg.Model'" />
+      <_SvgCustom Include="@(IlcReference)" Condition="'%(IlcReference.Filename)' == 'Svg.Custom'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_AotSvgModel>$(IntermediateOutputPath)native/Svg.Model.dll</_AotSvgModel>
+    </PropertyGroup>
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_AotSvgModel)'))" />
+    <UseDirectSvgUnitConverter Model="@(_OriginalSvgModel)" Custom="@(_SvgCustom)" Output="$(_AotSvgModel)" />
+    <ItemGroup>
+      <IlcReference Remove="@(_OriginalSvgModel)" />
+      <IlcReference Include="$(_AotSvgModel)" />
+    </ItemGroup>
+  </Target>
+</Project>

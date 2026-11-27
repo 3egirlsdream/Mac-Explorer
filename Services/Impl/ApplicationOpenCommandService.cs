@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using Avalonia.Media.Imaging;
 using MacExplorer.Models;
 using MacExplorer.ViewModels;
@@ -8,17 +10,29 @@ namespace MacExplorer.Services.Impl;
 
 public sealed class ApplicationOpenCommandService : IDisposable
 {
+    internal const int DefaultMaxIconEntries = 64;
+    internal const long DefaultMaxIconBytes = 4 * 1024 * 1024;
     private readonly Func<Task<List<AppListItem>>> _getApps;
     private readonly IApplicationLauncherService _launcher;
     private readonly Func<AppListItem, Task<string?>>? _getIcon;
-    private readonly ConcurrentDictionary<string, Lazy<Bitmap?>> _icons = new(StringComparer.Ordinal);
+    private readonly WeakBitmapCache _icons;
+    private readonly ConcurrentDictionary<string, Task<Bitmap?>> _iconLoads = new(StringComparer.Ordinal);
 
     public ApplicationOpenCommandService(IOpenWithAppService apps, IApplicationLauncherService launcher)
         : this(apps.GetInstalledAppsAsync, launcher, app => apps.GetAppIconBase64ByPathAsync(app.AppPath)) { }
 
     internal ApplicationOpenCommandService(Func<Task<List<AppListItem>>> getApps, IApplicationLauncherService launcher,
-        Func<AppListItem, Task<string?>>? getIcon = null)
-        => (_getApps, _launcher, _getIcon) = (getApps, launcher, getIcon);
+        Func<AppListItem, Task<string?>>? getIcon = null,
+        int maxIconEntries = DefaultMaxIconEntries, long maxIconBytes = DefaultMaxIconBytes)
+    {
+        _getApps = getApps;
+        _launcher = launcher;
+        _getIcon = getIcon;
+        _icons = new WeakBitmapCache(maxIconBytes, maxIconEntries);
+    }
+
+    internal int CachedIconCount => _icons.GetMemoryState().Entries;
+    internal void TrimMemory(DateTime unusedBefore) => _icons.TrimMemory(unusedBefore);
 
     internal static bool TryParse(string? input, out string application)
     {
@@ -61,18 +75,10 @@ public sealed class ApplicationOpenCommandService : IDisposable
             if (string.IsNullOrWhiteSpace(base64)) return null;
             var payload = base64.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
                 ? base64[(base64.IndexOf(',') + 1)..] : base64;
-            return await Task.Run(() => _icons.GetOrAdd(payload, data => new Lazy<Bitmap?>(() =>
-            {
-                try
-                {
-                    using var stream = new MemoryStream(Convert.FromBase64String(data));
-                    return new Bitmap(stream);
-                }
-                catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException)
-                {
-                    return null;
-                }
-            })).Value, cancellationToken);
+            var key = ComputeIconKey(payload);
+            if (_icons.TryGet(key, out var cached)) return cached;
+            var load = _iconLoads.GetOrAdd(key, _ => Task.Run(() => DecodeAndCacheIcon(key, payload)));
+            return await load.WaitAsync(cancellationToken);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) when (ex is IOException or ArgumentException)
@@ -81,11 +87,33 @@ public sealed class ApplicationOpenCommandService : IDisposable
         }
     }
 
+    private Bitmap? DecodeAndCacheIcon(string key, string payload)
+    {
+        try
+        {
+            if (_icons.TryGet(key, out var cached)) return cached;
+            using var stream = new MemoryStream(Convert.FromBase64String(payload));
+            var bitmap = new Bitmap(stream);
+            _icons.Add(key, bitmap);
+            return bitmap;
+        }
+        catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException)
+        {
+            return null;
+        }
+        finally
+        {
+            _iconLoads.TryRemove(key, out _);
+        }
+    }
+
+    private static string ComputeIconKey(string payload)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
+
     public void Dispose()
     {
-        foreach (var icon in _icons.Values)
-            if (icon.IsValueCreated) icon.Value?.Dispose();
         _icons.Clear();
+        _iconLoads.Clear();
     }
 
     internal static IReadOnlyList<AppListItem> Match(IEnumerable<AppListItem> apps, string query)

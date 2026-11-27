@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform;
@@ -84,7 +85,7 @@ internal static class MacNativeFileDrop
         try
         {
             paths = CopyPathsNative();
-            return paths == 0 ? [] : System.Text.Json.JsonSerializer.Deserialize<string[]>(Marshal.PtrToStringUTF8(paths)!) ?? [];
+            return paths == 0 ? [] : System.Text.Json.JsonSerializer.Deserialize(Marshal.PtrToStringUTF8(paths)!, AppJsonContext.Default.StringArray) ?? [];
         }
         catch (DllNotFoundException) { return []; }
         catch (EntryPointNotFoundException) { return []; }

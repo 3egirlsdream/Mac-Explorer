@@ -49,7 +49,7 @@ public sealed class FileTaskContext
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            MemoryDiagnostics.Record("task.state_estimate_failed", new { exception = ex.GetType().Name });
+            MemoryDiagnostics.Record("task.state_estimate_failed", new DiagnosticFailure(ex.GetType().Name));
             return limit + 1;
         }
     }

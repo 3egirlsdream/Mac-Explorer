@@ -36,8 +36,7 @@ internal sealed class RemoteEditDialog : DialogWindow
         Title = LocalizationText.Get("remote-edit.title");
         TitleBarContent = new TextBlock { Text = Title, Classes = { "dialog-window-title", "centered" } };
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-        { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         Width = 650; MaxHeight = 780; SizeToContent = SizeToContent.Height;
         _edits = edits;
         _revealLocalCopy = revealLocalCopy ?? (path => App.Services.GetRequiredService<IApplicationLauncherService>().RevealInFinderAsync(path));

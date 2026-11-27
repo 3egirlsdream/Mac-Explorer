@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 using MacExplorer.Models;
 using MacExplorer.Services.Subscriptions;
@@ -59,7 +60,7 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
                 {
                     linked.Token.ThrowIfCancellationRequested();
                     command.Parameters["@n"].Value = i; command.Parameters["@text"].Value = content.Segments[i].Text;
-                    command.Parameters["@location"].Value = JsonSerializer.Serialize(content.Segments[i].Location); command.ExecuteNonQuery();
+                    command.Parameters["@location"].Value = JsonSerializer.Serialize(content.Segments[i].Location, AppJsonContext.Default.DocumentLocation); command.ExecuteNonQuery();
                 }
                 command.Parameters.Clear(); command.CommandText = "INSERT INTO document_index(path,modified,size,status) VALUES(@p,@m,@s,@status) ON CONFLICT(path) DO UPDATE SET modified=excluded.modified,size=excluded.size,status=excluded.status,error=NULL,retry_after=0";
                 command.Parameters.AddWithValue("@p", path); command.Parameters.AddWithValue("@m", modified); command.Parameters.AddWithValue("@s", size); command.Parameters.AddWithValue("@status", content.IsTruncated ? "Truncated" : "Ready"); command.ExecuteNonQuery();
@@ -73,6 +74,7 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
         catch (Exception ex)
         {
             if (task != null) tasks.FailTask(task.Id, ex.Message, ex.ToString());
+            var retryAfter = ComputeFailureRetryAfterTicks(path, size, ex, _clock.GetUtcNow());
             await Task.Run(() =>
             {
                 using var connection = database.GetConnection(); using var command = connection.CreateCommand();
@@ -81,11 +83,19 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
                     ON CONFLICT(path) DO UPDATE SET modified=excluded.modified,size=excluded.size,status='Failed',error=excluded.error,retry_after=excluded.retry_after
                     """;
                 command.Parameters.AddWithValue("@p", path); command.Parameters.AddWithValue("@m", modified); command.Parameters.AddWithValue("@s", size);
-                command.Parameters.AddWithValue("@retry", (_clock.GetUtcNow() + FailureRetryDelay).UtcTicks);
+                command.Parameters.AddWithValue("@retry", retryAfter);
                 command.Parameters.AddWithValue("@e", ex.Message[..Math.Min(1000, ex.Message.Length)]); command.ExecuteNonQuery();
             });
         }
         finally { _gate.Release(); }
+    }
+
+    private static long ComputeFailureRetryAfterTicks(string path, long size, Exception ex, DateTimeOffset now)
+    {
+        if ((size >= 0 && DocumentContentExtractor.ExceedsSizeLimit(path, size))
+            || DocumentContentExtractor.IsPermanentSizeLimitException(ex))
+            return long.MaxValue;
+        return (now + FailureRetryDelay).UtcTicks;
     }
     internal static IReadOnlyList<DocumentMatch> ReadMatches(SqliteConnection connection, string path, string query)
     {
@@ -102,7 +112,7 @@ public sealed class DocumentIndexService(DatabaseConnectionFactory database, Doc
             var start = Math.Max(0, at - 80); var snippet = text.Substring(start, Math.Min(320, text.Length - start));
             if (start > 0) snippet = "…" + snippet;
             if (start + 320 < text.Length) snippet += "…";
-            if (JsonSerializer.Deserialize<DocumentLocation>(reader.GetString(1)) is { } location) results.Add(new(snippet, location));
+            if (JsonSerializer.Deserialize(reader.GetString(1), AppJsonContext.Default.DocumentLocation) is { } location) results.Add(new(snippet, location));
         }
         return results;
     }

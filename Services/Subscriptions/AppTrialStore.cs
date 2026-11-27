@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 using MacExplorer.Services.Impl;
 
@@ -25,13 +26,13 @@ public sealed class AppTrialStore(DatabaseConnectionFactory factory) : IAppTrial
         insert.Transaction = transaction;
         insert.CommandText = "INSERT OR IGNORE INTO app_settings (key,value) VALUES (@key,@value)";
         insert.Parameters.AddWithValue("@key", Key);
-        insert.Parameters.AddWithValue("@value", JsonSerializer.Serialize(new AppTrialRecord(firstReadyAt, firstReadyAt.AddHours(168))));
+        insert.Parameters.AddWithValue("@value", JsonSerializer.Serialize(new AppTrialRecord(firstReadyAt, firstReadyAt.AddHours(168)), AppJsonContext.Default.AppTrialRecord));
         insert.ExecuteNonQuery();
         using var read = connection.CreateCommand();
         read.Transaction = transaction;
         read.CommandText = "SELECT value FROM app_settings WHERE key=@key";
         read.Parameters.AddWithValue("@key", Key);
-        var record = JsonSerializer.Deserialize<AppTrialRecord>((string)read.ExecuteScalar()!)
+        var record = JsonSerializer.Deserialize((string)read.ExecuteScalar()!, AppJsonContext.Default.AppTrialRecord)
             ?? throw new InvalidDataException("Invalid application trial record.");
         if (record.ExpiresAt != record.StartedAt.AddHours(168))
             throw new InvalidDataException("Invalid application trial duration.");
@@ -47,7 +48,7 @@ public sealed class AppTrialStore(DatabaseConnectionFactory factory) : IAppTrial
         command.Transaction = transaction;
         command.CommandText = "UPDATE app_settings SET value=@value WHERE key=@key";
         command.Parameters.AddWithValue("@key", Key);
-        command.Parameters.AddWithValue("@value", JsonSerializer.Serialize(record));
+        command.Parameters.AddWithValue("@value", JsonSerializer.Serialize(record, AppJsonContext.Default.AppTrialRecord));
         if (command.ExecuteNonQuery() != 1) throw new InvalidDataException("Application trial record is missing.");
         transaction.Commit();
     }

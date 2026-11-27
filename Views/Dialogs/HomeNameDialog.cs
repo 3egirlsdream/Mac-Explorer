@@ -16,8 +16,7 @@ internal sealed class HomeNameDialog : DialogWindow
         TitleBarContent = new TextBlock { Text = title, Classes = { "dialog-window-title", "centered" } };
         ToolTip.SetTip(TitleBarContent, title);
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-            { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         Width = 380;
         MinWidth = 320;
         SizeToContent = SizeToContent.Height;

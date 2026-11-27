@@ -9,6 +9,9 @@ namespace MacExplorer.Controls;
 
 public sealed class LocExtension : MarkupExtension
 {
+    private static readonly CompiledBindingPath CulturePath = PropertyBinding.Path(
+        nameof(ILocalizationService.Culture), static (ILocalizationService language) => language.Culture);
+
     public LocExtension() { }
     public LocExtension(string key) => Key = key;
     public string Key { get; set; } = "";
@@ -17,18 +20,10 @@ public sealed class LocExtension : MarkupExtension
     {
         var language = LocalizationService.Current;
         if (language is null) return LocalizationCatalog.Get(Key, CultureInfo.GetCultureInfo("zh-CN"));
-        // Bind a regular observable property: the host's reflection indexer binding
-        // reads the initial value but does not refresh this service on notification.
-        return new Binding
-        {
-            Source = language, Path = nameof(ILocalizationService.Culture), Mode = BindingMode.OneWay,
-            Converter = new LocalizedStringConverter(language, Key)
-        };
+        var key = Key;
+        return ObserveCulture(language, new FuncValueConverter<CultureInfo, string>(_ => language[key]));
     }
 
-    private sealed class LocalizedStringConverter(ILocalizationService language, string key) : IValueConverter
-    {
-        public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => language[key];
-        public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => BindingOperations.DoNothing;
-    }
+    internal static CompiledBinding ObserveCulture(ILocalizationService? language, IValueConverter? converter = null) =>
+        new(CulturePath) { Source = language, Mode = BindingMode.OneWay, Converter = converter };
 }

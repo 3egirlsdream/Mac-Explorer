@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using MacExplorer.Services.Subscriptions;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -71,7 +72,7 @@ public sealed class NetworkDiscoveryService : INetworkDiscoveryService, IDisposa
     {
         try
         {
-            var result = JsonSerializer.Deserialize<BonjourResult>(json)!;
+            var result = JsonSerializer.Deserialize(json, AppJsonContext.Default.BonjourResult)!;
             if (token.IsCancellationRequested) return;
             if (result.Ready) { SetError(null, token); return; }
             if (result.Error != 0) { SetError(LocalizationText.Get(result.Error is -65570 or 1 or 13 ? "network.discovery-permission" : "network.discovery-error"), token); return; }
@@ -91,7 +92,7 @@ public sealed class NetworkDiscoveryService : INetworkDiscoveryService, IDisposa
         catch (SocketException) { }
         catch (JsonException) { SetError(LocalizationText.Get("network.discovery-error"), token); }
     }
-    private sealed record BonjourResult(string Id, string Name, string Host, int Port, bool Removed, int Error, bool Ready);
+    internal sealed record BonjourResult(string Id, string Name, string Host, int Port, bool Removed, int Error, bool Ready);
     private void SetError(string? error, CancellationToken token = default)
     {
         lock (_sync) { if (token.IsCancellationRequested) return; _error = error; }

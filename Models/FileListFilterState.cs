@@ -1,5 +1,6 @@
 using MacExplorer.ViewModels;
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace MacExplorer.Models;
 
@@ -8,8 +9,16 @@ public sealed record FileListFilterState
 {
     public static FileListFilterState Empty { get; } = new();
 
-    public string FileName { get; init; } = string.Empty;
-    public ImmutableDictionary<SortField, ImmutableHashSet<string>> Columns { get; init; }
+    [JsonIgnore]
+    public string FileName { get => StoredFileName; init => StoredFileName = value; }
+    [JsonIgnore]
+    public ImmutableDictionary<SortField, ImmutableHashSet<string>> Columns { get => StoredColumns; init => StoredColumns = value; }
+
+    // Source-generated setters preserve omitted keys without making snapshots mutable to callers.
+    [JsonInclude, JsonPropertyName(nameof(FileName))]
+    internal string StoredFileName { get; set; } = string.Empty;
+    [JsonInclude, JsonPropertyName(nameof(Columns))]
+    internal ImmutableDictionary<SortField, ImmutableHashSet<string>> StoredColumns { get; set; }
         = ImmutableDictionary<SortField, ImmutableHashSet<string>>.Empty;
 
     public bool IsActive => !string.IsNullOrWhiteSpace(FileName) || Columns.Count > 0;

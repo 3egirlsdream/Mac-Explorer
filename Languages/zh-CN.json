@@ -4,6 +4,7 @@
   "culture": "zh-CN",
   "order": 0,
   "strings": {
+    "plugin.nativeOnly": "当前版本以纯原生 AOT 模式运行，外部插件系统正在重新设计。内置文件转换已启用。",
     "operation.Copy": "正在复制文件",
     "operation.Paste": "正在粘贴文件",
     "operation.Move": "正在移动文件",

@@ -412,44 +412,51 @@ namespace LiquidGlassAvaloniaUI
                 ? snapshot.OriginInPixels
                 : new PixelPoint(snapshot.OriginInPixels.X + cropRect.Left, snapshot.OriginInPixels.Y + cropRect.Top);
 
+            SKImageFilter? colorControlsFilter = null;
+            SKImageFilter? exposureFilter = null;
+            SKImageFilter? opacityFilter = null;
+            SKImageFilter? blurFilter = null;
             SKImageFilter? filter = null;
-
-            bool needsColorControls =
-                Math.Abs(brightness) > 0.0005f
-                || Math.Abs(contrast - 1.0f) > 0.0005f
-                || Math.Abs(saturation - 1.0f) > 0.0005f;
-
-            if (needsColorControls)
+            try
             {
-                using SKColorFilter? colorFilter = SKColorFilter.CreateColorMatrix(CreateColorControlsColorMatrix(brightness, contrast, saturation));
-                filter = SKImageFilter.CreateColorFilter(colorFilter, filter);
-            }
+                bool needsColorControls =
+                    Math.Abs(brightness) > 0.0005f
+                    || Math.Abs(contrast - 1.0f) > 0.0005f
+                    || Math.Abs(saturation - 1.0f) > 0.0005f;
 
-            if (Math.Abs(exposureEv) > 0.0005f)
-            {
-                using SKColorFilter? colorFilter = SKColorFilter.CreateColorMatrix(CreateExposureColorMatrix(exposureEv));
-                filter = SKImageFilter.CreateColorFilter(colorFilter, filter);
-            }
+                if (needsColorControls)
+                {
+                    using SKColorFilter? colorFilter = SKColorFilter.CreateColorMatrix(CreateColorControlsColorMatrix(brightness, contrast, saturation));
+                    colorControlsFilter = SKImageFilter.CreateColorFilter(colorFilter, filter);
+                    filter = colorControlsFilter;
+                }
 
-            if (Math.Abs(opacity - 1.0f) > 0.0005f)
-            {
-                using SKColorFilter? colorFilter = SKColorFilter.CreateColorMatrix(CreateOpacityColorMatrix(opacity));
-                filter = SKImageFilter.CreateColorFilter(colorFilter, filter);
-            }
+                if (Math.Abs(exposureEv) > 0.0005f)
+                {
+                    using SKColorFilter? colorFilter = SKColorFilter.CreateColorMatrix(CreateExposureColorMatrix(exposureEv));
+                    exposureFilter = SKImageFilter.CreateColorFilter(colorFilter, filter);
+                    filter = exposureFilter;
+                }
 
-            if (blurSigmaPx > 0.0005f)
-            {
-                // Use TileMode.Clamp: Skia's default tile mode can introduce alpha falloff near image edges (kDecal),
-                // which shows up as darkened borders when the snapshot is clipped by the window bounds.
-                SKRect filterCropRect = new(0, 0, filterSource.Width, filterSource.Height);
-                filter = SKImageFilter.CreateBlur(blurSigmaPx, blurSigmaPx, SKShaderTileMode.Clamp, filter, filterCropRect);
-            }
+                if (Math.Abs(opacity - 1.0f) > 0.0005f)
+                {
+                    using SKColorFilter? colorFilter = SKColorFilter.CreateColorMatrix(CreateOpacityColorMatrix(opacity));
+                    opacityFilter = SKImageFilter.CreateColorFilter(colorFilter, filter);
+                    filter = opacityFilter;
+                }
 
-            if (filter is null)
-                return null;
+                if (blurSigmaPx > 0.0005f)
+                {
+                    // Use TileMode.Clamp: Skia's default tile mode can introduce alpha falloff near image edges (kDecal),
+                    // which shows up as darkened borders when the snapshot is clipped by the window bounds.
+                    SKRect filterCropRect = new(0, 0, filterSource.Width, filterSource.Height);
+                    blurFilter = SKImageFilter.CreateBlur(blurSigmaPx, blurSigmaPx, SKShaderTileMode.Clamp, filter, filterCropRect);
+                    filter = blurFilter;
+                }
 
-            using (filter)
-            {
+                if (filter is null)
+                    return null;
+
                 // ApplyImageFilter() can return a varying offset/subset for blur radii, which can cause the
                 // sampled backdrop to appear to "drift" while dragging the blur slider. Instead, render the
                 // filtered snapshot into an explicit same-size surface at (0,0) so the origin remains stable.
@@ -482,10 +489,17 @@ namespace LiquidGlassAvaloniaUI
 
                 using (filteredImage)
                 {
-                    var rasterImage = filteredImage.ToRasterImage();
+                    SKImage? rasterImage = filteredImage.ToRasterImage();
                     return rasterImage is null ? null
                         : new LiquidGlassBackdropSnapshot.FilteredResult(rasterImage, filteredOrigin);
                 }
+            }
+            finally
+            {
+                blurFilter?.Dispose();
+                opacityFilter?.Dispose();
+                exposureFilter?.Dispose();
+                colorControlsFilter?.Dispose();
             }
         }
 

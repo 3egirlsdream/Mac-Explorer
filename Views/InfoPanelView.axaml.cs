@@ -13,7 +13,6 @@ using System.Threading;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Data.Converters;
 using MacExplorer.Services.Impl;
 using Avalonia.Interactivity;
@@ -552,11 +551,8 @@ public partial class InfoPanelView : UserControl
     {
         var language = LocalizationService.Current;
         if (language == null) { target.SetValue(property, LocalizationText.Get(text, arguments)); return; }
-        target.Bind(property, new Binding(nameof(ILocalizationService.Culture))
-        {
-            Source = language, Mode = BindingMode.OneWay,
-            Converter = new FuncValueConverter<object?, string>(_ => LocalizationText.Get(text, arguments))
-        });
+        target.Bind(property, LocExtension.ObserveCulture(language,
+            new FuncValueConverter<System.Globalization.CultureInfo, string>(_ => LocalizationText.Get(text, arguments))));
     }
 
     private void RefreshLocalizedDetails()

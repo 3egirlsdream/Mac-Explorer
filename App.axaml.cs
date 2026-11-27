@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using MacExplorer.Services.Subscriptions;
 using System;
 using System.IO;
@@ -247,9 +248,12 @@ public partial class App : Application
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.TabGroupsSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
         }
         if (Tools.Testing.FeatureAccessSmoke.Enabled && mainWindow != null)
+        {
+            var smokeWindow = mainWindow;
             DispatcherTimer.RunOnce(() => _ = Tools.Testing.FeatureAccessSmoke.ManualExpired
-                ? Tools.Testing.FeatureAccessSmoke.PrepareManualExpiredAsync(mainWindow)
-                : Tools.Testing.FeatureAccessSmoke.RunAsync(mainWindow), TimeSpan.FromSeconds(1));
+                ? Tools.Testing.FeatureAccessSmoke.PrepareManualExpiredAsync(smokeWindow)
+                : Tools.Testing.FeatureAccessSmoke.RunAsync(smokeWindow), TimeSpan.FromSeconds(1));
+        }
         if (RuntimePaths.TestRoot != null && Environment.GetEnvironmentVariable("MACEXPLORER_BACKGROUND_THEME_SMOKE") == "1" && mainWindow != null)
         {
             var smokeWindow = mainWindow;
@@ -308,7 +312,7 @@ public partial class App : Application
                     var discovery = Services.GetRequiredService<INetworkDiscoveryService>();
                     Console.Error.WriteLine($"Network smoke: {discovery.Servers.Count} servers, error={discovery.Error}");
                     File.WriteAllText(Path.Combine(smokeRoot, "network-smoke.json"),
-                        System.Text.Json.JsonSerializer.Serialize(new { discovery.Servers, discovery.Error }));
+                        System.Text.Json.JsonSerializer.Serialize(new NetworkSmokeReport(discovery.Servers, discovery.Error), AppJsonContext.Default.NetworkSmokeReport));
                 }
                 catch (Exception ex) { Console.Error.WriteLine(ex); }
             }, TimeSpan.FromSeconds(1));
@@ -496,7 +500,7 @@ public partial class App : Application
         var source = _desktop?.Windows.OfType<MainWindow>().LastOrDefault(w => w.IsActive)
                      ?? _desktop?.Windows.OfType<MainWindow>().LastOrDefault();
         var window = CreateWindow(path, isPrimary: restoreFolderTabsOnOpen, source);
-        if (_desktop != null && !_desktop.Windows.Contains(_desktop.MainWindow!))
+        if (_desktop != null && (_desktop.MainWindow == null || !_desktop.Windows.Contains(_desktop.MainWindow)))
             _desktop.MainWindow = window;
         window.ShowAndActivate();
         return window;
@@ -590,8 +594,48 @@ public partial class App : Application
             model.FileList.PrepareInitialDirectoryView();
         window.DataContext = model;
         window.AttachScope(scope);
+        window.Closed += OnMainWindowClosed;
         Services.GetRequiredService<WindowPlacementService>().Prepare(window, isPrimary, source);
         return window;
+    }
+
+    private static void OnMainWindowClosed(object? sender, EventArgs e)
+    {
+        if (sender is Window window)
+        {
+            window.Closed -= OnMainWindowClosed;
+            ReleaseClosedMainWindow(_desktop, window);
+        }
+    }
+
+    internal static void ReleaseClosedMainWindow(IClassicDesktopStyleApplicationLifetime? desktop, Window closedWindow)
+    {
+        if (desktop == null)
+            return;
+
+        desktop.MainWindow = ResolveNextMainWindow(desktop.MainWindow, desktop.Windows, closedWindow);
+    }
+
+    internal static Window? ResolveNextMainWindow(Window? currentMainWindow, IReadOnlyList<Window> openWindows, Window closedWindow)
+    {
+        if (!ReferenceEquals(currentMainWindow, closedWindow))
+            return currentMainWindow;
+
+        return openWindows
+            .OfType<MainWindow>()
+            .LastOrDefault(candidate => !ReferenceEquals(candidate, closedWindow));
+    }
+
+    internal static Window? ResolveLiveWindow(IClassicDesktopStyleApplicationLifetime? desktop)
+        => desktop == null ? null : ResolveLiveWindow(desktop.Windows, desktop.MainWindow);
+
+    internal static Window? ResolveLiveWindow(IReadOnlyList<Window> openWindows, Window? currentMainWindow)
+    {
+        return openWindows.FirstOrDefault(window => window.IsActive)
+            ?? openWindows.OfType<MainWindow>().LastOrDefault(window => window.IsVisible)
+            ?? (currentMainWindow is { } main && openWindows.Contains(main) ? main : null)
+            ?? openWindows.LastOrDefault(window => window.IsVisible)
+            ?? openWindows.FirstOrDefault();
     }
 
     private static void ShowFeatureUpgrade(PremiumFeature feature)
@@ -716,7 +760,6 @@ public partial class App : Application
         services.AddSingleton<INativeContextMenuService, Platforms.MacCatalyst.Services.MacNativeContextMenuService>();
         services.AddSingleton<IQuickLookService, Platforms.MacCatalyst.Services.MacQuickLookService>();
         services.AddSingleton<Services.Plugins.PluginManager>();
-        services.AddSingleton<Services.Plugins.PluginMarketClient>();
         services.AddSingleton<IThumbnailService, Platforms.MacCatalyst.Services.MacThumbnailService>();
         services.AddSingleton<IClipboardService, Platforms.MacCatalyst.Services.MacClipboardService>();
         services.AddSingleton<IDragDropService, Platforms.MacCatalyst.Services.MacDragDropBridge>();

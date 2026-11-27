@@ -1,3 +1,4 @@
+using MacExplorer.Copilot;
 using System;
 using System.ComponentModel;
 using Avalonia;
@@ -28,6 +29,7 @@ public partial class FinderToolbar : UserControl
     private FileListViewModel? _subscribedViewModel;
     private int _lastViewModeIndex = -1;
     private readonly TranslateTransform _viewModeThumbTransform = new();
+    private readonly (Border Host, Button InMore)[] _fileActions;
 
     // Callback to open settings dialog via MainWindow
     public Action? OpenSettingsCallback { get; set; }
@@ -35,6 +37,14 @@ public partial class FinderToolbar : UserControl
     public FinderToolbar()
     {
         InitializeComponent();
+        _fileActions =
+        [
+            (CutButtonHost, CutOverflowButton),
+            (CopyButtonHost, CopyOverflowButton),
+            (PasteButtonHost, PasteOverflowButton),
+            (DeleteButtonHost, DeleteOverflowButton),
+            (HomeButtonHost, HomeOverflowButton)
+        ];
         ViewModeSliderThumb.RenderTransform = _viewModeThumbTransform;
         ToolbarTags.PropertyChanged += (_, change) =>
         {
@@ -88,23 +98,43 @@ public partial class FinderToolbar : UserControl
         var padding = ToolbarChrome.Padding;
         var widthWithFileActions = padding.Left + padding.Right
             + (ToolbarLayout.ColumnDefinitions.Count - 1) * ToolbarLayout.ColumnSpacing
-            + Width(NewBtn) + LeadingActions.Spacing + Width(InlineActions)
-            + Width(ActionDivider) + Width(ViewModeControls) + Width(SortButton)
+            + Width(NewBtn) + Width(ViewModeControls) + Width(SortButton)
             + Width(InfoButton) + Width(MoreBtn) + Width(RemoteEditButton);
-        var showActionsInline = availableSize.Width >= widthWithFileActions;
+        widthWithFileActions += LeadingActions.Spacing + Width(InlineActionsDivider) + Width(ActionDivider);
+        var inlineActionCount = 0;
+        foreach (var (host, _) in _fileActions)
+        {
+            widthWithFileActions += InlineActions.Spacing + Width(host.Child!);
+            if (widthWithFileActions > availableSize.Width)
+                break;
+            inlineActionCount++;
+        }
+        var hasOverflowActions = inlineActionCount < _fileActions.Length;
         var hasTags = ToolbarTags.IsVisible && ViewModel?.IsArchiveView != true;
-        var showTagsInline = hasTags && availableSize.Width - widthWithFileActions
+        var showTagsInline = hasTags && !hasOverflowActions && availableSize.Width - widthWithFileActions
             >= Width(TagsDivider) + InlineTagsHost.ColumnSpacing + TagToolbar.OverflowWidth;
         var showTagsInMore = hasTags && !showTagsInline;
 
-        if ((showActionsInline && OverflowActions.IsKeyboardFocusWithin)
-            || (!showTagsInMore && TagsOverflowButton.IsFocused))
+        if (!showTagsInMore && TagsOverflowButton.IsFocused)
         {
             MoreDropdown.IsOpen = false;
             MoreBtn.Focus();
         }
-        if (!showActionsInline && InlineActions.IsKeyboardFocusWithin)
-            MoreBtn.Focus();
+        for (var index = 0; index < _fileActions.Length; index++)
+        {
+            var (host, inMore) = _fileActions[index];
+            var showInline = index < inlineActionCount;
+            if (showInline && inMore.IsFocused)
+            {
+                MoreDropdown.IsOpen = false;
+                MoreBtn.Focus();
+            }
+            if (!showInline && host.IsKeyboardFocusWithin)
+                MoreBtn.Focus();
+
+            host.IsVisible = showInline;
+            inMore.IsVisible = !showInline;
+        }
         if (!showTagsInline && InlineTagsHost.IsVisible)
         {
             var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Visual;
@@ -114,8 +144,8 @@ public partial class FinderToolbar : UserControl
                 MoreBtn.Focus();
         }
 
-        InlineActionsHost.IsVisible = ActionDividerHost.IsVisible = showActionsInline;
-        OverflowActions.IsVisible = !showActionsInline;
+        InlineActionsHost.IsVisible = ActionDividerHost.IsVisible = inlineActionCount > 0;
+        OverflowActions.IsVisible = hasOverflowActions;
         InlineTagsHost.IsVisible = showTagsInline;
         TagsOverflowButton.IsVisible = showTagsInMore;
         return base.MeasureOverride(availableSize);
@@ -142,19 +172,19 @@ public partial class FinderToolbar : UserControl
 
     private async void ToggleGridView(object? sender, RoutedEventArgs e)
     {
-        await InvokeUiCapabilityAsync("ui.view-mode", new { mode = nameof(ViewMode.Grid) });
+        await InvokeUiCapabilityAsync("ui.view-mode", new ViewModeArguments(nameof(ViewMode.Grid)));
         SyncViewModeToggles();
     }
 
     private async void ToggleListView(object? sender, RoutedEventArgs e)
     {
-        await InvokeUiCapabilityAsync("ui.view-mode", new { mode = nameof(ViewMode.List) });
+        await InvokeUiCapabilityAsync("ui.view-mode", new ViewModeArguments(nameof(ViewMode.List)));
         SyncViewModeToggles();
     }
 
     private async void ToggleTreeView(object? sender, RoutedEventArgs e)
     {
-        await InvokeUiCapabilityAsync("ui.view-mode", new { mode = nameof(ViewMode.Tree) });
+        await InvokeUiCapabilityAsync("ui.view-mode", new ViewModeArguments(nameof(ViewMode.Tree)));
         SyncViewModeToggles();
     }
 
@@ -255,10 +285,7 @@ public partial class FinderToolbar : UserControl
     {
         if (ViewModel != null)
         {
-            await InvokeUiCapabilityAsync("ui.sort", new
-            {
-                field = ViewModel.SortField.ToString(), ascending = !ViewModel.SortAscending
-            });
+            await InvokeUiCapabilityAsync("ui.sort", new SortArguments(ViewModel.SortField.ToString(), !ViewModel.SortAscending));
             SortDirectionButton.Content = ViewModel.SortAscending ? MacExplorer.Services.Impl.LocalizationText.Get("升序 ↑") : MacExplorer.Services.Impl.LocalizationText.Get("降序 ↓");
         }
         SortDropdown.IsOpen = false;
@@ -292,25 +319,21 @@ public partial class FinderToolbar : UserControl
     {
         if (sender is Button { Tag: string value } && Enum.TryParse<SortPriority>(value, out var priority)
             && ViewModel is { } viewModel)
-            await InvokeUiCapabilityAsync("ui.sort", new
-            {
-                field = viewModel.SortField.ToString(), ascending = viewModel.SortAscending,
-                priority = priority.ToString()
-            });
+            await InvokeUiCapabilityAsync("ui.sort", new SortArguments(viewModel.SortField.ToString(), viewModel.SortAscending, priority.ToString()));
         SortDropdown.IsOpen = false;
     }
 
     private async void SelectSortField(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string value } && Enum.TryParse<SortField>(value, out var field))
-            await InvokeUiCapabilityAsync("ui.sort", new { field = field.ToString() });
+            await InvokeUiCapabilityAsync("ui.sort", new SortArguments(field.ToString()));
         SortDropdown.IsOpen = false;
     }
 
     private async void SelectGroupField(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string value } && Enum.TryParse<GroupField>(value, out var field) && ViewModel != null)
-            await InvokeUiCapabilityAsync("ui.group", new { field = field.ToString() });
+            await InvokeUiCapabilityAsync("ui.group", new SortArguments(field.ToString()));
         SortDropdown.IsOpen = false;
     }
 
@@ -320,19 +343,19 @@ public partial class FinderToolbar : UserControl
     private async void TogglePreviewPane(object? sender, RoutedEventArgs e)
     {
         if (ViewModel != null)
-            await InvokeUiCapabilityAsync("ui.preview-pane", new { visible = !ViewModel.IsPreviewPaneVisible });
+            await InvokeUiCapabilityAsync("ui.preview-pane", new VisibilityArguments(!ViewModel.IsPreviewPaneVisible));
     }
 
     private async void ToggleMetadataPanel(object? sender, RoutedEventArgs e)
     {
         if (ViewModel != null)
-            await InvokeUiCapabilityAsync("ui.metadata-panel", new { visible = !ViewModel.IsMetadataPanelVisible });
+            await InvokeUiCapabilityAsync("ui.metadata-panel", new VisibilityArguments(!ViewModel.IsMetadataPanelVisible));
     }
 
     private async void ToggleInfoPanel(object? sender, RoutedEventArgs e)
     {
         if (ViewModel != null)
-            await InvokeUiCapabilityAsync("ui.info-panel", new { visible = !ViewModel.IsInfoPanelVisible });
+            await InvokeUiCapabilityAsync("ui.info-panel", new VisibilityArguments(!ViewModel.IsInfoPanelVisible));
     }
 
     private async Task InvokeUiCapabilityAsync(string id, object? arguments = null)
@@ -341,7 +364,7 @@ public partial class FinderToolbar : UserControl
         if (viewModel == null) return;
         try
         {
-            var json = arguments == null ? "{}" : System.Text.Json.JsonSerializer.Serialize(arguments);
+            var json = arguments == null ? "{}" : System.Text.Json.JsonSerializer.Serialize(arguments, arguments.GetType(), CopilotJsonContext.Default);
             var result = await App.Services.GetRequiredService<MacExplorer.Copilot.IAppCapabilityRegistry>()
                 .ExecuteUiAsync(id, json, viewModel);
             if (!result.Success) viewModel.StatusText = result.Message;

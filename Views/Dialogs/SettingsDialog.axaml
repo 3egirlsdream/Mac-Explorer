@@ -2,11 +2,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MacExplorer.Controls"
         xmlns:models="using:MacExplorer.Models"
+        xmlns:vm="using:MacExplorer.ViewModels"
+        xmlns:dialogs="using:MacExplorer.Views.Dialogs"
         xmlns:icons="using:MacExplorer.Assets"
         xmlns:imaging="using:Avalonia.Media.Imaging"
         xmlns:avconv="using:Avalonia.Data.Converters"
         xmlns:loc="using:MacExplorer.Controls"
         x:Class="MacExplorer.Views.Dialogs.SettingsDialog"
+        x:DataType="vm:FileListViewModel"
         Title="{loc:Loc settings.general}"
         FullHeightContent="True" Width="940" Height="700"
         MinWidth="780" MinHeight="540"
@@ -307,30 +310,13 @@
                     <Grid RowDefinitions="Auto,*" RowSpacing="16" Classes="settings-page plugin-page">
                         <StackPanel Classes="settings-header">
                             <TextBlock Classes="settings-title" Text="{loc:Loc ui.183}"/>
-                            <TextBlock Classes="settings-description" Text="{loc:Loc ui.184}" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="PluginStatusText" IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}" Classes="settings-description" TextWrapping="Wrap"/>
+                            <TextBlock Classes="settings-description" Text="{loc:Loc plugin.nativeOnly}" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="PluginStatusText" Classes="settings-description" TextWrapping="Wrap"
+                                       IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
                         </StackPanel>
-                        <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,32,*" ColumnSpacing="12" RowSpacing="10">
-                            <TextBlock Text="{loc:Loc ui.171}" Classes="settings-section-title"/>
-                            <TextBlock Grid.Column="1" Text="{loc:Loc ui.185}" Classes="settings-section-title"/>
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-                                <controls:AppButton Classes="secondary plugin-action" Content="{loc:Loc ui.167}" Click="OnInstallPlugin"/>
-                                <controls:AppButton Classes="secondary plugin-action" Content="{loc:Loc ui.176}" Click="OnRestoreBuiltInPlugin"/>
-                            </StackPanel>
-                            <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <TextBox x:Name="PluginMarketSearch" Watermark="{loc:Loc ui.189}" Height="32" MinHeight="32" Padding="10,5" KeyDown="OnMarketSearchKey"/>
-                                <controls:AppButton Grid.Column="1" Classes="secondary plugin-action" Content="{loc:Loc ui.186}" Click="OnSearchMarket"/>
-                            </Grid>
-                            <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
-                                <StackPanel x:Name="PluginRows" Spacing="8" Margin="0,0,8,12"/>
-                            </ScrollViewer>
-                            <ScrollViewer Grid.Row="2" Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
-                                <StackPanel Spacing="8">
-                                    <TextBlock x:Name="PluginMarketStatus" IsVisible="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}" Classes="settings-description" TextWrapping="Wrap"/>
-                                    <StackPanel x:Name="PluginMarketRows" Spacing="8" Margin="0,0,8,12"/>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </Grid>
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="PluginRows" Spacing="8"/>
+                        </ScrollViewer>
                     </Grid>
 
                 </ControlTemplate>
@@ -380,7 +366,7 @@
                                                  SelectionMode="Single"
                                                  SelectionChanged="OnSearchLocationSelectionChanged">
                                             <ListBox.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="dialogs:SettingsDialog+SearchLocationRow">
                                                     <Border Classes="settings-compact-row settings-divider">
                                                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                                                             <PathIcon Data="{x:Static icons:Icons.Folder}" Width="18" Height="18"
@@ -398,7 +384,7 @@
                                                  SelectionMode="Single"
                                                  SelectionChanged="OnSearchLocationSelectionChanged">
                                             <ListBox.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="dialogs:SettingsDialog+SearchLocationRow">
                                                     <Border Classes="settings-compact-row settings-divider">
                                                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                                                             <PathIcon Data="{x:Static icons:Icons.Folder}" Width="18" Height="18"
@@ -647,10 +633,10 @@
                                         <PathIcon Data="{x:Static icons:Icons.Plus}" Width="12" Height="12"/>
                                     </controls:AppButton>
                                 </Grid>
-                                <Border Classes="settings-group" IsVisible="{Binding CustomGroups.Count, FallbackValue=0}" x:CompileBindings="False">
+                                <Border Classes="settings-group" IsVisible="{Binding CustomGroups.Count, FallbackValue=0}">
                                     <ItemsControl ItemsSource="{Binding CustomGroups}" x:Name="SidebarGroupsList">
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate DataType="models:PinnedFolderGroup">
+                                            <DataTemplate DataType="models:PinnedFolderGroup" x:DataType="models:PinnedFolderGroup">
                                                 <Border Classes="settings-compact-row settings-divider">
                                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                                         <TextBlock Classes="settings-label" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
@@ -904,7 +890,7 @@
                                         <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="10">
                                             <TextBlock Classes="settings-label" Text="API Key" VerticalAlignment="Center"/>
                                             <TextBox Grid.Column="1" x:Name="CopilotKeyBox" Classes="settings-inline-input"
-                                                     PasswordChar="●" Watermark="{loc:Loc ui.251}"
+                                                     PasswordChar="●" PlaceholderText="{loc:Loc ui.251}"
                                                      AutomationProperties.Name="Copilot API Key"/>
                                             <controls:AppButton Grid.Column="2" Classes="secondary compact" Content="{loc:Loc ui.149}"
                                                     Click="SaveCopilotConnection"/>
@@ -940,11 +926,11 @@
                                     <Grid ColumnDefinitions="80,*" ColumnSpacing="8">
                                         <TextBlock Classes="settings-label" Text="{loc:Loc ui.010}" VerticalAlignment="Center"/>
                                         <TextBox Grid.Column="1" x:Name="CopilotSkillNameBox" Classes="settings-inline-input"
-                                                 Watermark="{loc:Loc ui.168}"/>
+                                                 PlaceholderText="{loc:Loc ui.168}"/>
                                     </Grid>
                                     <TextBox x:Name="CopilotSkillContentBox" Classes="settings-command-editor"
                                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="170" MaxHeight="300"
-                                             Watermark="---&#10;name: my-skill&#10;description: ...&#10;---"/>
+                                             PlaceholderText="---&#10;name: my-skill&#10;description: ...&#10;---"/>
                                     <controls:AppButton Classes="primary compact" Content="{loc:Loc ui.148}" Click="SaveCopilotSkill"
                                             HorizontalAlignment="Right"/>
                                 </StackPanel>

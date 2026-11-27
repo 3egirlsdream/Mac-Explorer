@@ -22,6 +22,12 @@ internal static class Program
     private static string Output = "";
     private static readonly BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
 
+    internal static void RecordDiagnostic(string name, object data)
+    {
+        if (MacExplorer.Services.MemoryDiagnostics.IsEnabled)
+            MacExplorer.Services.MemoryDiagnostics.Record(name, data, JsonSerializerOptions.Default.GetTypeInfo(data.GetType()));
+    }
+
     [STAThread]
     public static void Main(string[] args)
     {
@@ -269,7 +275,7 @@ internal static class Program
         var remaining = call(pointer);
         NativeWindowsChecked++;
         if (remaining != 0) NativeWindowsRetained++;
-        MacExplorer.Services.MemoryDiagnostics.Record("soak.native_window_references", new { remaining });
+        RecordDiagnostic("soak.native_window_references", new { remaining });
     }
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]

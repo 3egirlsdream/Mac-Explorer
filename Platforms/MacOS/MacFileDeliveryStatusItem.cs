@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform;
@@ -40,7 +41,7 @@ internal sealed class MacFileDeliveryStatusItem : IDisposable
         {
             try
             {
-                var paths = System.Text.Json.JsonSerializer.Deserialize<string[]>(Marshal.PtrToStringUTF8(pointer)!) ?? [];
+                var paths = System.Text.Json.JsonSerializer.Deserialize(Marshal.PtrToStringUTF8(pointer)!, AppJsonContext.Default.StringArray) ?? [];
                 return FilesDropped?.Invoke(paths) == true ? 1 : 0;
             }
             catch (Exception ex) { System.Diagnostics.Trace.TraceError($"File delivery drop: {ex}"); return 0; }

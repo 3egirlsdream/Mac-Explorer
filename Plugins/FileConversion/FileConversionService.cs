@@ -18,16 +18,7 @@ public sealed class FileConversionService
     private readonly TimeSpan _timeout;
     private readonly Action<ProcessStartInfo>? _configureHelper;
 
-    private static string HelperDirectory
-    {
-        get
-        {
-            var directory = Path.GetDirectoryName(typeof(FileConversionService).Assembly.Location)!;
-            return File.Exists(Path.Combine(directory, "MacExplorer.FileConversion")) ? directory
-                : Path.GetFullPath(Path.Combine(directory, "..", "..", "MacOS"));
-        }
-    }
-    public FileConversionService() : this(Path.Combine(HelperDirectory, "MacExplorer.FileConversion"), TimeSpan.FromMinutes(2)) { }
+    public FileConversionService() : this(Path.Combine(AppContext.BaseDirectory, "MacExplorer.FileConversion"), TimeSpan.FromMinutes(2)) { }
     public FileConversionService(Action<ProcessStartInfo>? configureHelper) : this() { _configureHelper = configureHelper; }
     internal FileConversionService(string helperPath, TimeSpan timeout) { _helperPath = helperPath; _timeout = timeout; }
 

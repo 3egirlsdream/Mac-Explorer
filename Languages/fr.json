@@ -5,6 +5,7 @@
   "order": 3,
   "fallback": "en",
   "strings": {
+    "plugin.nativeOnly": "Cette version fonctionne en mode AOT natif. Le système des extensions externes est en cours de refonte. La conversion de fichiers intégrée est disponible.",
     "operation.Copy": "Copie des fichiers",
     "operation.Paste": "Collage des fichiers",
     "operation.Move": "Déplacement des fichiers",

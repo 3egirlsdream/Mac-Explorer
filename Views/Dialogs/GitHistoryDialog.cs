@@ -38,8 +38,7 @@ internal sealed class GitHistoryDialog : DialogWindow
         Title = LocalizationText.Get("git.history");
         TitleBarContent = new TextBlock { Text = Title, Classes = { "dialog-window-title" } };
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-        { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
         Width = 1080; Height = 680; MinWidth = 420; MinHeight = 440; CanResize = true;
         _list.ItemsSource = _commits;
         _list.ItemTemplate = new FuncDataTemplate<GitCommit>((commit, _) =>

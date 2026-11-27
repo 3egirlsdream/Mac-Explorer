@@ -3,7 +3,6 @@
   "name": "文件转换",
   "version": "1.0.2",
   "apiVersion": 1,
-  "entry": "MacExplorer.FileConversion.Plugin.dll",
   "icon": "convert",
   "commands": [
     { "id": "to-docx", "title": "转为 Word（.docx）", "icon": "document", "match": { "textFiles": true, "maxSelection": 100 } },

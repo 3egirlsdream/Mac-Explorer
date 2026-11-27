@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Diagnostics;
 using System.Text.Json;
 using MacExplorer.Platforms.MacOS;
@@ -31,7 +32,7 @@ public sealed class DirectoryAccess : IDisposable
         {
             Directory.CreateDirectory(RuntimePaths.DataDirectory);
             var store = Path.Combine(RuntimePaths.DataDirectory, "directory-bookmarks.json");
-            if (!File.Exists(store)) File.WriteAllText(store, JsonSerializer.Serialize(new Dictionary<string, string> { [root] = bookmark }));
+            if (!File.Exists(store)) File.WriteAllText(store, JsonSerializer.Serialize(new Dictionary<string, string> { [root] = bookmark }, AppJsonContext.Default.DictionaryStringString));
             _ = Current;
         }
         finally { MacSandboxNative.CloseBookmark(opened.Scope); }
@@ -55,14 +56,14 @@ public sealed class DirectoryAccess : IDisposable
     {
         _store = store; _restricted = restricted;
         _backend = backend ?? new NativeBookmarkAccess();
-        _internalRoots = internalRoots ?? [RuntimePaths.DataDirectory, RuntimePaths.CacheDirectory, RuntimePaths.TemporaryDirectory, AppContext.BaseDirectory];
+        _internalRoots = internalRoots ?? [RuntimePaths.DataDirectory, RuntimePaths.CacheDirectory, RuntimePaths.TemporaryDirectory, RuntimePaths.BundleDirectory];
         if (!restricted) return;
         _internalRoots = _internalRoots.Select(_backend.RealPath).ToArray();
         var loaded = Load();
         if (loaded != null) { _saved = loaded; if (RestoreError == null) Restore(); }
     }
 
-    private sealed class BookmarkStore
+    internal sealed class BookmarkStore
     {
         public Dictionary<string, string> Bookmarks { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Aliases { get; set; } = new(StringComparer.Ordinal);
@@ -81,8 +82,8 @@ public sealed class DirectoryAccess : IDisposable
             using var json = JsonDocument.Parse(File.ReadAllText(_store));
             if (json.RootElement.ValueKind != JsonValueKind.Object) throw new JsonException();
             var saved = json.RootElement.TryGetProperty(nameof(BookmarkStore.Bookmarks), out _)
-                ? JsonSerializer.Deserialize<BookmarkStore>(json.RootElement.GetRawText())!
-                : new BookmarkStore { Bookmarks = JsonSerializer.Deserialize<Dictionary<string, string>>(json.RootElement.GetRawText())! };
+                ? JsonSerializer.Deserialize(json.RootElement.GetRawText(), AppJsonContext.Default.BookmarkStore)!
+                : new BookmarkStore { Bookmarks = JsonSerializer.Deserialize(json.RootElement.GetRawText(), AppJsonContext.Default.DictionaryStringString)! };
             if (saved.Bookmarks == null || saved.Aliases == null
                 || saved.Bookmarks.Any(pair => !Path.IsPathFullyQualified(pair.Key) || string.IsNullOrEmpty(pair.Value))
                 || saved.Aliases.Any(pair => !Path.IsPathFullyQualified(pair.Key) || string.IsNullOrEmpty(pair.Value) || !Path.IsPathFullyQualified(pair.Value)))
@@ -260,7 +261,7 @@ public sealed class DirectoryAccess : IDisposable
         var temporary = _store + ".tmp";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(saved));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(saved, AppJsonContext.Default.BookmarkStore));
             File.Move(temporary, _store, true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
@@ -314,7 +315,7 @@ public sealed class DirectoryAccess : IDisposable
             foreach (var (root, grant) in _grants)
                 if (paths.Length == 0 || canonicalPaths.Any(path => IsWithin(path, grant.CanonicalRoot)))
                     bookmarks.Add(grant.HelperBookmark ??= _backend.Create(root, explicitScope: false));
-            start.Environment["MACEXPLORER_FILE_BOOKMARKS"] = JsonSerializer.Serialize(bookmarks);
+            start.Environment["MACEXPLORER_FILE_BOOKMARKS"] = JsonSerializer.Serialize(bookmarks, AppJsonContext.Default.ListString);
         }
     }
 

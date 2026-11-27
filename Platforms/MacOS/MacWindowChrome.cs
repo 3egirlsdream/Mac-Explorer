@@ -20,7 +20,13 @@ internal static class MacWindowChrome
     private const nuint NsWindowStyleFullScreen = 1 << 14;
     private const nuint NsViewWidthSizable = 2;
     private const nuint NsViewHeightSizable = 16;
+    private sealed class TrackedViewHandle(IntPtr nsView)
+    {
+        public IntPtr NsView = nsView;
+    }
+
     private static readonly Dictionary<IntPtr, IntPtr> VisualEffectViews = [];
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, TrackedViewHandle> TrackedVibrancyViews = new();
     private static readonly object VisualEffectViewsLock = new();
 
     internal static bool PrefersReducedMotion => OperatingSystem.IsMacOS() && objc_msgSend_getBool(
@@ -234,7 +240,7 @@ internal static class MacWindowChrome
 
             IntPtr effectView;
             if (enabled)
-                effectView = GetOrCreateVisualEffectView(nsView, contentView);
+                effectView = GetOrCreateVisualEffectView(topLevel, nsView, contentView);
             else
             {
                 lock (VisualEffectViewsLock) VisualEffectViews.TryGetValue(nsView, out effectView);
@@ -260,16 +266,14 @@ internal static class MacWindowChrome
         if (!OperatingSystem.IsMacOS())
             return;
 
-        var nsView = GetNSView(topLevel);
-        if (nsView == IntPtr.Zero)
+        var liveNsView = GetNSView(topLevel);
+        if (!TryUntrackVisualEffectView(topLevel, liveNsView, out var effectView))
             return;
 
-        IntPtr effectView;
-        lock (VisualEffectViewsLock)
-        {
-            if (!VisualEffectViews.Remove(nsView, out effectView))
-                return;
-        }
+        // Avalonia clears PlatformImpl before firing Closed, so the native NSWindow/contentView
+        // (which owns the NSVisualEffectView subview) may already be deallocated.
+        if (liveNsView == IntPtr.Zero)
+            return;
 
         try
         {
@@ -285,12 +289,68 @@ internal static class MacWindowChrome
         }
     }
 
-    private static IntPtr GetOrCreateVisualEffectView(IntPtr nsView, IntPtr contentView)
+    internal static int TrackedVibrancyCount
+    {
+        get
+        {
+            lock (VisualEffectViewsLock)
+                return VisualEffectViews.Count;
+        }
+    }
+
+    internal static void TrackVisualEffectView(TopLevel topLevel, IntPtr nsView, IntPtr effectView)
+    {
+        lock (VisualEffectViewsLock)
+            TrackVisualEffectViewLocked(topLevel, nsView, effectView);
+    }
+
+    internal static bool TryUntrackVisualEffectView(TopLevel topLevel, IntPtr liveNsView, out IntPtr effectView)
+    {
+        var nsView = liveNsView;
+        lock (VisualEffectViewsLock)
+        {
+            if (TrackedVibrancyViews.TryGetValue(topLevel, out var tracked))
+            {
+                TrackedVibrancyViews.Remove(topLevel);
+                if (nsView == IntPtr.Zero)
+                    nsView = tracked.NsView;
+                else if (tracked.NsView != IntPtr.Zero && tracked.NsView != nsView)
+                    VisualEffectViews.Remove(tracked.NsView);
+            }
+
+            if (nsView != IntPtr.Zero && VisualEffectViews.Remove(nsView, out effectView))
+                return true;
+        }
+
+        effectView = IntPtr.Zero;
+        return false;
+    }
+
+    private static void TrackVisualEffectViewLocked(TopLevel topLevel, IntPtr nsView, IntPtr effectView)
+    {
+        if (TrackedVibrancyViews.TryGetValue(topLevel, out var tracked))
+        {
+            if (tracked.NsView != IntPtr.Zero && tracked.NsView != nsView)
+                VisualEffectViews.Remove(tracked.NsView);
+            tracked.NsView = nsView;
+        }
+        else
+        {
+            TrackedVibrancyViews.Add(topLevel, new TrackedViewHandle(nsView));
+        }
+
+        VisualEffectViews[nsView] = effectView;
+    }
+
+    private static IntPtr GetOrCreateVisualEffectView(TopLevel topLevel, IntPtr nsView, IntPtr contentView)
     {
         lock (VisualEffectViewsLock)
         {
             if (VisualEffectViews.TryGetValue(nsView, out var existing))
+            {
+                TrackVisualEffectViewLocked(topLevel, nsView, existing);
                 return existing;
+            }
 
             var visualEffectClass = GetClass("NSVisualEffectView");
             if (visualEffectClass == IntPtr.Zero)
@@ -307,7 +367,7 @@ internal static class MacWindowChrome
             SendUnsignedInteger(effectView, "setAutoresizingMask:", NsViewWidthSizable | NsViewHeightSizable);
             SendSubviewBelow(contentView, effectView);
             SendVoid(effectView, "release");
-            VisualEffectViews[nsView] = effectView;
+            TrackVisualEffectViewLocked(topLevel, nsView, effectView);
             return effectView;
         }
     }

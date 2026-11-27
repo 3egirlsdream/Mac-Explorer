@@ -64,8 +64,8 @@ internal static class MacSandboxNative
         }
         catch (Exception ex)
         {
-            MemoryDiagnostics.Record("volume.eject", new { success = false, exception = ex.GetType().Name, ex.HResult,
-                elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
+            MemoryDiagnostics.Record("volume.eject", new VolumeEjectFailure(false, ex.GetType().Name, ex.HResult,
+                    System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds));
             throw;
         }
     }
@@ -74,11 +74,11 @@ internal static class MacSandboxNative
     {
         using var details = failure == null ? null : JsonDocument.Parse(failure);
         var root = details?.RootElement;
-        var errors = root?.GetProperty("errors").EnumerateArray().Select(error => new
-            { domain = error.GetProperty("domain").GetString(), code = error.GetProperty("code").GetInt64() }).ToArray();
+        var errors = root?.GetProperty("errors").EnumerateArray().Select(error => new VolumeEjectError(
+                error.GetProperty("domain").GetString(), error.GetProperty("code").GetInt64())).ToArray();
         int? processId = root is { } value && value.TryGetProperty("processId", out var pid) ? pid.GetInt32() : null;
         // System descriptions can contain file paths; persist only error codes and the dissenting PID.
-        MemoryDiagnostics.Record("volume.eject", new { success, errors, processId, elapsedMs });
+        MemoryDiagnostics.Record("volume.eject", new VolumeEjectReport(success, errors, processId, elapsedMs));
         var message = root is { } data && data.TryGetProperty("message", out var text) ? text.GetString() : null;
         return new(success, message);
     }

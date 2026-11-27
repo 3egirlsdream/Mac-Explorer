@@ -154,7 +154,7 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
             using var pane = CreateViewModel(files);
             var registry = new AppCapabilityRegistry(
                 files: files, pins: null!, search: null!, archives: null!, plugins: null!,
-                market: null!, delivery: null!, tags: null!, changes: null!, remoteConnections: null!,
+                delivery: null!, tags: null!, changes: null!, remoteConnections: null!,
                 appSettings: null!, themes: null!, interactionStyles: null!,
                 contentExtractor: new CopilotContentExtractor(null!, null!),
                 homeWorkspace: null!, scriptRunner: null!, deliveryController: null!,
@@ -189,7 +189,7 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
         var history = new FileOperationHistoryService(files);
         var registry = new AppCapabilityRegistry(
             files: files, pins: null!, search: null!, archives: null!, plugins: null!,
-            market: null!, delivery: null!, tags: null!, changes: null!, remoteConnections: null!,
+            delivery: null!, tags: null!, changes: null!, remoteConnections: null!,
             appSettings: null!, themes: null!, interactionStyles: null!, contentExtractor: null!,
             homeWorkspace: null!, scriptRunner: null!, deliveryController: null!,
             batchRename: rename,
@@ -214,52 +214,4 @@ public sealed class CopilotCapabilityStateViewModelTests : FileListViewModelTest
         Assert.NotNull(await files.GetEntryAsync(Path.Combine(files.HomeDirectory, "new-a.txt")));
         Assert.True(history.CanUndo);
     }
-
-    [AvaloniaFact(Explicit = true)]
-    public async Task MarketInstallRejectsChangedPackageMetadataBeforeDownload()
-    {
-        using var plugins = new PluginTestEnvironment(initialize: false);
-        using var handler = new MarketListingHandler();
-        using var http = new HttpClient(handler);
-        var market = new PluginMarketClient(http, "http://127.0.0.1:18548/");
-        var registry = new AppCapabilityRegistry(
-            files: null!, pins: null!, search: null!, archives: null!, plugins: plugins.Manager,
-            market: market, delivery: null!, tags: null!, changes: null!, remoteConnections: null!,
-            appSettings: null!, themes: null!, interactionStyles: null!, contentExtractor: null!,
-            homeWorkspace: null!, scriptRunner: null!, deliveryController: null!,
-            batchRename: null!, batchRenameOperation: null!);
-        using var pane = CreateViewModel(new FakeFileService("/tmp/FKFinderCopilotMarket"));
-
-        var plan = await registry.PreviewAsync("plugin.market-install",
-            "{\"id\":\"test.market\",\"version\":\"1.0.0\"}", pane);
-        Assert.Equal(CapabilityImpact.InstallSoftware, plan.Capability.Impact);
-        handler.Sha256 = new string('b', 64);
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            registry.ExecuteApprovedAsync(plan.Id, pane));
-    }
-
-}
-
-public abstract partial class FileListViewModelTestBase
-{
-    protected sealed class MarketListingHandler : HttpMessageHandler
-    {
-        public string Sha256 { get; set; } = new('a', 64);
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var item = new PluginMarketItem(new PluginManifest
-            {
-                Id = "test.market", Name = "测试市场插件", Version = "1.0.0",
-                Developer = "Test", ApiVersion = PluginProtocol.ApiVersion
-            }, "https://example.com/test.mexplug", 12, Sha256);
-            var json = JsonSerializer.Serialize(new PluginMarketPage([item], false), PluginProtocol.Json);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            });
-        }
-    }
-
 }

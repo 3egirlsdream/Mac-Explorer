@@ -811,7 +811,7 @@
         <Setter Property="Background" Value="{DynamicResource WorkspaceControlHoverBrush}"/>
     </Style>
     <Style Selector=":is(controls|AppWindow).background-themed Button.toolbar-btn:enabled /template/ ContentPresenter#PART_ContentPresenter, :is(controls|AppWindow).background-themed Button.workspace-nav-button:enabled /template/ ContentPresenter#PART_ContentPresenter, :is(controls|AppWindow).background-themed Button.info-panel-icon:enabled /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+        <Setter Property="Background" Value="{Binding $self.((Button)TemplatedParent).Background}"/>
     </Style>
     <Style Selector=":is(controls|AppWindow).background-themed Button.toolbar-btn:pressed, :is(controls|AppWindow).background-themed Button.workspace-nav-button:pressed, :is(controls|AppWindow).background-themed Button.info-panel-icon:pressed">
         <Setter Property="Background" Value="{DynamicResource WorkspaceControlPressedBrush}"/>
@@ -1599,7 +1599,7 @@
                      ComboBox:pressed /template/ Border#Background,
                      ComboBox:focus /template/ Border#Background,
                      ComboBox:dropdownopen /template/ Border#Background">
-        <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+        <Setter Property="Background" Value="{Binding $self.((ComboBox)TemplatedParent).Background}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
@@ -1608,7 +1608,7 @@
     </Style>
     <Style Selector="ComboBox:dropdownopen /template/ Border#PopupBorder">
         <!-- Keep the menu at least as wide as the field, excluding shadow space. -->
-        <Setter Property="MinWidth" Value="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"/>
+        <Setter Property="MinWidth" Value="{Binding $self.((ComboBox)TemplatedParent).Bounds.Width}"/>
     </Style>
     <Style Selector="ComboBoxItem">
         <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>

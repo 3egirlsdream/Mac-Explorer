@@ -21,6 +21,7 @@ public class AppWindow : Window
     internal IShortcutService Shortcuts { get; set; } = ShortcutService.Resolve();
     private ShortcutHintController? _shortcutHints;
     private SubscriptionService? _subscription;
+    private SubscriptionService? _subscribedSubscription;
     private Grid? _subscriptionHost;
     private PremiumFeature? _upgradeFeature;
     private bool _nativeChromeRefreshPending;
@@ -132,7 +133,7 @@ public class AppWindow : Window
             MacNativeFileDrop.Enable(this);
             _nativeLifetime = PlatformImpl;
             _subscription ??= FeatureAccess.Current?.Subscription ?? SubscriptionAccess.Current;
-            if (_subscription != null) _subscription.Changed += OnSubscriptionChanged;
+            AttachSubscriptionChanged(_subscription);
             UpdateSubscription();
             ApplyNativeWindowChrome();
             UpdateLayout();
@@ -147,7 +148,7 @@ public class AppWindow : Window
             RenderDiagnostics?.Dispose();
             RenderDiagnostics = null;
             MacNativeFileDrop.Disable(this);
-            if (_subscription != null) _subscription.Changed -= OnSubscriptionChanged;
+            DetachSubscriptionChanged();
             _shortcutHints?.Dispose(); _shortcutHints = null; MacWindowChrome.RemoveVibrancy(this);
             MacAutomationLifetime.Release(this);
             var closedPlatform = _nativeLifetime;
@@ -191,6 +192,25 @@ public class AppWindow : Window
     }
 
     private void OnSubscriptionChanged() => Dispatcher.UIThread.Post(UpdateSubscription);
+
+    private void AttachSubscriptionChanged(SubscriptionService? subscription)
+    {
+        if (ReferenceEquals(_subscribedSubscription, subscription))
+            return;
+        DetachSubscriptionChanged();
+        if (subscription == null)
+            return;
+        subscription.Changed += OnSubscriptionChanged;
+        _subscribedSubscription = subscription;
+    }
+
+    private void DetachSubscriptionChanged()
+    {
+        if (_subscribedSubscription == null)
+            return;
+        _subscribedSubscription.Changed -= OnSubscriptionChanged;
+        _subscribedSubscription = null;
+    }
 
     internal void ShowUpgrade(PremiumFeature feature = PremiumFeature.None)
     {

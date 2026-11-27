@@ -184,6 +184,8 @@ public sealed partial class SearchCatalog
         }
     }, ct);
 
+    internal readonly record struct SearchRootState(ulong Checkpoint, SearchIndexPhase Phase, bool HasEntries);
+
     public Task<ulong> GetCheckpointAsync(string root, CancellationToken ct = default) => RunAsync(false, (connection, _) =>
     {
         using var command = connection.CreateCommand();
@@ -191,6 +193,41 @@ public sealed partial class SearchCatalog
         command.Parameters.AddWithValue("@root", root);
         return ulong.TryParse(command.ExecuteScalar()?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : 0;
     }, ct);
+
+    internal Task<SearchRootState> GetRootStateAsync(string root, CancellationToken ct = default) => RunAsync(false, (connection, _) =>
+    {
+        ulong checkpoint = 0;
+        var phase = SearchIndexPhase.Building;
+        var found = false;
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT checkpoint, phase FROM search_roots WHERE path=@root COLLATE BINARY";
+            command.Parameters.AddWithValue("@root", root);
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
+            {
+                found = true;
+                if (!ulong.TryParse(reader.GetString(0), NumberStyles.None, CultureInfo.InvariantCulture, out checkpoint))
+                    checkpoint = 0;
+                phase = ParsePhase(reader.GetString(1));
+            }
+        }
+        if (!found || checkpoint == 0 || phase != SearchIndexPhase.Ready)
+            return new SearchRootState(checkpoint, phase, false);
+        using var exists = connection.CreateCommand();
+        exists.CommandText = $"SELECT EXISTS(SELECT 1 FROM search_entries WHERE {SqlitePathScope.Descendants("path")} LIMIT 1)";
+        SqlitePathScope.Bind(exists, root);
+        var hasEntries = Convert.ToInt64(exists.ExecuteScalar()) != 0;
+        return new SearchRootState(checkpoint, phase, hasEntries);
+    }, ct);
+
+    private static SearchIndexPhase ParsePhase(string value) => value switch
+    {
+        nameof(SearchIndexPhase.Ready) => SearchIndexPhase.Ready,
+        nameof(SearchIndexPhase.Partial) => SearchIndexPhase.Partial,
+        nameof(SearchIndexPhase.Unavailable) => SearchIndexPhase.Unavailable,
+        _ => SearchIndexPhase.Building
+    };
 
     public Task SaveCheckpointAsync(string root, ulong checkpoint, SearchIndexPhase phase, CancellationToken ct = default) =>
         RunAsync(true, (connection, _) =>

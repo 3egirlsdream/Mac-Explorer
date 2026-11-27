@@ -6,11 +6,8 @@ namespace MacExplorer.PluginSdk;
 public static class PluginProtocol
 {
     public const int ApiVersion = 2;
-    public const string WorkerArgument = "--plugin-worker";
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+    public static JsonSerializerOptions Json => PluginJsonContext.Default.Options;
+
 }
 
 public sealed record PluginManifest
@@ -61,6 +58,11 @@ public sealed record PluginInvocation(string InvocationId, string CommandId, Plu
 {
     // Additive wire field: preserve the API v1 constructor and Deconstruct signatures.
     public string Culture { get; init; } = "zh-CN";
+
+    [JsonConstructor]
+    internal PluginInvocation(string invocationId, string commandId, PluginFile[] files, string workDirectory,
+        Dictionary<string, JsonElement>? parameters, string culture = "zh-CN")
+        : this(invocationId, commandId, files, workDirectory, parameters) => Culture = culture;
 }
 public sealed record PluginConfiguration(string Kind, string Title, int Width, int Height, string Format);
 public sealed record PluginPreparation(PluginConfiguration? Configuration = null);
@@ -88,6 +90,11 @@ public interface IFileActionPlugin
 public sealed record PluginRpcError(int Code, string Message, string? Data = null);
 public sealed record PluginRpcMessage
 {
+    public PluginRpcMessage() { }
+
+    [JsonConstructor]
+    internal PluginRpcMessage(string jsonrpc = "2.0") => Jsonrpc = jsonrpc;
+
     public string Jsonrpc { get; init; } = "2.0";
     public int? Id { get; init; }
     public string? Method { get; init; }

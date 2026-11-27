@@ -7,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -62,6 +61,8 @@ internal sealed class CollectionManagerDialog : DialogWindow
     private PointerPressedEventArgs? _dragPress;
     private Border? _dropRow;
     private DispatcherTimer? _hoverExpandTimer;
+    private bool _tagsSubscribed;
+    private ILocalizationService? _subscribedLanguage;
 
     internal CollectionManagerDialog(
         IFileTagService service,
@@ -90,8 +91,7 @@ internal sealed class CollectionManagerDialog : DialogWindow
         CanResize = true;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new StyleInclude(new Uri("avares://MacExplorer/"))
-            { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        Styles.Add(new DialogSettingsStyles());
 
         // Top search bar.
         _searchBox = new TextBox
@@ -226,8 +226,18 @@ internal sealed class CollectionManagerDialog : DialogWindow
 
         Opened += async (_, _) =>
         {
-            _service.TagsChanged += OnServiceTagsChanged;
-            if (LocalizationService.Current is { } language) language.LanguageChanged += OnLanguageChanged;
+            if (!_tagsSubscribed)
+            {
+                _service.TagsChanged += OnServiceTagsChanged;
+                _tagsSubscribed = true;
+            }
+            var language = LocalizationService.Current;
+            if (!ReferenceEquals(_subscribedLanguage, language))
+            {
+                if (_subscribedLanguage != null) _subscribedLanguage.LanguageChanged -= OnLanguageChanged;
+                _subscribedLanguage = language;
+                if (_subscribedLanguage != null) _subscribedLanguage.LanguageChanged += OnLanguageChanged;
+            }
             await RefreshAsync(preserveScroll: false);
             if (_isCreating || _startRenameOnOpen)
             {
@@ -241,8 +251,16 @@ internal sealed class CollectionManagerDialog : DialogWindow
         };
         Closed += (_, _) =>
         {
-            _service.TagsChanged -= OnServiceTagsChanged;
-            if (LocalizationService.Current is { } language) language.LanguageChanged -= OnLanguageChanged;
+            if (_tagsSubscribed)
+            {
+                _service.TagsChanged -= OnServiceTagsChanged;
+                _tagsSubscribed = false;
+            }
+            if (_subscribedLanguage != null)
+            {
+                _subscribedLanguage.LanguageChanged -= OnLanguageChanged;
+                _subscribedLanguage = null;
+            }
             ClearDropTarget();
         };
     }
@@ -1353,7 +1371,7 @@ internal sealed class CollectionManagerDialog : DialogWindow
                 return hostWindow;
         }
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            return desktop.Windows.FirstOrDefault(w => w.IsActive) ?? desktop.MainWindow ?? desktop.Windows.FirstOrDefault();
+            return App.ResolveLiveWindow(desktop);
         return null;
     }
 

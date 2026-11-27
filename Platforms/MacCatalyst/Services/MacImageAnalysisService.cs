@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using MacExplorer.Services.Subscriptions;
 using System.Diagnostics;
 using System.Text.Json;
@@ -57,9 +58,9 @@ public class MacImageAnalysisService(PhotoLocationConsent? locationConsent = nul
 
         try
         {
-            var native = JsonSerializer.Deserialize<NativeAnalysisResult>(
+            var native = JsonSerializer.Deserialize(
                 json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                NativeJsonContext.Default.NativeAnalysisResult);
             if (native == null) return new ImageAnalysisResult();
 
             return new ImageAnalysisResult
@@ -217,7 +218,7 @@ public class MacImageAnalysisService(PhotoLocationConsent? locationConsent = nul
         }
     }
 
-    private sealed class NativeAnalysisResult
+    internal sealed class NativeAnalysisResult
     {
         public List<NativeFace> Faces { get; set; } = [];
         public List<NativeText> RecognizedTexts { get; set; } = [];
@@ -227,7 +228,7 @@ public class MacImageAnalysisService(PhotoLocationConsent? locationConsent = nul
         public string? CameraInfo { get; set; }
     }
 
-    private sealed class NativeFace
+    internal sealed class NativeFace
     {
         public float BoundingBoxX { get; set; }
         public float BoundingBoxY { get; set; }
@@ -236,14 +237,14 @@ public class MacImageAnalysisService(PhotoLocationConsent? locationConsent = nul
         public string? FeaturePrint { get; set; }
     }
 
-    private sealed class NativeText
+    internal sealed class NativeText
     {
         public string Text { get; set; } = "";
         public float Confidence { get; set; }
         public List<string> Keywords { get; set; } = [];
     }
 
-    private sealed class NativeClassification
+    internal sealed class NativeClassification
     {
         public string Identifier { get; set; } = "";
         public float Confidence { get; set; }

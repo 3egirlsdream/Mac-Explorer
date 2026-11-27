@@ -20,13 +20,23 @@ public sealed partial class CompositeFileService
     internal sealed record TargetSnapshot(FileSystemEntry Entry, FileIdentitySnapshot? Identity);
     internal sealed record TransferChoice(string Target, FileConflictAction? Action, TargetSnapshot? Expected, bool FromBatch);
 
-    internal sealed class OperationBatch(FileOperationDisplay display, IEqualityComparer<string> targetComparer)
+    internal sealed class OperationBatch(FileOperationDisplay display, IEqualityComparer<string> targetComparer) : IRetainedState
     {
         internal readonly Dictionary<string, InventoryItem> Sources = new(StringComparer.Ordinal);
         internal readonly Dictionary<(string Source, string Target), TransferChoice> Choices = new();
         internal readonly Dictionary<string, TargetSnapshot?> Published = new(targetComparer);
         internal readonly Dictionary<string, List<string>> WatchedOutputs = new(StringComparer.Ordinal);
         private readonly Dictionary<string, long> _offsets = new(StringComparer.Ordinal);
+        void IRetainedState.MeasureFields(RetainedStateSize size, int depth)
+        {
+            size.Visit(display, depth);
+            size.Visit(Sources, depth);
+            size.Visit(Choices, depth);
+            size.Visit(Published, depth);
+            size.Visit(WatchedOutputs, depth);
+            size.Visit(_offsets, depth);
+        }
+
         internal void ReportBytes(string source, long offset)
         {
             if (display.ByItems || !Sources.ContainsKey(source)) return;

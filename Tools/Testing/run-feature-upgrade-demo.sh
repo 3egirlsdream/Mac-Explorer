@@ -24,4 +24,4 @@ exec /usr/bin/caffeinate -d -t 180 bash Tools/Testing/run-isolated.sh env \
     MACEXPLORER_FEATURE_UPGRADE_KEEP_OPEN=1 \
     MACEXPLORER_FEATURE_SOURCE="$project_root" \
     MACEXPLORER_SFTP_TEST_PYTHON="$qa_python" \
-    "bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer"
+    "bin/Debug/net10.0/osx-arm64/MacExplorer"

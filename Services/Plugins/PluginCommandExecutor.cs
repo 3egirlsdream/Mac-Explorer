@@ -38,14 +38,12 @@ public sealed class PluginCommandExecutor(
             var language = (App.Services?.GetService(typeof(ILocalizationService)) as ILocalizationService)?.Culture.Name
                 ?? MacExplorer.Services.Impl.LocalizationService.Current?.Culture.Name ?? "zh-CN";
             var request = new PluginInvocation(Guid.NewGuid().ToString("N"), command.Id, files, session.WorkDirectory) { Culture = language };
-            if (host.Owner == null || !await PluginAuthorization.EnsureAsync(
-                    manager, session.Manifest, session, request, host.Owner, run.Token))
-                return new(false, MacExplorer.Services.Impl.LocalizationText.Get("插件授权未完成。"), [], []);
-
-            var preparation = await session.CallAsync<PluginPreparation>("prepare", request,
+            var preparation = await session.PrepareAsync(request,
                 TimeSpan.FromSeconds(30), run.Token);
             if (preparation.Configuration is { } configuration)
             {
+                if (host.Owner == null)
+                    throw new InvalidOperationException(MacExplorer.Services.Impl.LocalizationText.Get("此插件请求的配置窗口与当前应用不兼容。"));
                 if (configuration.Kind != "image-size" || configuration.Width <= 0 || configuration.Height <= 0
                     || !Enum.TryParse<FileConversionFormat>(configuration.Format, out var format)
                     || format is not (FileConversionFormat.Png or FileConversionFormat.Jpg))
@@ -57,8 +55,8 @@ public sealed class PluginCommandExecutor(
                 if (size == null) return new(false, MacExplorer.Services.Impl.LocalizationText.Get("用户取消了插件配置。"), [], []);
                 request = request with { Parameters = new()
                 {
-                    ["width"] = JsonSerializer.SerializeToElement(size.Width),
-                    ["height"] = JsonSerializer.SerializeToElement(size.Height)
+                    ["width"] = JsonSerializer.SerializeToElement(size.Width, PluginJsonContext.Default.Int32),
+                    ["height"] = JsonSerializer.SerializeToElement(size.Height, PluginJsonContext.Default.Int32)
                 } };
             }
 
@@ -87,7 +85,7 @@ public sealed class PluginCommandExecutor(
             {
                 host.SetStatus(files.Length == 1 ? MacExplorer.Services.Impl.LocalizationText.Get("正在处理 {0}…", Path.GetFileName(files[0].Path))
                     : MacExplorer.Services.Impl.LocalizationText.Get("正在处理 {0} 个文件…", files.Length));
-                result = await session.CallAsync<PluginResult>("execute", request,
+                result = await session.ExecuteAsync(request,
                     ExecuteTimeout(files.Length), run.Token);
                 pump.Complete();
             }

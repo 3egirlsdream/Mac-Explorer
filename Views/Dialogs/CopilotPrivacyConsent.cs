@@ -26,7 +26,7 @@ internal static class CopilotPrivacyConsent
         var dialog = new DialogWindow { Title = MacExplorer.Services.Impl.LocalizationText.Get("允许向 AI 发送文件信息"), Width = 440,
             SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        dialog.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/")) { Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml") });
+        dialog.Styles.Add(new DialogSettingsStyles());
         var cancel = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消"), Classes = { "secondary", "compact" } };
         var allow = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("允许发送"), Classes = { "primary", "compact" } };
         cancel.Click += (_, _) => dialog.Close(false);

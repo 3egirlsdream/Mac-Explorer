@@ -25,13 +25,13 @@ public sealed class ButtonLocalizationLayoutTests
         {
             var button = new AppButton { Width = 180 };
             foreach (var name in classes.Split(' ')) button.Classes.Add(name);
-            button.Bind(ContentControl.ContentProperty, (Avalonia.Data.Binding)new LocExtension("ui.148").ProvideValue(null!));
+            button.Bind(ContentControl.ContentProperty, (Avalonia.Data.CompiledBinding)new LocExtension("ui.148").ProvideValue(null!));
             panel.Children.Add(button);
         }
         var autoButton = new AppButton { HorizontalAlignment = HorizontalAlignment.Left };
         autoButton.Classes.Add("secondary");
         autoButton.Classes.Add("compact");
-        autoButton.Bind(ContentControl.ContentProperty, (Avalonia.Data.Binding)new LocExtension("ui.159").ProvideValue(null!));
+        autoButton.Bind(ContentControl.ContentProperty, (Avalonia.Data.CompiledBinding)new LocExtension("ui.159").ProvideValue(null!));
         panel.Children.Add(autoButton);
         var window = InputAppearanceTests.CreateWindow(panel, false);
         var chineseWidth = autoButton.Bounds.Width;

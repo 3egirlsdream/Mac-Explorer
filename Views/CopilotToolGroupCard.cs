@@ -72,7 +72,7 @@ public sealed class CopilotToolGroupCard : Border
             + (failures > 0 ? MacExplorer.Services.Impl.LocalizationText.Get("{0} 项失败", failures) : pending > 0 ? MacExplorer.Services.Impl.LocalizationText.Get("待确认") : finished ? MacExplorer.Services.Impl.LocalizationText.Get("已完成") : MacExplorer.Services.Impl.LocalizationText.Get("执行中"));
         AutomationProperties.SetName(_button, MacExplorer.Services.Impl.LocalizationText.Get("{0}，{1}明细", _title.Text, (_expanded ? MacExplorer.Services.Impl.LocalizationText.Get("收起") : MacExplorer.Services.Impl.LocalizationText.Get("展开"))));
 
-        var signature = JsonSerializer.Serialize(step.Calls);
+        var signature = JsonSerializer.Serialize(step.Calls, CopilotJsonContext.Default.ListCopilotToolCall);
         if (signature == _lastSignature) return;
         _lastSignature = signature;
         _details.Children.Clear();

@@ -148,7 +148,7 @@ public sealed partial class LocalSendService
                 var packet = await udp.ReceiveAsync(cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (packet.Buffer.Length > 4096) continue;
-                var info = JsonSerializer.Deserialize<PeerInfo>(packet.Buffer, Json);
+                var info = JsonSerializer.Deserialize(packet.Buffer, LocalSendJsonContext.Default.PeerInfo);
                 if (info == null || !ValidAnnouncementFingerprint(info.Fingerprint)
                     || info.Fingerprint.Equals(SelfInfo().Fingerprint, StringComparison.OrdinalIgnoreCase)
                     || info.Port is < 1 or > 65535 || info.Version is null
@@ -166,7 +166,7 @@ public sealed partial class LocalSendService
     private async Task AnnounceAsync(int port, CancellationToken cancellationToken)
     {
         if (_udp == null) return;
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(SelfInfo() with { Announce = true }, Json);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(SelfInfo() with { Announce = true }, LocalSendJsonContext.Default.PeerInfo);
         foreach (var address in ActiveIPv4Addresses())
         {
             try
@@ -314,7 +314,7 @@ public sealed partial class LocalSendService
         using var response = await bootstrap.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         await response.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, cancellationToken);
-        var info = await response.Content.ReadFromJsonAsync<PeerInfo>(Json, cancellationToken);
+        var info = await response.Content.ReadFromJsonAsync(LocalSendJsonContext.Default.PeerInfo, cancellationToken);
         if (info == null || string.IsNullOrWhiteSpace(info.Alias) || string.IsNullOrWhiteSpace(info.Fingerprint)
             || string.IsNullOrWhiteSpace(info.Version)
             || info.Fingerprint.Length != 64 || !info.Fingerprint.All(Uri.IsHexDigit)
@@ -333,11 +333,11 @@ public sealed partial class LocalSendService
         }
         using var client = CreatePeerClient(peer);
         using var registration = new HttpRequestMessage(HttpMethod.Post, PeerUri(peer, "register"))
-        { Content = JsonContent.Create(SelfInfo(), options: Json) };
+        { Content = JsonContent.Create(SelfInfo(), LocalSendJsonContext.Default.PeerInfo) };
         using var registered = await client.SendAsync(registration, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         registered.EnsureSuccessStatusCode();
         await registered.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, cancellationToken);
-        var registeredInfo = await registered.Content.ReadFromJsonAsync<PeerInfo>(Json, cancellationToken);
+        var registeredInfo = await registered.Content.ReadFromJsonAsync(LocalSendJsonContext.Default.PeerInfo, cancellationToken);
         if (registeredInfo == null || string.IsNullOrWhiteSpace(registeredInfo.Alias)
             || !string.Equals(registeredInfo.Fingerprint, peer.Fingerprint, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("设备注册时返回的指纹不一致。");
@@ -375,7 +375,7 @@ public sealed partial class LocalSendService
                     if (status.IsSuccessStatusCode)
                     {
                         await status.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, timeout.Token);
-                        var current = await status.Content.ReadFromJsonAsync<PeerInfo>(Json, timeout.Token);
+                        var current = await status.Content.ReadFromJsonAsync(LocalSendJsonContext.Default.PeerInfo, timeout.Token);
                         if (current == null || string.IsNullOrWhiteSpace(current.Alias)
                             || current.Version is null || !current.Version.StartsWith("2.", StringComparison.Ordinal)
                             || !string.Equals(current.Fingerprint, peer.Fingerprint, StringComparison.OrdinalIgnoreCase)) return false;
@@ -385,11 +385,11 @@ public sealed partial class LocalSendService
                     }
                 }
                 using var registration = new HttpRequestMessage(HttpMethod.Post, PeerUri(peer, "register"))
-                { Content = JsonContent.Create(SelfInfo(), options: Json) };
+                { Content = JsonContent.Create(SelfInfo(), LocalSendJsonContext.Default.PeerInfo) };
                 using var response = await client.SendAsync(registration, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
                 if (!response.IsSuccessStatusCode) return infoVerified;
                 await response.Content.LoadIntoBufferAsync(DiscoveryResponseLimit, timeout.Token);
-                var info = await response.Content.ReadFromJsonAsync<PeerInfo>(Json, timeout.Token);
+                var info = await response.Content.ReadFromJsonAsync(LocalSendJsonContext.Default.PeerInfo, timeout.Token);
                 if (info == null || !ValidPeerFingerprint(peer.Protocol, info.Fingerprint)
                     || string.IsNullOrWhiteSpace(info.Alias)
                     || info.Fingerprint.Equals(SelfInfo().Fingerprint, StringComparison.OrdinalIgnoreCase)
@@ -418,7 +418,7 @@ public sealed partial class LocalSendService
             limit.MaxRequestBodySize = 4096;
         try
         {
-            var info = await context.Request.ReadFromJsonAsync<PeerInfo>(Json, context.RequestAborted);
+            var info = await context.Request.ReadFromJsonAsync(LocalSendJsonContext.Default.PeerInfo, context.RequestAborted);
             if (info == null || info.Port is < 1 or > 65535 || info.Protocol is not ("http" or "https")
                 || info.Version is null || !info.Version.StartsWith("2.", StringComparison.Ordinal)
                 || !ValidAnnouncementFingerprint(info.Fingerprint)
@@ -430,7 +430,7 @@ public sealed partial class LocalSendService
                 if (state != null) QueueCandidate(state,
                     new LocalSendDevice(info.Alias, info.Fingerprint, address, info.Port, info.Protocol));
             }
-            return Results.Json(SelfInfo(), Json);
+            return Results.Json(SelfInfo(), LocalSendJsonContext.Default.PeerInfo);
         }
         catch (JsonException) { return Results.BadRequest(); }
         catch (BadHttpRequestException) { return Results.BadRequest(); }

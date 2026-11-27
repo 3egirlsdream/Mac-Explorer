@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 using MacExplorer.ViewModels;
 
@@ -12,9 +13,9 @@ internal sealed record FolderTabGroupSession(Guid Id, string Name, int ColorInde
 /// <summary>A folder-only session. Virtual pages, searches and credentials are not persisted.</summary>
 internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
 {
-    public FolderTabGroupSession[] Groups { get; init; } = [];
-    public Dictionary<int, DirectoryPreferences> Preferences { get; init; } = [];
-    public Dictionary<int, FolderTabViewState> ViewStates { get; init; } = [];
+    public FolderTabGroupSession[] Groups { get; set; } = [];
+    public Dictionary<int, DirectoryPreferences> Preferences { get; set; } = [];
+    public Dictionary<int, FolderTabViewState> ViewStates { get; set; } = [];
 
     internal const string EnabledKey = "restore_folder_tabs";
     internal const string SessionKey = "navigation_folder_tabs";
@@ -30,7 +31,7 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
         if (string.IsNullOrEmpty(json)) return null;
         try
         {
-            var saved = JsonSerializer.Deserialize<FolderTabSession>(json);
+            var saved = JsonSerializer.Deserialize(json, AppJsonContext.Default.FolderTabSession);
             if (saved?.Paths == null) return null;
             var session = Filter(saved.Paths, saved.SelectedIndex, canRestore, saved.Groups, saved.Preferences, saved.ViewStates);
             return session.Paths.Length == 0 ? null : session;
@@ -41,7 +42,7 @@ internal sealed record FolderTabSession(string[] Paths, int SelectedIndex)
     internal void Save(ISettingsService settings)
     {
         if (settings.Get(EnabledKey, false))
-            settings.Set(SessionKey, JsonSerializer.Serialize(this));
+            settings.Set(SessionKey, JsonSerializer.Serialize(this, AppJsonContext.Default.FolderTabSession));
     }
 
     internal static FolderTabSession Filter(IEnumerable<string?> paths, int selectedIndex, Func<string, bool> accept, FolderTabGroupSession[]? groups = null,
@@ -123,11 +124,11 @@ internal sealed record FolderWindowSession(FolderTabSession[] Windows, int Selec
             if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
             FolderWindowSession? saved;
             if (document.RootElement.TryGetProperty(nameof(Windows), out _))
-                saved = JsonSerializer.Deserialize<FolderWindowSession>(json);
+                saved = JsonSerializer.Deserialize(json, AppJsonContext.Default.FolderWindowSession);
             else
             {
                 // The first implementation stored a single tab strip.
-                var tabs = JsonSerializer.Deserialize<FolderTabSession>(json);
+                var tabs = JsonSerializer.Deserialize(json, AppJsonContext.Default.FolderTabSession);
                 saved = tabs?.Paths == null ? null : new FolderWindowSession([tabs], 0);
             }
             if (saved?.Windows == null) return null;
@@ -140,7 +141,7 @@ internal sealed record FolderWindowSession(FolderTabSession[] Windows, int Selec
     internal void Save(ISettingsService settings)
     {
         if (settings.Get(FolderTabSession.EnabledKey, false))
-            settings.Set(FolderTabSession.SessionKey, JsonSerializer.Serialize(this));
+            settings.Set(FolderTabSession.SessionKey, JsonSerializer.Serialize(this, AppJsonContext.Default.FolderWindowSession));
     }
 
     private static FolderWindowSession Filter(IEnumerable<FolderTabSession?> windows,

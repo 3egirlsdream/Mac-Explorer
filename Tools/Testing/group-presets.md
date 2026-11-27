@@ -145,7 +145,7 @@ macOS 上还应手工检查浅色/深色、最窄窗口、长组名、键盘菜�
 ```sh
 dotnet build MacExplorer.csproj -c Debug -p:SkipMacOSReleaseDMG=true
 MACEXPLORER_GROUP_PRESETS_SMOKE=1 bash Tools/Testing/run-isolated.sh \
-  'bin/Debug/net10.0/osx-arm64/Mac Explorer.app/Contents/MacOS/MacExplorer'
+  'bin/Debug/net10.0/osx-arm64/MacExplorer'
 ```
 
 `group-presets/report.json` 记录保存、打开、替换、重命名和删除的结果。截图包括四语浅色宽窗口／深色窄窗口菜单、管理子菜单、保存／重命名及确认对话框、打开后的分屏与活动窗格。数据全部位于本次测试目录，检查结束后自动退出；不修改真实用户预设或目录。

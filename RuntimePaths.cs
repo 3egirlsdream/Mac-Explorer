@@ -31,8 +31,23 @@ internal static class RuntimePaths
         ? Path.Combine(root, ".macexplorer", "Caches")
         : Path.Combine(OperatingSystem.IsMacOS() ? Platforms.MacOS.MacSandboxNative.StoragePath(true)
             : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MacExplorer");
-    public static string BundleExecutableDirectory => Directory.Exists(Path.Combine(AppContext.BaseDirectory, "..", "..", "MacOS"))
-        ? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "MacOS")) : AppContext.BaseDirectory;
+    public static string BundleExecutableDirectory => AppContext.BaseDirectory;
+    private static DirectoryInfo? BundleContentsDirectory
+    {
+        get
+        {
+            var executable = new DirectoryInfo(BundleExecutableDirectory);
+            return executable.Name == "MacOS" && executable.Parent is { Name: "Contents", Parent: { } app }
+                && app.Extension == ".app" ? executable.Parent : null;
+        }
+    }
+
+    public static string BundleResourceDirectory => BundleContentsDirectory is { } contents
+        ? Path.Combine(contents.FullName, "Resources") : BundleExecutableDirectory;
+    public static string BundleDirectory => BundleContentsDirectory?.Parent?.FullName ?? BundleExecutableDirectory;
+    public static string BundleFrameworkDirectory => BundleContentsDirectory is { } contents
+        ? Path.Combine(contents.FullName, "Frameworks") : BundleExecutableDirectory;
+
     public static string LogDirectory => Path.Combine(DataDirectory, "Logs");
     public static string TemporaryDirectory => OperatingSystem.IsMacOS()
         ? Platforms.MacOS.MacSandboxNative.TemporaryDirectory : Path.GetTempPath();

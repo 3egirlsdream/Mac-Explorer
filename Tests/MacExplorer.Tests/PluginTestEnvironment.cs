@@ -1,6 +1,4 @@
-using System.IO.Compression;
 using System.Text.Json;
-using MacExplorer.PluginSdk;
 using MacExplorer.Services;
 using MacExplorer.Services.Plugins;
 
@@ -19,39 +17,18 @@ internal sealed class PluginTestEnvironment : IDisposable
         }
     }
     public static string Configuration => AppContext.BaseDirectory.Contains("/Release/") ? "Release" : "Debug";
-    public static string ApplicationOutput => Environment.GetEnvironmentVariable("MACEXPLORER_TEST_APP_OUTPUT") ?? Path.Combine(Repository, "bin", Configuration, "net10.0", "osx-arm64", DistributionChannel.IsAppStore ? "文件资源管理器.app" : "Mac Explorer.app", "Contents", "MacOS");
-    public static string BundledPackage => Path.Combine(ApplicationOutput, "..", "Resources", "BundledPlugins", "FileConversion.mexplug");
+    public static string ApplicationOutput => Environment.GetEnvironmentVariable("MACEXPLORER_TEST_APP_OUTPUT") ?? Path.Combine(Repository, "bin", Configuration, "net10.0", "osx-arm64");
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "fkfinder-plugin-test-" + Guid.NewGuid().ToString("N"));
-    public MemorySettings Settings { get; } = new();
     public PluginManager Manager { get; }
-    public PluginTestEnvironment(bool initialize = true)
+    public PluginTestEnvironment()
     {
         Directory.CreateDirectory(Root);
-        Manager = NewManager();
-        if (initialize) Task.Run(() => Manager.InitializeAsync()).GetAwaiter().GetResult();
+        Manager = new PluginManager(Path.Combine(Root, ".work"));
+        Task.Run(() => Manager.InitializeAsync()).GetAwaiter().GetResult();
     }
-    public PluginManager NewManager() => new(Settings, Path.Combine(Root, "Plugins"), BundledPackage,
-        Path.Combine(ApplicationOutput, "MacExplorer"), Path.Combine(ApplicationOutput, "..", "Resources", "Managed", "MacExplorer.dll"));
     public string Write(string name, string contents)
     {
         var path = Path.Combine(Root, name); File.WriteAllText(path, contents); return path;
-    }
-    public string CreateFixture(string version = "1.0.0", int apiVersion = 1)
-    {
-        var directory = Path.Combine(Root, "fixture-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        var output = Environment.GetEnvironmentVariable("MACEXPLORER_TEST_FIXTURE_OUTPUT") ?? Path.Combine(Repository, "Tools", "PluginTestFixture", "bin", Configuration, "net10.0");
-        foreach (var path in Directory.GetFiles(output)) File.Copy(path, Path.Combine(directory, Path.GetFileName(path)));
-        var commands = new[] { "run", "hang", "helper", "crash-helper", "crash", "invalid-wire", "cancel", "batch" }.Select(id => new PluginCommand
-        { Id = id, Title = id, Match = new() { Extensions = [".txt"], MaxSelection = id == "batch" ? 10 : 1 } }).ToArray();
-        File.WriteAllText(Path.Combine(directory, "plugin.json"), JsonSerializer.Serialize(new PluginManifest
-        {
-            Id = "test.fixture", Name = "测试插件", Version = version, ApiVersion = apiVersion,
-            Entry = "PluginTestFixture.dll", Commands = commands
-        }, PluginProtocol.Json));
-        var package = directory + ".mexplug";
-        ZipFile.CreateFromDirectory(directory, package);
-        return package;
     }
     public void Dispose()
     {

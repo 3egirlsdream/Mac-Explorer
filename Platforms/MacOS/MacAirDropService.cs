@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Avalonia.Controls;
@@ -58,7 +59,7 @@ internal sealed class MacAirDropService : IAirDropService
             var started = false;
             try
             {
-                var result = me_airdrop_send(view, JsonSerializer.Serialize(paths), GCHandle.ToIntPtr(handle), Completed);
+                var result = me_airdrop_send(view, JsonSerializer.Serialize(paths, AppJsonContext.Default.IReadOnlyListString), GCHandle.ToIntPtr(handle), Completed);
                 started = result == 1;
                 if (!started) throw new IOException(LocalizationText.Get(result switch
                 {

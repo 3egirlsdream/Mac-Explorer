@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -167,22 +168,23 @@ public partial class BatchRenameDialog : DialogWindow
         switch (rule.Type)
         {
             case BatchRenameRuleType.FindReplace:
-                TextField("查找", rule, nameof(rule.FindText)); TextField("替换为", rule, nameof(rule.ReplaceText));
-                CheckField("正则表达式", rule, nameof(rule.UseRegex)); CheckField("区分大小写", rule, nameof(rule.CaseSensitive));
-                NumberField("匹配序号", rule, nameof(rule.MatchOccurrence), -1, 100000, "0 为全部，1 为第一处，-1 为最后一处");
+                TextField("查找", rule, nameof(rule.FindText), static r => r.FindText, static (r, value) => r.FindText = value); TextField("替换为", rule, nameof(rule.ReplaceText), static r => r.ReplaceText, static (r, value) => r.ReplaceText = value);
+                CheckField("正则表达式", rule, nameof(rule.UseRegex), static r => r.UseRegex, static (r, value) => r.UseRegex = value); CheckField("区分大小写", rule, nameof(rule.CaseSensitive), static r => r.CaseSensitive, static (r, value) => r.CaseSensitive = value);
+                NumberField("匹配序号", rule, nameof(rule.MatchOccurrence), static r => r.MatchOccurrence, static (r, value) => r.MatchOccurrence = value, -1, 100000, "0 为全部，1 为第一处，-1 为最后一处");
                 break;
-            case BatchRenameRuleType.AddPrefix: TextField("前缀", rule, nameof(rule.PrefixText)); break;
-            case BatchRenameRuleType.AddSuffix: TextField("后缀", rule, nameof(rule.SuffixText)); break;
+            case BatchRenameRuleType.AddPrefix: TextField("前缀", rule, nameof(rule.PrefixText), static r => r.PrefixText, static (r, value) => r.PrefixText = value); break;
+            case BatchRenameRuleType.AddSuffix: TextField("后缀", rule, nameof(rule.SuffixText), static r => r.SuffixText, static (r, value) => r.SuffixText = value); break;
             case BatchRenameRuleType.InsertText:
-                TextField("文本", rule, nameof(rule.Text)); Placement(rule); break;
+                TextField("文本", rule, nameof(rule.Text), static r => r.Text, static (r, value) => r.Text = value); Placement(rule); break;
             case BatchRenameRuleType.RemoveText:
-                NumberField("起始位置", rule, nameof(rule.Position), 0, 100000, "从 0 开始，按完整字符计算");
-                NumberField("删除字符", rule, nameof(rule.RemoveLength), 0, 100000); break;
+                NumberField("起始位置", rule, nameof(rule.Position), static r => r.Position, static (r, value) => r.Position = value, 0, 100000, "从 0 开始，按完整字符计算");
+                NumberField("删除字符", rule, nameof(rule.RemoveLength), static r => r.RemoveLength, static (r, value) => r.RemoveLength = value, 0, 100000); break;
             case BatchRenameRuleType.Template:
                 var template = new TextBox { TextWrapping = TextWrapping.Wrap, MinHeight = 48, MaxHeight = 96,
                     VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Top };
                 template.Classes.Add("settings-inline-input");
-                template.Bind(TextBox.TextProperty, new Binding(nameof(rule.TemplateText)) { Source = rule, Mode = BindingMode.TwoWay });
+                template.Bind(TextBox.TextProperty, BindRule(rule, nameof(rule.TemplateText), static r => r.TemplateText,
+                    static (r, value) => r.TemplateText = value));
                 ToolTip.SetTip(template, MacExplorer.Services.Impl.LocalizationText.Get("{0} 原名称，{1} 所在目录，{2} 编号，{3} 拍摄日期", "{name}", "{parent}", "{n}", "{taken:yyyyMMdd}"));
                 AutomationProperties.SetName(template, MacExplorer.Services.Impl.LocalizationText.Get("名称模板"));
                 var templateRow = new StackPanel { Spacing = 2 };
@@ -203,22 +205,22 @@ public partial class BatchRenameDialog : DialogWindow
             case BatchRenameRuleType.Sequence: NumberFields(rule); Placement(rule); break;
             case BatchRenameRuleType.Date: DateFields(rule); Placement(rule); break;
             case BatchRenameRuleType.CaseConversion:
-                EnumField("转换", rule, nameof(rule.CaseMode), new[] { "大写", "小写", "单词首字母大写" }); break;
+                EnumField("转换", (int)rule.CaseMode, index => rule.CaseMode = (CaseConversionMode)index, new[] { "大写", "小写", "单词首字母大写" }); break;
             case BatchRenameRuleType.Cleanup:
-                CheckField("统一分隔符", rule, nameof(rule.NormalizeSeparators));
-                ConditionalSection(() => rule.NormalizeSeparators, () => TextField("分隔符", rule, nameof(rule.Separator))); break;
-            case BatchRenameRuleType.Extension: TextField("扩展名", rule, nameof(rule.ExtensionText), "可省略句点；留空移除扩展名"); break;
+                CheckField("统一分隔符", rule, nameof(rule.NormalizeSeparators), static r => r.NormalizeSeparators, static (r, value) => r.NormalizeSeparators = value);
+                ConditionalSection(() => rule.NormalizeSeparators, () => TextField("分隔符", rule, nameof(rule.Separator), static r => r.Separator, static (r, value) => r.Separator = value)); break;
+            case BatchRenameRuleType.Extension: TextField("扩展名", rule, nameof(rule.ExtensionText), static r => r.ExtensionText, static (r, value) => r.ExtensionText = value, "可省略句点；留空移除扩展名"); break;
         }
         var advanced = new StackPanel(); _fieldHost = advanced;
         if (rule.Type == BatchRenameRuleType.Cleanup)
         {
-            CheckField("去首尾空白", rule, nameof(rule.TrimWhitespace));
-            CheckField("合并空格", rule, nameof(rule.CollapseWhitespace));
+            CheckField("去首尾空白", rule, nameof(rule.TrimWhitespace), static r => r.TrimWhitespace, static (r, value) => r.TrimWhitespace = value);
+            CheckField("合并空格", rule, nameof(rule.CollapseWhitespace), static r => r.CollapseWhitespace, static (r, value) => r.CollapseWhitespace = value);
         }
         if (rule.Type != BatchRenameRuleType.Extension)
-            EnumField("作用部分", rule, nameof(rule.Target), new[] { "名称", "扩展名", "完整文件名" });
-        EnumField("项目类型", rule, nameof(rule.AppliesTo), new[] { "文件与文件夹", "仅文件", "仅文件夹" });
-        TextField("文件类型", rule, nameof(rule.FileExtensions), "留空为全部；多个扩展名用逗号分隔，如 jpg,png");
+            EnumField("作用部分", (int)rule.Target, index => rule.Target = (RenameTarget)index, new[] { "名称", "扩展名", "完整文件名" });
+        EnumField("项目类型", (int)rule.AppliesTo, index => rule.AppliesTo = (RenameAppliesTo)index, new[] { "文件与文件夹", "仅文件", "仅文件夹" });
+        TextField("文件类型", rule, nameof(rule.FileExtensions), static r => r.FileExtensions, static (r, value) => r.FileExtensions = value, "留空为全部；多个扩展名用逗号分隔，如 jpg,png");
         var more = new Expander { Header = new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("更多选项"), Classes = { "rename-heading" }, Margin = new Thickness(12, 4) },
             Content = advanced, Padding = new Thickness(12, 4, 12, 4),
             IsExpanded = rule.Target != RenameTarget.Name || rule.AppliesTo != RenameAppliesTo.All || rule.FileExtensions.Length > 0 };
@@ -240,10 +242,10 @@ public partial class BatchRenameDialog : DialogWindow
     }
     private void NumberFields(BatchRenameRule rule)
     {
-        NumberField("起始编号", rule, nameof(rule.SequenceStart), 0, int.MaxValue);
-        NumberField("步长", rule, nameof(rule.SequenceStep), 1, 10000);
+        NumberField("起始编号", rule, nameof(rule.SequenceStart), static r => r.SequenceStart, static (r, value) => r.SequenceStart = value, 0, int.MaxValue);
+        NumberField("步长", rule, nameof(rule.SequenceStep), static r => r.SequenceStep, static (r, value) => r.SequenceStep = value, 1, 10000);
         ConditionalSection(() => rule.Type != BatchRenameRuleType.Template || rule.TemplateText.Contains("{n}") || rule.TemplateText.Contains("{编号}"),
-            () => NumberField("位数", rule, nameof(rule.SequencePadding), 0, 12));
+            () => NumberField("位数", rule, nameof(rule.SequencePadding), static r => r.SequencePadding, static (r, value) => r.SequencePadding = value, 0, 12));
         ConditionalSection(() => _multipleDirectories || _options.RestartPerDirectory, () =>
         {
             var restart = new AppComboBox { Classes = { "compact" }, ItemsSource = new[] { "整批连续", "按目录重新开始" }, SelectedIndex = _options.RestartPerDirectory ? 1 : 0 };
@@ -255,7 +257,7 @@ public partial class BatchRenameDialog : DialogWindow
     private void DateFields(BatchRenameRule rule)
     {
         ConditionalSection(() => rule.Type != BatchRenameRuleType.Template || TemplateHas(rule, "date", "日期"),
-            () => EnumField("日期来源", rule, nameof(rule.DateSource), new[] { "当前时间", "创建时间", "修改时间", "拍摄时间" }));
+            () => EnumField("日期来源", (int)rule.DateSource, index => rule.DateSource = (RenameDateSource)index, new[] { "当前时间", "创建时间", "修改时间", "拍摄时间" }));
         ConditionalSection(() => rule.Type != BatchRenameRuleType.Template || new[] { "date", "日期", "taken", "拍摄日期", "created", "创建日期", "modified", "修改日期" }
             .Any(field => rule.TemplateText.Contains("{" + field + "}")), () =>
         {
@@ -264,19 +266,19 @@ public partial class BatchRenameDialog : DialogWindow
             var formats = new AppComboBox { Classes = { "compact" }, ItemsSource = choices, SelectedIndex = index >= 0 ? index : 4 };
             formats.Classes.Add("settings-inline-input");
             Field("日期格式", formats);
-            ConditionalSection(() => formats.SelectedIndex == 4, () => TextField("自定义格式", rule, nameof(rule.DateFormat)));
+            ConditionalSection(() => formats.SelectedIndex == 4, () => TextField("自定义格式", rule, nameof(rule.DateFormat), static r => r.DateFormat, static (r, value) => r.DateFormat = value));
             formats.SelectionChanged += (_, _) => { if (formats.SelectedIndex is >= 0 and < 4) rule.DateFormat = choices[formats.SelectedIndex]; UpdateParameterVisibility(); };
         });
         ConditionalSection(() => rule.DateSource == RenameDateSource.PhotoTaken && (rule.Type != BatchRenameRuleType.Template || TemplateHas(rule, "date", "日期"))
             || rule.Type == BatchRenameRuleType.Template && TemplateHas(rule, "taken", "拍摄日期"),
-            () => CheckField("缺失时用修改时间", rule, nameof(rule.FallbackToModified)));
+            () => CheckField("缺失时用修改时间", rule, nameof(rule.FallbackToModified), static r => r.FallbackToModified, static (r, value) => r.FallbackToModified = value));
     }
     private void Placement(BatchRenameRule rule)
     {
-        EnumField("放置位置", rule, nameof(rule.Placement), new[] { "名称之前", "名称之后", "指定位置" });
+        EnumField("放置位置", (int)rule.Placement, index => rule.Placement = (RenamePosition)index, new[] { "名称之前", "名称之后", "指定位置" });
         ConditionalSection(() => rule.Placement == RenamePosition.AtPosition,
-            () => NumberField("字符位置", rule, nameof(rule.Position), 0, 100000, "从 0 开始"));
-        if (rule.Type != BatchRenameRuleType.InsertText) TextField("分隔符", rule, nameof(rule.Separator));
+            () => NumberField("字符位置", rule, nameof(rule.Position), static r => r.Position, static (r, value) => r.Position = value, 0, 100000, "从 0 开始"));
+        if (rule.Type != BatchRenameRuleType.InsertText) TextField("分隔符", rule, nameof(rule.Separator), static r => r.Separator, static (r, value) => r.Separator = value);
     }
     private void Field(string label, Control control)
     {
@@ -287,17 +289,23 @@ public partial class BatchRenameDialog : DialogWindow
         var border = new Border { Child = row }; border.Classes.Add("settings-compact-row"); border.Classes.Add("settings-divider");
         (_fieldHost ?? RuleEditor).Children.Add(border);
     }
-    private void TextField(string label, BatchRenameRule rule, string property, string? tip = null)
+    private static CompiledBinding BindRule<T>(BatchRenameRule rule, string property,
+        Func<BatchRenameRule, T> get, Action<BatchRenameRule, T> set) =>
+        new(PropertyBinding.Path(property, get, set)) { Source = rule, Mode = BindingMode.TwoWay };
+
+    private void TextField(string label, BatchRenameRule rule, string property,
+        Func<BatchRenameRule, string> get, Action<BatchRenameRule, string> set, string? tip = null)
     {
         var input = new TextBox(); input.Classes.Add("settings-inline-input");
-        input.Bind(TextBox.TextProperty, new Binding(property) { Source = rule, Mode = BindingMode.TwoWay });
+        input.Bind(TextBox.TextProperty, BindRule(rule, property, get, set));
         ToolTip.SetTip(input, tip); AutomationProperties.SetName(input, label); Field(label, input);
     }
-    private void NumberField(string label, BatchRenameRule rule, string property, decimal min, decimal max, string? tip = null)
+    private void NumberField(string label, BatchRenameRule rule, string property,
+        Func<BatchRenameRule, int> get, Action<BatchRenameRule, int> set, decimal min, decimal max, string? tip = null)
     {
         var input = new NumericUpDown { Minimum = min, Maximum = max, Increment = 1, FormatString = "0", MinHeight = 28 };
         input.Classes.Add("compact");
-        input.Bind(NumericUpDown.ValueProperty, new Binding(property) { Source = rule, Mode = BindingMode.TwoWay });
+        input.Bind(NumericUpDown.ValueProperty, BindRule(rule, property, get, set));
         input.PropertyChanged += (_, change) =>
         {
             if (change.Property != NumericUpDown.TextProperty) return;
@@ -308,18 +316,18 @@ public partial class BatchRenameDialog : DialogWindow
         };
         ToolTip.SetTip(input, tip); AutomationProperties.SetName(input, label); Field(label, input);
     }
-    private void CheckField(string label, BatchRenameRule rule, string property)
+    private void CheckField(string label, BatchRenameRule rule, string property,
+        Func<BatchRenameRule, bool> get, Action<BatchRenameRule, bool> set)
     {
         var input = new CheckBox { Content = label };
-        input.Bind(CheckBox.IsCheckedProperty, new Binding(property) { Source = rule, Mode = BindingMode.TwoWay });
+        input.Bind(CheckBox.IsCheckedProperty, BindRule(rule, property, get, set));
         Field("", input);
     }
-    private void EnumField(string label, BatchRenameRule rule, string property, string[] labels)
+    private void EnumField(string label, int selectedIndex, Action<int> select, string[] labels)
     {
-        var info = typeof(BatchRenameRule).GetProperty(property)!;
-        var input = new AppComboBox { Classes = { "compact" }, ItemsSource = labels, SelectedIndex = Convert.ToInt32(info.GetValue(rule)) };
+        var input = new AppComboBox { Classes = { "compact" }, ItemsSource = labels, SelectedIndex = selectedIndex };
         input.Classes.Add("settings-inline-input");
-        input.SelectionChanged += (_, _) => { if (input.SelectedIndex >= 0) info.SetValue(rule, Enum.ToObject(info.PropertyType, input.SelectedIndex)); };
+        input.SelectionChanged += (_, _) => { if (input.SelectedIndex >= 0) select(input.SelectedIndex); };
         AutomationProperties.SetName(input, label); Field(label, input);
     }
 
@@ -596,7 +604,7 @@ public partial class BatchRenameDialog : DialogWindow
         _savedPresets.Clear();
         if (_settings?.Get("batch-rename.presets") is string json)
         {
-            try { _savedPresets.AddRange(JsonSerializer.Deserialize<List<BatchRenamePreset>>(json) ?? []); }
+            try { _savedPresets.AddRange(JsonSerializer.Deserialize(json, AppJsonContext.Default.ListBatchRenamePreset) ?? []); }
             catch (JsonException) { }
         }
         PresetCombo.ItemsSource = BuiltInPresets().Concat(_savedPresets).ToArray();
@@ -636,7 +644,7 @@ public partial class BatchRenameDialog : DialogWindow
         if (presetName == null) return;
         var preset = new BatchRenamePreset { Name = presetName, Rules = _rules.Select(r => r.Clone()).ToList(), Options = _options.Clone() };
         _savedPresets.RemoveAll(p => p.Name == presetName); _savedPresets.Add(preset);
-        _settings.Set("batch-rename.presets", JsonSerializer.Serialize(_savedPresets));
+        _settings.Set("batch-rename.presets", JsonSerializer.Serialize(_savedPresets, AppJsonContext.Default.ListBatchRenamePreset));
         _changing = true; PresetCombo.ItemsSource = BuiltInPresets().Concat(_savedPresets).ToArray(); PresetCombo.SelectedItem = preset; _changing = false;
     }
 }

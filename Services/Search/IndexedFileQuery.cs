@@ -3,10 +3,10 @@ namespace MacExplorer.Services.Search;
 /// <summary>Literal database filters. Date upper bounds are exclusive.</summary>
 public sealed record IndexedFileQuery
 {
-    public string Query { get; init; } = "";
-    public string Source { get; init; } = "all";
-    public string[] Extensions { get; init; } = [];
-    public IndexedTagFilter[] Tags { get; init; } = [];
+    public string Query { get; set; } = "";
+    public string Source { get; set; } = "all";
+    public string[] Extensions { get; set; } = [];
+    public IndexedTagFilter[] Tags { get; set; } = [];
     public string? FileTag { get; init; }
     public string? Person { get; init; }
     public int? MinRating { get; init; }

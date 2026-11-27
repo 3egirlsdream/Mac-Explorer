@@ -3,6 +3,18 @@ using MacExplorer.Indexing;
 
 namespace MacExplorer.Services.Search;
 
+internal interface ISearchWatchHandle : IDisposable
+{
+    ulong InitialEventId { get; }
+    bool RequiresFullScan { get; }
+}
+
+internal interface IDiagnosticSearchChangeSource : ISearchChangeSource
+{
+    IDisposable Watch(string root, ulong sinceEventId, Action<SearchChange> onChange, bool fullScanFollows,
+        Action<string, uint, ulong>? onRecoverySignal);
+}
+
 /// <summary>One background writer, resumable directory traversals, and independent search readers.</summary>
 public sealed partial class SearchIndexer : IAsyncDisposable
 {
@@ -12,6 +24,14 @@ public sealed partial class SearchIndexer : IAsyncDisposable
     private readonly ISearchChangeSource _changes;
     private readonly TimeProvider _timeProvider;
     private readonly DirectoryAccess _access;
+    private readonly string _databasePath;
+    private readonly string _databaseWalPath;
+    private readonly string _databaseShmPath;
+    private readonly string _databaseJournalPath;
+    private readonly string _diagnosticsDirectory;
+    private readonly string _diagnosticsDirectoryPrefix;
+    private readonly string _diagnosticsStatusPath;
+    private readonly string _userLibraryPath;
     private readonly object _gate = new();
     private readonly Dictionary<string, RootState> _roots = new(StringComparer.Ordinal);
     private readonly Channel<byte> _work = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
@@ -22,7 +42,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
     private bool _disposed;
     private Task? _disposeTask;
     private long _receivedEvents, _filteredEvents, _checkedEntries, _inserted, _updated, _deleted, _directoryScans, _fullScans;
-    private long _pendingPeak, _pendingBytesPeak;
+    private long _pendingPeak, _pendingBytesPeak, _coalescedRecoveries, _incrementalStarts;
     private readonly Dictionary<SearchWorkReason, long> _scanReasons = [];
 
     private static readonly HashSet<string> ExcludedNames = new(StringComparer.Ordinal)
@@ -42,12 +62,20 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         _catalog = catalog; _configuration = configuration; _pinyin = pinyin; _changes = changes;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _access = DirectoryAccess.Current;
+        _databasePath = SearchPath.Normalize(_configuration.DatabasePath);
+        _databaseWalPath = _databasePath + "-wal";
+        _databaseShmPath = _databasePath + "-shm";
+        _databaseJournalPath = _databasePath + "-journal";
+        _diagnosticsDirectory = Path.Combine(Path.GetDirectoryName(_databasePath)!, "Logs");
+        _diagnosticsDirectoryPrefix = SearchPath.Prefix(_diagnosticsDirectory);
+        _diagnosticsStatusPath = Path.Combine(_diagnosticsDirectory, "search-index-status.json");
+        _userLibraryPath = SearchPath.Normalize(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library"));
         _access.GrantsChanged += OnGrantsChanged;
         _diagnosticWorker = Task.Run(DiagnosticsAsync);
         _worker = Task.Run(WorkAsync);
     }
 
-    private sealed record DirectoryError(string Directory, string? Entry, string ExceptionType, int HResult, string Message);
+    internal sealed record DirectoryError(string Directory, string? Entry, string ExceptionType, int HResult, string Message);
     private sealed class Traversal(SearchWork[] items)
     {
         private readonly LinkedList<SearchWork> _items = new(items);
@@ -65,7 +93,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         public readonly Traversal Work = new(work);
         public bool Restart = restart, Started;
         public bool Urgent = work.Any(item => item.Urgent);
-        public bool FullScan;
+        public bool FullScan, IsJournalRecovery;
     }
     private sealed class RootState(string root, IndexConfiguration configuration)
     {
@@ -74,14 +102,18 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         public readonly SearchPendingWork Pending = new(root, configuration.PendingLimit, configuration.PendingBytesLimit);
         public readonly List<Generation> Generations = [];
         public readonly Dictionary<string, DirectoryError> DirectoryErrors = new(StringComparer.Ordinal);
+        public readonly Queue<SearchRecoveryEvent> RecentRecoveries = new(MaxRecentRecoveryEvents);
         public string? WatcherError;
         public TaskCompletionSource<bool> Changed = NewSignal();
         public IDisposable? Watcher;
         public bool Queued, PriorityQueued, Running, Started, RestartWatcher, IncludeHiddenFolders, Deferred, RequireReconciliation;
+        public bool DeferredRestartWatcher, TrailingRecovery, TrailingRestartWatcher;
+        public SearchWorkReason? DeferredReason;
         public ulong ObservedId, Checkpoint, RetiredObserved;
         public long? LastAttemptTick;
-        public long NextGeneration, LastProgressTick;
-        public long? LastFullScanTick;
+        public long NextGeneration, LastProgressTick, CoalescedRecoveries;
+        public long? LastFullScanTick, LastJournalRecoveryTick;
+        public (string Path, uint RawFlags, ulong EventId)? PendingRecoverySignal;
         public CancellationTokenSource? Cooldown;
         public Task? CooldownTask;
     }
@@ -105,7 +137,8 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             {
                 state = new(root, _configuration) { IncludeHiddenFolders = includeHiddenFolders };
                 _roots.Add(root, state);
-                AddWork(state, new(root, SearchWorkKind.Recursive, SearchWorkReason.Initial));
+                Pulse(state);
+                Queue(state);
                 return true;
             }
             if (includeHiddenFolders && !state.IncludeHiddenFolders)
@@ -144,7 +177,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
     }
 
     private RootState? FindState(string root) => _roots.Values
-        .Where(state => SearchPath.IsWithin(root, state.Root) && CanDescend(state, root))
+        .Where(state => IsWithinNoAlloc(root, state.Root) && CanDescend(state, root))
         .OrderByDescending(state => state.Root.Length).FirstOrDefault();
 
     private void Queue(RootState state)
@@ -172,7 +205,15 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         state.Pending.Add(work);
         if (work.Path == state.Root && work.Kind == SearchWorkKind.Recursive && work.Urgent)
         {
-            state.Deferred = false; state.Cooldown?.Cancel();
+            state.Deferred = false;
+            state.DeferredReason = null;
+            state.DeferredRestartWatcher = false;
+            state.Cooldown?.Cancel();
+            if (work.Reason == SearchWorkReason.Refresh)
+            {
+                state.TrailingRecovery = false;
+                state.TrailingRestartWatcher = false;
+            }
         }
         _pendingPeak = Math.Max(_pendingPeak, state.Pending.Count);
         _pendingBytesPeak = Math.Max(_pendingBytesPeak, state.Pending.Bytes);
@@ -180,6 +221,14 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         state.Status = state.Status with { Phase = SearchIndexPhase.Building };
         Pulse(state);
         if (state.Pending.Count != 0) Queue(state);
+    }
+
+    private void EnsureCooldownLocked(RootState state, TimeSpan delay)
+    {
+        if (state.Cooldown != null && !state.Cooldown.IsCancellationRequested) return;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        state.Cooldown = cancellation;
+        state.CooldownTask = RequeueDeferredAsync(state, delay, cancellation);
     }
 
     private void DeferOverflow(RootState state)
@@ -190,18 +239,56 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             if (remaining > TimeSpan.Zero && state.Pending.RemoveOverflow() != null)
             {
                 state.Deferred = state.RequireReconciliation = true;
+                state.DeferredReason ??= SearchWorkReason.OverflowFallback;
                 RequestDiagnostics();
-                if (state.Cooldown == null || state.Cooldown.IsCancellationRequested)
-                {
-                    var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-                    state.Cooldown = cancellation;
-                    state.CooldownTask = RequeueOverflowAsync(state, remaining, cancellation);
-                }
+                EnsureCooldownLocked(state, remaining);
             }
         }
     }
 
-    private async Task RequeueOverflowAsync(RootState state, TimeSpan delay, CancellationTokenSource cancellation)
+    private string HandleRootJournalRecoveryLocked(RootState state, bool restartWatcher)
+    {
+        if (state.Generations.Any(g => g.FullScan))
+        {
+            state.TrailingRecovery = true;
+            state.TrailingRestartWatcher |= restartWatcher;
+            state.RequireReconciliation = true;
+            state.CoalescedRecoveries++;
+            _coalescedRecoveries++;
+            Pulse(state);
+            return "Trailing";
+        }
+        if (state.Pending.HasUrgentRoot)
+        {
+            if (restartWatcher) state.RestartWatcher = true;
+            state.CoalescedRecoveries++;
+            _coalescedRecoveries++;
+            RequestDiagnostics();
+            return "CoalescedPending";
+        }
+        if (state.LastJournalRecoveryTick is { } lastRecovery)
+        {
+            var remaining = _configuration.OverflowFullScanCooldown - _timeProvider.GetElapsedTime(lastRecovery);
+            if (remaining > TimeSpan.Zero)
+            {
+                var alreadyDeferred = state.Deferred && state.DeferredReason == SearchWorkReason.JournalRecovery;
+                state.Deferred = state.RequireReconciliation = true;
+                state.DeferredReason = SearchWorkReason.JournalRecovery;
+                state.DeferredRestartWatcher |= restartWatcher;
+                state.CoalescedRecoveries++;
+                _coalescedRecoveries++;
+                state.Status = state.Status with { Phase = SearchIndexPhase.Building };
+                EnsureCooldownLocked(state, remaining);
+                Pulse(state);
+                return alreadyDeferred ? "CoalescedDeferred" : "Deferred";
+            }
+        }
+        if (restartWatcher) state.RestartWatcher = true;
+        AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.JournalRecovery));
+        return "Queued";
+    }
+
+    private async Task RequeueDeferredAsync(RootState state, TimeSpan delay, CancellationTokenSource cancellation)
     {
         try
         {
@@ -209,8 +296,21 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             lock (_gate)
             {
                 if (_disposed || cancellation.IsCancellationRequested || !state.Deferred) return;
+                var reason = state.DeferredReason ?? SearchWorkReason.OverflowFallback;
+                var restart = state.DeferredRestartWatcher;
                 state.Deferred = false;
-                state.Pending.Add(new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.OverflowFallback));
+                state.DeferredReason = null;
+                state.DeferredRestartWatcher = false;
+                if (state.Generations.Any(g => g.FullScan))
+                {
+                    state.TrailingRecovery = true;
+                    state.TrailingRestartWatcher |= restart;
+                    state.RequireReconciliation = true;
+                    Pulse(state);
+                    return;
+                }
+                if (restart) state.RestartWatcher = true;
+                state.Pending.Add(new(state.Root, SearchWorkKind.Recursive, reason));
                 Pulse(state);
                 Queue(state);
             }
@@ -223,6 +323,17 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         }
     }
 
+    private void OnRecoverySignal(RootState state, string path, uint rawFlags, ulong eventId)
+    {
+        lock (_gate) state.PendingRecoverySignal = (path, rawFlags, eventId);
+    }
+
+    private IDisposable CreateWatch(RootState state, ulong sinceEventId, bool fullScanFollows) =>
+        _changes is IDiagnosticSearchChangeSource diagnosticSource
+            ? diagnosticSource.Watch(state.Root, sinceEventId, change => OnChange(state, change), fullScanFollows,
+                (path, flags, id) => OnRecoverySignal(state, path, flags, id))
+            : _changes.Watch(state.Root, sinceEventId, change => OnChange(state, change), fullScanFollows);
+
     private void OnChange(RootState state, SearchChange change)
     {
         lock (_gate)
@@ -231,18 +342,33 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             if (_disposed || !_access.CanAccess(state.Root) || !_access.CanAccess(change.Path) || IsIndexArtifact(change.Path))
             { _filteredEvents++; return; }
             state.ObservedId = change.RestartWatcher ? change.EventId : Math.Max(state.ObservedId, change.EventId);
-            state.RestartWatcher |= change.RestartWatcher;
             if (change.MustRescan)
             {
-                var scope = SearchPath.IsWithin(change.Path, state.Root) ? change.Path : state.Root;
-                var scopeParent = Path.GetDirectoryName(scope);
-                if (scope != state.Root && scopeParent != null && CanDescend(state, scopeParent))
-                    AddWork(state, new(scopeParent, SearchWorkKind.Directory, SearchWorkReason.JournalRecovery));
-                AddWork(state, new(scope,
-                    SearchWorkKind.Recursive, SearchWorkReason.JournalRecovery));
+                uint rawFlags = 0;
+                if (state.PendingRecoverySignal is { } pending
+                    && pending.EventId == change.EventId
+                    && string.Equals(pending.Path, change.Path, StringComparison.Ordinal))
+                {
+                    rawFlags = pending.RawFlags;
+                    state.PendingRecoverySignal = null;
+                }
+                var scope = IsWithinNoAlloc(change.Path, state.Root) ? change.Path : state.Root;
+                if (scope != state.Root)
+                {
+                    state.RestartWatcher |= change.RestartWatcher;
+                    var scopeParent = Path.GetDirectoryName(scope);
+                    if (scopeParent != null && CanDescend(state, scopeParent))
+                        AddWork(state, new(scopeParent, SearchWorkKind.Directory, SearchWorkReason.JournalRecovery));
+                    AddWork(state, new(scope, SearchWorkKind.Recursive, SearchWorkReason.JournalRecovery));
+                    RecordRecoveryEventLocked(state, scope, rawFlags, change.EventId, "Subtree");
+                    return;
+                }
+                var disposition = HandleRootJournalRecoveryLocked(state, change.RestartWatcher);
+                RecordRecoveryEventLocked(state, scope, rawFlags, change.EventId, disposition);
                 return;
             }
-            if (!SearchPath.IsWithin(change.Path, state.Root)) { _filteredEvents++; return; }
+            state.RestartWatcher |= change.RestartWatcher;
+            if (!IsWithinNoAlloc(change.Path, state.Root)) { _filteredEvents++; return; }
             var parent = Path.GetDirectoryName(change.Path);
             if (change.Path == state.Root && change.IsDirectory)
             { AddWork(state, new(state.Root, SearchWorkKind.Directory)); return; }
@@ -277,7 +403,9 @@ public sealed partial class SearchIndexer : IAsyncDisposable
                 {
                     if (state.Watcher != null) watchers.Add(state.Watcher);
                     state.Watcher = null; state.Pending.Clear(); state.Generations.Clear();
-                    state.Deferred = false; state.Cooldown?.Cancel(); state.LastAttemptTick = null;
+                    state.Deferred = false; state.DeferredReason = null; state.DeferredRestartWatcher = false;
+                    state.TrailingRecovery = false; state.TrailingRestartWatcher = false;
+                    state.Cooldown?.Cancel(); state.LastAttemptTick = null;
                     state.Status = state.Status with { Phase = SearchIndexPhase.Unavailable, Error = "目录授权已撤销。" };
                     Pulse(state);
                 }
@@ -295,13 +423,111 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         state.RestartWatcher = false;
         if (generation.FullScan)
         {
+            generation.IsJournalRecovery = work.Any(item => item.Path == state.Root && item.Kind == SearchWorkKind.Recursive
+                && item.Reason == SearchWorkReason.JournalRecovery);
             // This traversal covers all earlier work; acknowledge it only when the new traversal finishes.
             state.Generations.Clear();
-            state.Deferred = false; state.Cooldown?.Cancel();
+            state.Deferred = false;
+            state.DeferredReason = null;
+            state.DeferredRestartWatcher = false;
+            state.Cooldown?.Cancel();
             state.RequireReconciliation = true;
         }
         state.Generations.Add(generation);
         return generation;
+    }
+
+    private async Task InitializeRootAsync(RootState state, CancellationToken ct)
+    {
+        try
+        {
+            _access.EnsureAccess(state.Root);
+            var persisted = await _catalog.GetRootStateAsync(state.Root, ct).ConfigureAwait(false);
+            bool canResume;
+            lock (_gate)
+            {
+                if (_disposed || !_access.CanAccess(state.Root))
+                {
+                    state.Started = true;
+                    return;
+                }
+                state.LastAttemptTick = _timeProvider.GetTimestamp();
+                state.Started = true;
+                var hasQueuedFullScan = state.RestartWatcher || state.Pending.HasUrgentRoot;
+                canResume = !hasQueuedFullScan
+                    && !state.IncludeHiddenFolders
+                    && persisted.Checkpoint > 0
+                    && persisted.Phase == SearchIndexPhase.Ready
+                    && persisted.HasEntries
+                    && Directory.Exists(state.Root);
+                if (canResume)
+                {
+                    state.Checkpoint = state.RetiredObserved = state.ObservedId = persisted.Checkpoint;
+                }
+                else
+                {
+                    state.Checkpoint = state.RetiredObserved = persisted.Phase == SearchIndexPhase.Ready && persisted.HasEntries
+                        ? persisted.Checkpoint : 0;
+                    if (!hasQueuedFullScan)
+                        AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.Initial));
+                }
+            }
+            if (!canResume) return;
+
+            try
+            {
+                var watcher = CreateWatch(state, persisted.Checkpoint, fullScanFollows: false);
+                var requiresFullScan = false;
+                ulong baselineEventId = 0;
+                if (watcher is ISearchWatchHandle handle)
+                {
+                    requiresFullScan = handle.RequiresFullScan;
+                    baselineEventId = handle.InitialEventId;
+                }
+                var retained = false;
+                lock (_gate)
+                {
+                    if (_access.CanAccess(state.Root) && !_disposed)
+                    {
+                        state.Watcher = watcher;
+                        state.WatcherError = null;
+                        retained = true;
+                        if (requiresFullScan)
+                        {
+                            state.Checkpoint = state.RetiredObserved = 0;
+                            state.ObservedId = baselineEventId;
+                            RecordRecoveryEventLocked(state, state.Root, 0x8u, baselineEventId, "StartupFallback");
+                            AddWork(state, new(state.Root, SearchWorkKind.Recursive, SearchWorkReason.Initial));
+                        }
+                        else
+                        {
+                            _incrementalStarts++;
+                        }
+                    }
+                }
+                if (!retained) { watcher.Dispose(); _access.EnsureAccess(state.Root); }
+            }
+            catch (Exception ex) { lock (_gate) state.WatcherError = "变更监听不可用: " + ex.Message; }
+
+            lock (_gate)
+            {
+                state.Status = CompletedStatus(state);
+                if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred || state.TrailingRecovery)
+                    state.Status = state.Status with { Phase = SearchIndexPhase.Building };
+                Pulse(state);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            SetError(state, state.Root, null, ex);
+            lock (_gate)
+            {
+                state.Started = true;
+                state.Status = CompletedStatus(state);
+                Pulse(state);
+            }
+        }
     }
 
     private async Task WorkAsync()
@@ -313,13 +539,26 @@ public sealed partial class SearchIndexer : IAsyncDisposable
             while (true)
             {
                 RootState? state;
+                bool needsStartup;
                 bool merge;
                 lock (_gate)
                 {
                     state = TakeReady();
                     if (state == null) break;
                     state.Running = true;
-                    merge = state.Generations.Count == 0 && state.Pending.Count > 0 && !state.Pending.HasUrgent;
+                    needsStartup = !state.Started;
+                    merge = !needsStartup && state.Generations.Count == 0 && state.Pending.Count > 0 && !state.Pending.HasUrgent;
+                }
+                if (needsStartup)
+                {
+                    await InitializeRootAsync(state, ct).ConfigureAwait(false);
+                    var hasWork = false;
+                    lock (_gate)
+                    {
+                        hasWork = state.Pending.Count != 0 || state.Generations.Count != 0;
+                        if (!hasWork) state.Running = false;
+                    }
+                    if (!hasWork) continue;
                 }
                 if (merge) await Task.Delay(_configuration.EventMergeDelay, _timeProvider, ct).ConfigureAwait(false);
                 Generation? generation;
@@ -341,7 +580,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
                         if (!generation.Started) await StartGenerationAsync(state, generation, item, ct).ConfigureAwait(false);
                         if (item.Kind == SearchWorkKind.Entry)
                         {
-                            var entries = new List<string>(256) { item.Path };
+                            var entries = new List<string>(16) { item.Path };
                             lock (_gate)
                                 while (entries.Count < 256 && generation.Work.First is { Kind: SearchWorkKind.Entry })
                                     entries.Add(generation.Work.Dequeue().Path);
@@ -405,11 +644,21 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         {
             try
             {
-                var watcher = _changes.Watch(state.Root, state.Checkpoint, change => OnChange(state, change), generation.FullScan);
+                var watcher = CreateWatch(state, state.Checkpoint, generation.FullScan);
+                ulong baselineEventId = watcher is ISearchWatchHandle handle ? handle.InitialEventId : 0;
                 var retained = false;
                 lock (_gate)
                 {
-                    if (_access.CanAccess(state.Root) && !_disposed) { state.Watcher = watcher; retained = true; }
+                    if (_access.CanAccess(state.Root) && !_disposed)
+                    {
+                        state.Watcher = watcher;
+                        if (generation.FullScan && baselineEventId > 0)
+                        {
+                            state.ObservedId = Math.Max(state.ObservedId, baselineEventId);
+                            generation.Observed = Math.Max(generation.Observed, baselineEventId);
+                        }
+                        retained = true;
+                    }
                 }
                 if (!retained) { watcher.Dispose(); _access.EnsureAccess(state.Root); }
                 lock (_gate) state.WatcherError = null;
@@ -425,17 +674,29 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         lock (_gate)
         {
             if (generation.Work.Count != 0 || !state.Generations.Contains(generation)) return;
-            if (generation.FullScan)
-            {
-                state.RequireReconciliation = state.Deferred;
-                if (_access.CanAccess(state.Root)) state.LastFullScanTick = _timeProvider.GetTimestamp();
-            }
             state.RetiredObserved = Math.Max(state.RetiredObserved, generation.Observed);
             state.Generations.Remove(generation);
+            if (generation.FullScan)
+            {
+                var now = _timeProvider.GetTimestamp();
+                if (_access.CanAccess(state.Root))
+                {
+                    state.LastFullScanTick = now;
+                    if (generation.IsJournalRecovery) state.LastJournalRecoveryTick = now;
+                }
+                if (state.TrailingRecovery)
+                {
+                    var restart = state.TrailingRestartWatcher;
+                    state.TrailingRecovery = false;
+                    state.TrailingRestartWatcher = false;
+                    HandleRootJournalRecoveryLocked(state, restart);
+                }
+                state.RequireReconciliation = state.Deferred || state.TrailingRecovery || state.Pending.HasUrgentRoot;
+            }
             var completed = CompletedStatus(state);
             if (completed.Phase == SearchIndexPhase.Ready && !state.RequireReconciliation && state.Generations.Count == 0)
                 state.Checkpoint = Math.Max(state.Checkpoint, state.RetiredObserved);
-            if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred)
+            if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred || state.TrailingRecovery)
                 completed = completed with { Phase = SearchIndexPhase.Building };
             checkpoint = state.Checkpoint; phase = completed.Phase;
         }
@@ -443,7 +704,7 @@ public sealed partial class SearchIndexer : IAsyncDisposable
         lock (_gate)
         {
             state.Status = CompletedStatus(state);
-            if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred)
+            if (state.Pending.Count != 0 || state.Generations.Count != 0 || state.Deferred || state.TrailingRecovery)
                 state.Status = state.Status with { Phase = SearchIndexPhase.Building };
             else state.Running = false;
             Pulse(state);
@@ -469,10 +730,10 @@ public sealed partial class SearchIndexer : IAsyncDisposable
 
     internal SearchIndexStatistics GetStatistics()
     {
-        lock (_gate) return new(_receivedEvents, _filteredEvents, _checkedEntries, _inserted, _updated, _deleted,
+        lock (_gate) return new(_receivedEvents, _filteredEvents, Interlocked.Read(ref _checkedEntries), _inserted, _updated, _deleted,
             _directoryScans, _fullScans, _pendingPeak, _pendingBytesPeak, _diagnosticsWrites,
             _scanReasons.ToDictionary(item => item.Key.ToString(), item => item.Value),
-            _roots.Values.Count(state => state.Deferred));
+            _roots.Values.Count(state => state.Deferred), _coalescedRecoveries, _incrementalStarts);
     }
 
     public bool CanDescend(string root, string directory)
@@ -481,38 +742,58 @@ public sealed partial class SearchIndexer : IAsyncDisposable
     private bool CanDescend(RootState state, string directory)
         => CanDescend(state.Root, directory, state.IncludeHiddenFolders);
 
+    private static bool IsWithinNoAlloc(string path, string root)
+    {
+        if (string.Equals(path, root, StringComparison.Ordinal)) return true;
+        if (!path.StartsWith(root, StringComparison.Ordinal)) return false;
+        if (root.Length > 0 && root[^1] == Path.DirectorySeparatorChar) return true;
+        return path.Length > root.Length && path[root.Length] == Path.DirectorySeparatorChar;
+    }
+
     private bool CanDescend(string root, string directory, bool includeHiddenFolders)
     {
-        if (root == directory) return true; // Explicit scopes can opt into otherwise excluded locations.
-        if (!SearchPath.IsWithin(directory, root)) return false;
+        if (string.Equals(root, directory, StringComparison.Ordinal)) return true; // Explicit scopes can opt into otherwise excluded locations.
+        if (!IsWithinNoAlloc(directory, root)) return false;
         foreach (var excluded in _configuration.ExcludedPaths)
-            if (excluded != root && SearchPath.IsWithin(excluded, root) && SearchPath.IsWithin(directory, excluded)) return false;
-        var userLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library");
-        if (userLibrary != root && SearchPath.IsWithin(userLibrary, root) && SearchPath.IsWithin(directory, userLibrary)) return false;
-        var relative = directory[SearchPath.Prefix(root).Length..];
-        var start = 0;
-        foreach (var segment in relative.Split(Path.DirectorySeparatorChar))
+            if (!string.Equals(excluded, root, StringComparison.Ordinal)
+                && IsWithinNoAlloc(excluded, root) && IsWithinNoAlloc(directory, excluded)) return false;
+        if (!string.Equals(_userLibraryPath, root, StringComparison.Ordinal)
+            && IsWithinNoAlloc(_userLibraryPath, root) && IsWithinNoAlloc(directory, _userLibraryPath)) return false;
+        var sep = Path.DirectorySeparatorChar;
+        var pos = root.Length;
+        if (pos > 0 && root[^1] != sep) pos++;
+        var span = directory.AsSpan();
+        var excludedLookup = ExcludedNames.GetAlternateLookup<ReadOnlySpan<char>>();
+        var packagesLookup = Packages.GetAlternateLookup<ReadOnlySpan<char>>();
+        while (pos <= span.Length)
         {
-            start += segment.Length;
-            if (ExcludedNames.Contains(segment) || (!includeHiddenFolders && segment.StartsWith('.'))
+            var remaining = span[pos..];
+            var slash = remaining.IndexOf(sep);
+            var segLen = slash < 0 ? remaining.Length : slash;
+            var segment = remaining[..segLen];
+            if (excludedLookup.Contains(segment)
+                || (!includeHiddenFolders && segment.Length > 0 && segment[0] == '.')
                 || segment.EndsWith(".fkfinder-tmp", StringComparison.OrdinalIgnoreCase)) return false;
-            if (Packages.Contains(Path.GetExtension(segment)))
+            var ext = Path.GetExtension(segment);
+            if (ext.Length > 0 && packagesLookup.Contains(ext))
             {
-                var candidate = directory[..(directory.Length - relative.Length + start)];
+                var candidate = directory[..(pos + segLen)];
                 if (!OperatingSystem.IsMacOS() || !_access.CanAccess(candidate)
                     || Platforms.MacOS.MacSandboxNative.DirectoryPackage(candidate, out _) != false) return false;
             }
-            start++;
+            if (slash < 0) break;
+            pos += segLen + 1;
         }
         return true;
     }
 
-    private bool IsIndexArtifact(string path)
-    {
-        var database = SearchPath.Normalize(_configuration.DatabasePath);
-        return path == database || path == database + "-wal" || path == database + "-shm" || path == database + "-journal"
-            || SearchPath.IsWithin(path, DiagnosticsDirectory);
-    }
+    private bool IsIndexArtifact(string path) =>
+        string.Equals(path, _databasePath, StringComparison.Ordinal)
+        || string.Equals(path, _databaseWalPath, StringComparison.Ordinal)
+        || string.Equals(path, _databaseShmPath, StringComparison.Ordinal)
+        || string.Equals(path, _databaseJournalPath, StringComparison.Ordinal)
+        || string.Equals(path, _diagnosticsDirectory, StringComparison.Ordinal)
+        || path.StartsWith(_diagnosticsDirectoryPrefix, StringComparison.Ordinal);
 
     public ValueTask DisposeAsync()
     {
@@ -549,4 +830,5 @@ public sealed partial class SearchIndexer : IAsyncDisposable
 
 internal sealed record SearchIndexStatistics(long ReceivedEvents, long FilteredEvents, long CheckedEntries,
     long InsertedEntries, long UpdatedEntries, long DeletedEntries, long DirectoryScans, long FullScans,
-    long PendingPeak, long PendingBytesPeak, long DiagnosticsWrites, IReadOnlyDictionary<string, long> FullScanReasons, int DeferredRoots);
+    long PendingPeak, long PendingBytesPeak, long DiagnosticsWrites, IReadOnlyDictionary<string, long> FullScanReasons,
+    int DeferredRoots, long CoalescedRecoveries = 0, long IncrementalStarts = 0);

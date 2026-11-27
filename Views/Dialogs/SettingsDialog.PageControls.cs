@@ -29,10 +29,7 @@ public partial class SettingsDialog
     private TextBlock LocalSendDirectoryText => GetPageControl<TextBlock>("send", "LocalSendDirectoryText");
     private TextBox LocalSendAliasBox => GetPageControl<TextBox>("send", "LocalSendAliasBox");
     private ToggleSwitch LocalSendEnabledToggle => GetPageControl<ToggleSwitch>("send", "LocalSendEnabledToggle");
-    private StackPanel PluginMarketRows => GetPageControl<StackPanel>("plugins", "PluginMarketRows");
-    private TextBlock PluginMarketStatus => GetPageControl<TextBlock>("plugins", "PluginMarketStatus");
     private StackPanel PluginRows => GetPageControl<StackPanel>("plugins", "PluginRows");
-    private TextBox PluginMarketSearch => GetPageControl<TextBox>("plugins", "PluginMarketSearch");
     private TextBlock PluginStatusText => GetPageControl<TextBlock>("plugins", "PluginStatusText");
     private Button RemoveSearchLocationButton => GetPageControl<Button>("locations", "RemoveSearchLocationButton");
     private ListBox SearchLocationsList => GetPageControl<ListBox>("locations", "SearchLocationsList");

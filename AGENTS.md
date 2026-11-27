@@ -14,6 +14,12 @@ feat: 优化文件夹恢复
 验证：相关测试通过。
 ```
 
+# 本地构建与签名
+
+- 本机 `.NET 10` SDK 位于 `$HOME/.dotnet/dotnet`，执行构建、测试或 NativeAOT 发布（`dotnet publish MacExplorer.csproj -c Release -r osx-arm64`）前需先将 `$HOME/.dotnet` 加入 `PATH`。
+- 官网版（`Website`）本地打包、真机打开或自动化测试启动 `.app` 时，必须使用与正式版同团队（`Tools/Distribution/website-signing.requirement` 中的 `AXBYDPHN88`）的 `Developer ID Application` 证书签名，避免因 ad-hoc 签名与已安装版本冲突导致 macOS 反复弹出桌面／文稿／本地网络／钥匙串权限授权。
+- `Tools/Distribution/sign-app.sh` 在非 CI 环境且未显式传入 `MacOSSigningIdentity` 时，会自动从本机钥匙串查找匹配 `AXBYDPHN88` 的 `Developer ID Application` 证书签名；仅在 CI、未安装证书或显式传 `-p:MacOSSigningIdentity=-` 时回退 ad-hoc 签名。
+
 # 图标
 - 统一使用，自动寻找合适图标： https://github.com/microsoft/fluentui-system-icons
 - 右键菜单，不必每项都带图标，不合适的可以不带，只有明确语义化的才带图标

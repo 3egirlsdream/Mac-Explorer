@@ -5,12 +5,12 @@ namespace MacExplorer.Models;
 public sealed record BackgroundThemeOptions
 {
     public bool Enabled { get; init; }
-    public string PresetId { get; init; } = "";
-    public string ImageFile { get; init; } = "";
-    public string DisplayName { get; init; } = "";
-    public int Strength { get; init; } = 40;
-    public int TextureStrength { get; init; } = 20;
-    public ImmutableDictionary<string, BackgroundThemeColorSelection> Colors { get; init; } = ImmutableDictionary<string, BackgroundThemeColorSelection>.Empty;
+    public string PresetId { get; set; } = "";
+    public string ImageFile { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public int Strength { get; set; } = 40;
+    public int TextureStrength { get; set; } = 20;
+    public ImmutableDictionary<string, BackgroundThemeColorSelection> Colors { get; set; } = ImmutableDictionary<string, BackgroundThemeColorSelection>.Empty;
 
     public BackgroundThemeColorSelection GetColors(string presetId) => Colors.GetValueOrDefault(presetId) ?? new();
 

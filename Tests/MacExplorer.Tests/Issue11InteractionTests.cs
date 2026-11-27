@@ -296,7 +296,9 @@ public sealed class Issue11InteractionViewModelTests : FileListViewModelTestBase
         var target = vm.AddTab(second, select: false);
         var tabs = new ListBox { ItemsSource = vm.Tabs };
         using var binding = tabs.Bind(ListBox.SelectedItemProperty,
-            new Binding(nameof(MainWindowViewModel.SelectedTab)) { Source = vm, Mode = BindingMode.TwoWay });
+            new CompiledBinding(PropertyBinding.Path(nameof(MainWindowViewModel.SelectedTab),
+                static (MainWindowViewModel model) => model.SelectedTab,
+                static (model, value) => model.SelectedTab = value)) { Source = vm, Mode = BindingMode.TwoWay });
         DragDrop.SetAllowDrop(tabs, true);
         var canActivate = false;
         tabs.AddHandler(DragDrop.DragOverEvent, (_, e) => FileTabDragNavigation.DragOver(tabs, e, canActivate));

@@ -57,7 +57,7 @@ public sealed partial class LocalSendService
                 if (response.StatusCode == HttpStatusCode.Forbidden) throw new InvalidOperationException("对方拒绝接收。");
                 if (response.StatusCode == HttpStatusCode.Conflict) throw new InvalidOperationException("对方正在处理其他传输。");
                 response.EnsureSuccessStatusCode();
-                var accepted = await response.Content.ReadFromJsonAsync<PrepareResponse>(Json, token)
+                var accepted = await response.Content.ReadFromJsonAsync(LocalSendJsonContext.Default.PrepareResponse, token)
                     ?? throw new InvalidDataException("对方没有返回传输会话。");
                 sessionId = accepted.SessionId;
                 if (string.IsNullOrWhiteSpace(sessionId)) throw new InvalidDataException("对方返回了无效会话。");
@@ -106,7 +106,7 @@ public sealed partial class LocalSendService
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromMinutes(15));
-        try { return await client.PostAsJsonAsync(uri, request, Json, timeout.Token); }
+        try { return await client.PostAsJsonAsync(uri, request, LocalSendJsonContext.Default.PrepareRequest, timeout.Token); }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
         { throw new TimeoutException("等待对方确认超时。"); }
     }

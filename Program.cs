@@ -14,10 +14,9 @@ sealed class Program
 #if DEMO_AUTOMATION
         Tools.DemoRecord.DemoAutomation.ValidateStartup();
 #endif
-        if (args is [MacExplorer.PluginSdk.PluginProtocol.WorkerArgument, var pluginDirectory])
+        if (args is [Tools.Testing.NativeBundleSmoke.Argument])
         {
-            DistributionChannel.RequireWebsite("插件工作进程");
-            Environment.ExitCode = Services.Plugins.PluginWorker.Run(Path.GetFullPath(pluginDirectory));
+            Tools.Testing.NativeBundleSmoke.RunAsync().GetAwaiter().GetResult();
             return;
         }
 

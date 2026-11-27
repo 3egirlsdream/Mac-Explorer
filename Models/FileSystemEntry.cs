@@ -7,6 +7,7 @@ public class FileSystemEntry : INotifyPropertyChanged
 {
     private const int IconDisplayNameMaxLength = 28;
 
+    private string _iconKey = "file-generic";
     private string? _iconUrl;
     private string? _thumbnailUrl;
     private bool _isCut;
@@ -32,7 +33,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     public bool IsSymbolicLink { get; init; }
     public bool IsReadable { get; init; } = true;
     public bool IsWritable { get; init; } = true;
-    public string IconKey { get => Package?.IconKey ?? field; init; } = "file-generic";
+    public string IconKey { get => Package?.IconKey ?? _iconKey; init => _iconKey = value; }
     public string? IconUrl
     {
         get => _iconUrl;
@@ -165,6 +166,24 @@ public class FileSystemEntry : INotifyPropertyChanged
         GitFileStatus.Conflicted => "#FF5722",
         _ => "#E2B714"
     };
+
+    internal void MeasureRetainedFields(Services.RetainedStateSize size, int depth)
+    {
+        size.AddScalars(15, depth); // Flags, sizes, dates, Git status and the virtual item count.
+        size.Visit(_iconKey, depth);
+        size.Visit(_iconUrl, depth);
+        size.Visit(_thumbnailUrl, depth);
+        size.Visit(FullPath, depth);
+        size.Visit(ArchiveThumbnailVersion, depth);
+        size.Visit(Name, depth);
+        size.Visit(Extension, depth);
+        size.Visit(Package, depth);
+        size.Visit(SearchMatches, depth);
+        size.Visit(VirtualFolderType, depth);
+        size.Visit(VirtualFolderKey, depth);
+        size.Visit(GitRepoRoot, depth);
+        size.Visit(PropertyChanged, depth);
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

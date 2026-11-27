@@ -8,7 +8,7 @@ using MacExplorer.Services.Impl;
 namespace MacExplorer.Controls;
 
 /// <summary>Scopes translucent surfaces and popup materials to a main window; independent dialogs keep their defaults.</summary>
-public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemoryDiagnosticSource
+public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable, IMemoryDiagnosticSource, IIdleMemoryCache
 {
     public static readonly AttachedProperty<BackgroundThemeService?> ServiceProperty =
         AvaloniaProperty.RegisterAttached<WindowBackgroundTheme, Control, BackgroundThemeService?>("Service", inherits: true);
@@ -31,6 +31,9 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
     private Task? _renderTask;
     private Task? _initialShowTask;
     private bool _initialShowCompleted;
+    private bool _hasBeenVisible;
+    private bool _consumerRegistered;
+    private DateTime? _hiddenSinceUtc;
     private bool _disposed;
     internal BackgroundThemeComposition? Frame { get; private set; }
     internal bool IsActive => _service.IsActive && Frame != null;
@@ -41,6 +44,7 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
     {
         _window = window; _service = service;
         MemoryDiagnostics.Register(this);
+        MemoryCacheMaintenance.Register(this);
         window.SetValue(ServiceProperty, service);
         window.SetValue(ControllerProperty, this);
         window.BackgroundContent = new BackgroundThemeSurface();
@@ -49,8 +53,14 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
         window.Closed += OnClosed;
         window.SizeChanged += OnSizeChanged;
         window.PropertyChanged += OnWindowPropertyChanged;
+        _hasBeenVisible = window.IsVisible;
+        if (window.IsVisible && window.WindowState != WindowState.Minimized)
+            RegisterConsumer();
+        else if (window.WindowState == WindowState.Minimized)
+            _hiddenSinceUtc = DateTime.UtcNow;
         Update();
-        _ = service.InitializeAsync();
+        if (service.Options.Enabled)
+            _ = service.InitializeAsync();
     }
 
     MemoryDiagnosticState IMemoryDiagnosticSource.GetMemoryState() => new("background-frame", Frame == null ? 0 : 2,
@@ -75,6 +85,7 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
 
     private async Task ShowInitialAsync(Action show)
     {
+        RegisterConsumer();
         try
         {
             await _service.InitializeForDisplayAsync();
@@ -99,8 +110,64 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e) => ScheduleRender();
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property.Name == nameof(TopLevel.RenderScaling)) ScheduleRender();
+        if (e.Property.Name == nameof(TopLevel.RenderScaling))
+        {
+            ScheduleRender();
+            return;
+        }
+        if (e.Property == Visual.IsVisibleProperty || e.Property == Window.WindowStateProperty)
+        {
+            if (_window.IsVisible && _window.WindowState != WindowState.Minimized)
+            {
+                _hasBeenVisible = true;
+                _hiddenSinceUtc = null;
+                RegisterConsumer();
+                if (_service.Options.Enabled && !_service.HasFullArtwork)
+                    _ = _service.InitializeAsync();
+                else if (Frame == null && _service.IsActive)
+                    ScheduleRender();
+            }
+            else if (_hasBeenVisible || _window.WindowState == WindowState.Minimized)
+            {
+                _hiddenSinceUtc ??= DateTime.UtcNow;
+            }
+        }
     }
+
+    private void RegisterConsumer()
+    {
+        if (_disposed || _consumerRegistered) return;
+        _consumerRegistered = true;
+        _service.RegisterConsumer(this);
+    }
+
+    private void UnregisterConsumer()
+    {
+        if (!_consumerRegistered) return;
+        _consumerRegistered = false;
+        _service.UnregisterConsumer(this);
+    }
+
+    internal void TrimMemory(DateTime unusedBefore)
+    {
+        if (_disposed) return;
+        if (_hiddenSinceUtc is not { } hiddenSince || hiddenSince > unusedBefore) return;
+        if (_window.IsVisible && _window.WindowState != WindowState.Minimized)
+        {
+            _hiddenSinceUtc = null;
+            return;
+        }
+        _renderCancellation?.Cancel();
+        if (Frame != null)
+        {
+            var old = Frame; Frame = null;
+            FrameChanged?.Invoke();
+            old.Dispose();
+        }
+        UnregisterConsumer();
+    }
+
+    void IIdleMemoryCache.TrimMemory(DateTime unusedBefore) => TrimMemory(unusedBefore);
 
     private void Update()
     {
@@ -218,7 +285,7 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
             // Coalesce slider/resize bursts. Every surface keeps using the same prior frame meanwhile.
             if (Frame != null) await Task.Delay(60, token);
             using var artwork = _service.AcquireArtwork();
-            if (artwork == null) return;
+            if (artwork == null || artwork.IsPreviewOnly) return;
             var options = _service.Options;
             frame = await Task.Run(async () =>
             {
@@ -252,6 +319,7 @@ public sealed partial class WindowBackgroundTheme : AvaloniaObject, IDisposable,
         if (_disposed) return;
         _disposed = true;
         _renderCancellation?.Cancel();
+        UnregisterConsumer();
         _service.Changed -= Update;
         _window.ActualThemeVariantChanged -= OnThemeChanged;
         _window.Closed -= OnClosed;

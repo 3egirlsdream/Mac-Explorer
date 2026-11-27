@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using Avalonia.Threading;
 using MacExplorer.Copilot;
 using MacExplorer.Models;
@@ -22,7 +23,7 @@ public partial class FileListViewModel
         if (_pluginManager == null || IsTrashActive || IsArchiveView || entry.IsDirectory ||
             entries.Any(e => !IsUsableLocalEntry(e) || e.IsDirectory || e.FullPath.StartsWith(TrashPath.TrimEnd('/') + "/", StringComparison.Ordinal))) return [];
         var files = entries.Select(e => new PluginFile(e.FullPath)).ToArray();
-        return _pluginManager.Plugins.Where(p => p.Enabled && !p.Removed).Select(plugin =>
+        return _pluginManager.Plugins.Where(p => p.Enabled).Select(plugin =>
         {
             var commands = plugin.Manifest.Commands.Where(command => command.Match.Matches(files)).Select(command => new ContextMenuAction
             {
@@ -36,7 +37,7 @@ public partial class FileListViewModel
                     else
                         await capabilities.ExecuteUiAsync(
                             AppCapabilityRegistry.PluginCommandId(plugin.Manifest.Id, command.Id),
-                            System.Text.Json.JsonSerializer.Serialize(new { paths = files.Select(file => file.Path).ToArray() }), this);
+                            System.Text.Json.JsonSerializer.Serialize(new ConversionPaths(files.Select(file => file.Path).ToArray()), AppJsonContext.Default.ConversionPaths), this);
                 }
             }).ToArray();
             return new ContextMenuAction { Label = plugin.Manifest.Id == "com.macexplorer.file-conversion"

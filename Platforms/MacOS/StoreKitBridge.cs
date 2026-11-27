@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -32,7 +33,7 @@ internal sealed class StoreKitBridge : ISubscriptionStore
         try
         {
             if (request == 0) { _active?.TransactionsChanged?.Invoke(); return; }
-            var result = JsonSerializer.Deserialize<JsonElement>(Marshal.PtrToStringUTF8(json)!);
+            var result = JsonSerializer.Deserialize(Marshal.PtrToStringUTF8(json)!, AppJsonContext.Default.JsonElement);
             if (!Pending.TryRemove(request, out var completion)) return;
             if (result.TryGetProperty("error", out var error)) completion.TrySetException(new InvalidOperationException(error.GetString()));
             else completion.TrySetResult(result);

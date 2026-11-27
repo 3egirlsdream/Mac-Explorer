@@ -1,11 +1,9 @@
-using MacExplorer.Controls;
-using MacExplorer.Services;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using MacExplorer.Controls;
+using MacExplorer.Services.Impl;
 using MacExplorer.Services.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,19 +16,15 @@ public partial class SettingsDialog
 
     private async Task InitializePluginsAsync()
     {
-        _plugins ??= App.Services?.GetService<PluginManager>();
+        _plugins = App.Services?.GetService<PluginManager>();
         if (_plugins == null) return;
         _plugins.Changed += OnPluginRegistryChanged;
-        Closed += OnPluginSettingsClosed;
+        Closed += (_, _) =>
+        {
+            _pluginsClosed = true;
+            _plugins.Changed -= OnPluginRegistryChanged;
+        };
         await RunPluginActionAsync(() => _plugins.InitializeAsync());
-        if (DistributionChannel.SupportsExternalPlugins) _ = LoadMarketAsync();
-    }
-
-    private void OnPluginSettingsClosed(object? sender, EventArgs e)
-    {
-        _pluginsClosed = true;
-        _marketLifetime.Cancel();
-        if (_plugins != null) _plugins.Changed -= OnPluginRegistryChanged;
     }
 
     private void OnPluginRegistryChanged() => Dispatcher.UIThread.Post(() =>
@@ -41,125 +35,47 @@ public partial class SettingsDialog
     private void RenderPlugins()
     {
         PluginRows.Children.Clear();
-        RenderMarket();
         if (_plugins == null) return;
-        foreach (var plugin in _plugins.Plugins.Where(p => !p.Removed))
+        foreach (var plugin in _plugins.Plugins)
         {
-            var name = new TextBlock { Text = plugin.Manifest.Name, FontWeight = FontWeight.SemiBold };
-            name.Classes.Add("settings-label");
-            var status = new TextBlock
+            var details = new StackPanel { Spacing = 4 };
+            details.Children.Add(new TextBlock
             {
-                Text = $"{plugin.Manifest.Version} · {(plugin.BuiltIn ? MacExplorer.Services.Impl.LocalizationText.Get("内置") : plugin.FromMarket ? MacExplorer.Services.Impl.LocalizationText.Get("市场安装") : MacExplorer.Services.Impl.LocalizationText.Get("手动安装"))} · {plugin.Status}",
-                TextWrapping = TextWrapping.Wrap
-            };
-            status.Classes.Add("settings-description");
-            var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
-            name.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
-            name.TextWrapping = TextWrapping.Wrap;
-            header.Children.Add(name);
-            var details = new StackPanel { Spacing = 4, Children = { header, status } };
-            if (!string.IsNullOrEmpty(plugin.SupportedTypes))
+                Text = LocalizationText.Get("ui.367"), Classes = { "settings-label" },
+                FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap
+            });
+            details.Children.Add(new TextBlock
             {
-                var types = new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("支持：") + plugin.SupportedTypes, TextWrapping = TextWrapping.Wrap };
-                types.Classes.Add("settings-description"); details.Children.Add(types);
-            }
+                Text = $"{plugin.Manifest.Version} · {LocalizationText.Get("内置")} · {plugin.Status}",
+                Classes = { "settings-description" }, TextWrapping = TextWrapping.Wrap
+            });
+            if (plugin.SupportedTypes is { Length: > 0 } types)
+                details.Children.Add(new TextBlock
+                {
+                    Text = LocalizationText.Get("支持：") + types,
+                    Classes = { "settings-description" }, TextWrapping = TextWrapping.Wrap
+                });
             if (plugin.LastError is { } error)
-                details.Children.Add(new TextBlock { Text = MacExplorer.Services.Impl.LocalizationText.Get("最近错误：") + error, TextWrapping = TextWrapping.Wrap });
-            var actions = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
-            if (!plugin.Removed)
-            {
-                var enabled = new ToggleSwitch { IsChecked = plugin.Enabled, MinHeight = 36, Padding = new Thickness(0) };
-                Avalonia.Automation.AutomationProperties.SetName(enabled, MacExplorer.Services.Impl.LocalizationText.Get("启用 ") + plugin.Manifest.Name);
-                Grid.SetColumn(enabled, 1);
-                enabled.Classes.Add("settings-toggle");
-                enabled.IsCheckedChanged += async (_, _) => await RunPluginActionAsync(() => _plugins.SetEnabledAsync(plugin.Manifest.Id, enabled.IsChecked == true));
-                header.Children.Add(enabled);
-                var uninstall = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("卸载") };
-                uninstall.Click += async (_, _) => await RunPluginActionAsync(() => _plugins.UninstallAsync(plugin.Manifest.Id));
-                actions.Children.Add(uninstall);
-            }
-            if (plugin.LogPath is { } path && File.Exists(path))
-            {
-                var log = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("查看日志") };
-                log.Click += async (_, _) => await RunPluginActionAsync(async () =>
-                {
-                    var dialog = new MacExplorer.Controls.DialogWindow
-                    {
-                        Title = plugin.Manifest.Name + MacExplorer.Services.Impl.LocalizationText.Get(" · 日志"), Width = 760, Height = 480,
-                        WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                        Content = new TextBox { Text = await File.ReadAllTextAsync(path), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16) }
-                    };
-                    await dialog.ShowDialog(this);
-                });
-                actions.Children.Add(log);
-            }
-            if (plugin.Manifest.Paid)
-            {
-                string entitlement;
-                try
-                {
-                    var trial = _plugins.GetTrial(plugin.Manifest.Id);
-                    entitlement = trial.Active ? MacExplorer.Services.Impl.LocalizationText.Get("试用中 · 到期 {0:yyyy-MM-dd HH:mm}", trial.ExpiresAt) : trial.StartedAt != null ? MacExplorer.Services.Impl.LocalizationText.Get("试用已到期") : plugin.Manifest.TrialDays > 0 ? MacExplorer.Services.Impl.LocalizationText.Get("可试用 {0} 天", plugin.Manifest.TrialDays) : MacExplorer.Services.Impl.LocalizationText.Get("付费插件");
-                    var access = _plugins.GetAccess(plugin.Manifest.Id);
-                    if (access?.Status == MacExplorer.PluginSdk.PluginAccessStatus.Allowed) entitlement = MacExplorer.Services.Impl.LocalizationText.Get("已授权（最近检查）");
-                }
-                catch (Exception ex) { entitlement = ex.Message; }
-                details.Children.Add(new TextBlock { Text = entitlement, TextWrapping = TextWrapping.Wrap });
-            }
-            if (plugin.Manifest.HasUserInterface)
-            {
-                var account = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("账号 / 授权"), IsEnabled = plugin.Enabled && !plugin.Running };
-                account.Click += async (_, _) => await RunPluginActionAsync(async () =>
-                {
-                    await using var session = await _plugins.StartAccountAsync(plugin.Manifest.Id, _marketLifetime.Token);
-                    await PluginAuthorization.EnsureAsync(_plugins, session.Manifest, session,
-                        new(Guid.NewGuid().ToString("N"), "", [], session.WorkDirectory), this, _marketLifetime.Token, manageAccount: true);
-                });
-                actions.Children.Add(account);
-            }
+                details.Children.Add(new TextBlock { Text = LocalizationText.Get("最近错误：") + error, TextWrapping = TextWrapping.Wrap });
             if (plugin.Running)
             {
-                var cancel = new AppButton { Content = MacExplorer.Services.Impl.LocalizationText.Get("取消任务") };
+                var cancel = new AppButton
+                {
+                    Content = LocalizationText.Get("取消任务"), Classes = { "secondary", "compact" },
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+                };
                 cancel.Click += async (_, _) => await RunPluginActionAsync(() => _plugins.CancelAsync(plugin.Manifest.Id));
-                actions.Children.Add(cancel);
+                details.Children.Add(cancel);
             }
-            foreach (var button in actions.Children.OfType<Button>())
-            {
-                button.Classes.Add("secondary");
-                button.Classes.Add("plugin-action");
-                button.Margin = new Thickness(0, 6, 6, 0);
-            }
-            details.Children.Add(actions);
-            var card = new Border { Padding = new Thickness(12), Child = details };
-            card.Classes.Add("settings-group"); PluginRows.Children.Add(card);
+            PluginRows.Children.Add(new Border { Padding = new Thickness(12), Child = details, Classes = { "settings-group" } });
         }
     }
 
     private async Task RunPluginActionAsync(Func<Task> action)
     {
         try { await action(); if (!_pluginsClosed) PluginStatusText.Text = ""; }
-        catch (OperationCanceledException) { if (!_pluginsClosed) PluginStatusText.Text = MacExplorer.Services.Impl.LocalizationText.Get("已取消"); }
+        catch (OperationCanceledException) { if (!_pluginsClosed) PluginStatusText.Text = LocalizationText.Get("已取消"); }
         catch (Exception ex) { if (!_pluginsClosed) PluginStatusText.Text = ex.Message; }
         finally { if (!_pluginsClosed) RenderPlugins(); }
-    }
-
-    private async void OnInstallPlugin(object? sender, RoutedEventArgs e)
-    {
-        if (_plugins == null) return;
-        await RunPluginActionAsync(async () =>
-        {
-            var files = await StorageProvider.OpenAuthorizedFilePickerAsync(new()
-            {
-                Title = MacExplorer.Services.Impl.LocalizationText.Get("安装可信插件"), AllowMultiple = false,
-                FileTypeFilter = [new FilePickerFileType(MacExplorer.Services.Impl.LocalizationText.Get("Mac Explorer 插件")) { Patterns = ["*.mexplug"] }]
-            });
-            var path = files.FirstOrDefault()?.TryGetLocalPath();
-            if (path != null) await _plugins.InstallAsync(path);
-        });
-    }
-
-    private async void OnRestoreBuiltInPlugin(object? sender, RoutedEventArgs e)
-    {
-        if (_plugins != null) await RunPluginActionAsync(() => _plugins.RestoreBuiltInAsync());
     }
 }

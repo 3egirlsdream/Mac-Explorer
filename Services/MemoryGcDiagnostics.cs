@@ -12,23 +12,20 @@ internal sealed class MemoryGcDiagnostics
             var gc = GC.GetGCMemoryInfo(Kinds[i]);
             if (gc.Index == _lastIndices[i]) continue;
             _lastIndices[i] = gc.Index;
-            var generations = new object[gc.GenerationInfo.Length];
+            var generations = new GcGenerationSample[gc.GenerationInfo.Length];
             for (var g = 0; g < generations.Length; g++)
             {
                 var info = gc.GenerationInfo[g];
-                generations[g] = new { generation = g switch { 3 => "loh", 4 => "poh", _ => "gen" + g },
-                    sizeBeforeBytes = info.SizeBeforeBytes, sizeAfterBytes = info.SizeAfterBytes,
-                    fragmentationBeforeBytes = info.FragmentationBeforeBytes, fragmentationAfterBytes = info.FragmentationAfterBytes };
+                generations[g] = new GcGenerationSample(g switch { 3 => "loh", 4 => "poh", _ => "gen" + g },
+                        info.SizeBeforeBytes, info.SizeAfterBytes, info.FragmentationBeforeBytes,
+                        info.FragmentationAfterBytes);
             }
-            MemoryDiagnostics.Record("memory.gc", new { sampleId, kind = Kinds[i].ToString(), available = gc.Index != 0,
-                index = gc.Index, generation = gc.Generation, concurrent = gc.Concurrent, compacted = gc.Compacted,
-                heapBytes = gc.HeapSizeBytes, fragmentedBytes = gc.FragmentedBytes, committedBytes = gc.TotalCommittedBytes,
-                liveAfterGcBytes = gc.HeapSizeBytes - gc.FragmentedBytes,
-                promotedBytes = gc.PromotedBytes, pinnedObjects = gc.PinnedObjectsCount,
-                finalizationPending = gc.FinalizationPendingCount, pauseTimePercentage = gc.PauseTimePercentage,
-                pauseDurationsMs = gc.PauseDurations.ToArray().Select(pause => pause.TotalMilliseconds).ToArray(),
-                memoryLoadBytes = gc.MemoryLoadBytes, highMemoryLoadThresholdBytes = gc.HighMemoryLoadThresholdBytes,
-                totalAvailableMemoryBytes = gc.TotalAvailableMemoryBytes, generations });
+            MemoryDiagnostics.Record("memory.gc", new GcSample(sampleId, Kinds[i].ToString(), gc.Index != 0, gc.Index,
+                    gc.Generation, gc.Concurrent, gc.Compacted, gc.HeapSizeBytes, gc.FragmentedBytes,
+                    gc.TotalCommittedBytes, gc.HeapSizeBytes - gc.FragmentedBytes, gc.PromotedBytes,
+                    gc.PinnedObjectsCount, gc.FinalizationPendingCount, gc.PauseTimePercentage,
+                    gc.PauseDurations.ToArray().Select(pause => pause.TotalMilliseconds).ToArray(), gc.MemoryLoadBytes,
+                    gc.HighMemoryLoadThresholdBytes, gc.TotalAvailableMemoryBytes, generations));
         }
     }
 }

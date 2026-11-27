@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using MacExplorer.Services;
 
@@ -8,9 +7,34 @@ namespace MacExplorer.Platforms.MacCatalyst.Services;
 /// Returns localized display names for macOS folders using Spotlight metadata (mdls).
 /// This provides Finder-displayed names like "桌面" for ~/Desktop on Chinese macOS.
 /// </summary>
-public class MacDisplayNameService : IDisplayNameService
+public class MacDisplayNameService : IDisplayNameService, IIdleMemoryCache
 {
-    private readonly ConcurrentDictionary<string, string> _cache = new();
+    internal const int DefaultMaxEntries = 512;
+
+    private sealed record CacheEntry(string Path, string Name)
+    {
+        public DateTime LastUsedUtc = DateTime.UtcNow;
+    }
+
+    private readonly Func<string, string> _resolver;
+    private readonly int _maxEntries;
+    private readonly object _cacheLock = new();
+    private readonly Dictionary<string, LinkedListNode<CacheEntry>> _cache = new(StringComparer.Ordinal);
+    private readonly LinkedList<CacheEntry> _lru = [];
+
+    public MacDisplayNameService() : this(null, DefaultMaxEntries) { }
+
+    internal MacDisplayNameService(Func<string, string>? resolver, int maxEntries = DefaultMaxEntries)
+    {
+        _resolver = resolver ?? ResolveDisplayName;
+        _maxEntries = Math.Max(1, maxEntries);
+        MemoryCacheMaintenance.Register(this);
+    }
+
+    internal int CachedCount
+    {
+        get { lock (_cacheLock) return _cache.Count; }
+    }
 
     public string GetDisplayName(string path)
     {
@@ -21,13 +45,66 @@ public class MacDisplayNameService : IDisplayNameService
         if (path.StartsWith("__", StringComparison.Ordinal))
             return string.Empty;
 
-        return _cache.GetOrAdd(path, ResolveDisplayName);
+        lock (_cacheLock)
+        {
+            if (_cache.TryGetValue(path, out var existing))
+            {
+                existing.Value.LastUsedUtc = DateTime.UtcNow;
+                if (!ReferenceEquals(_lru.First, existing))
+                {
+                    _lru.Remove(existing);
+                    _lru.AddFirst(existing);
+                }
+                return existing.Value.Name;
+            }
+        }
+
+        var resolved = _resolver(path);
+        SetCacheEntry(path, resolved);
+        return resolved;
     }
 
     public void RecordRename(string oldPath, string newPath)
     {
-        _cache.TryRemove(oldPath, out _);
-        _cache[newPath] = System.IO.Path.GetFileName(newPath);
+        lock (_cacheLock)
+        {
+            if (_cache.TryGetValue(oldPath, out var existing))
+            {
+                _cache.Remove(oldPath);
+                _lru.Remove(existing);
+            }
+        }
+        SetCacheEntry(newPath, System.IO.Path.GetFileName(newPath));
+    }
+
+    internal void TrimMemory(DateTime unusedBefore)
+    {
+        lock (_cacheLock)
+        {
+            while (_lru.Last is { } last && last.Value.LastUsedUtc < unusedBefore)
+            {
+                _cache.Remove(last.Value.Path);
+                _lru.Remove(last);
+            }
+        }
+    }
+
+    void IIdleMemoryCache.TrimMemory(DateTime unusedBefore) => TrimMemory(unusedBefore);
+
+    private void SetCacheEntry(string path, string name)
+    {
+        lock (_cacheLock)
+        {
+            if (_cache.TryGetValue(path, out var existing))
+                _lru.Remove(existing);
+            var node = _lru.AddFirst(new CacheEntry(path, name));
+            _cache[path] = node;
+            while (_cache.Count > _maxEntries && _lru.Last is { } last)
+            {
+                _cache.Remove(last.Value.Path);
+                _lru.Remove(last);
+            }
+        }
     }
 
     public string GetUserName()

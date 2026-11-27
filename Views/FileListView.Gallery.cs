@@ -36,6 +36,15 @@ public partial class FileListView
 
     private sealed class GalleryStripMetrics : INotifyPropertyChanged
     {
+        internal static readonly CompiledBindingPath ImageSizePath = PropertyBinding.Path(
+            nameof(ImageSize), static (GalleryStripMetrics metrics) => metrics.ImageSize);
+        internal static readonly CompiledBindingPath FrameWidthPath = PropertyBinding.Path(
+            nameof(FrameWidth), static (GalleryStripMetrics metrics) => metrics.FrameWidth);
+        internal static readonly CompiledBindingPath FrameHeightPath = PropertyBinding.Path(
+            nameof(FrameHeight), static (GalleryStripMetrics metrics) => metrics.FrameHeight);
+        internal static readonly CompiledBindingPath CellWidthPath = PropertyBinding.Path(
+            nameof(CellWidth), static (GalleryStripMetrics metrics) => metrics.CellWidth);
+
         private double _stripHeight = DefaultGalleryStripHeight;
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -173,8 +182,8 @@ public partial class FileListView
         {
             if (entry == null) return null;
             var image = CreateGalleryImage(entry, _galleryStripMetrics.ImageSize);
-            image.Bind(Layoutable.WidthProperty, new Binding(nameof(GalleryStripMetrics.ImageSize)) { Source = _galleryStripMetrics });
-            image.Bind(Layoutable.HeightProperty, new Binding(nameof(GalleryStripMetrics.ImageSize)) { Source = _galleryStripMetrics });
+            image.Bind(Layoutable.WidthProperty, new CompiledBinding(GalleryStripMetrics.ImageSizePath) { Source = _galleryStripMetrics });
+            image.Bind(Layoutable.HeightProperty, new CompiledBinding(GalleryStripMetrics.ImageSizePath) { Source = _galleryStripMetrics });
             image.HorizontalAlignment = HorizontalAlignment.Center;
             image.VerticalAlignment = VerticalAlignment.Center;
 
@@ -184,8 +193,8 @@ public partial class FileListView
                 frameGrid.Children.Add(badge);
 
             var frame = new Border { Classes = { "gallery-thumb-frame" }, Child = frameGrid };
-            frame.Bind(Layoutable.WidthProperty, new Binding(nameof(GalleryStripMetrics.FrameWidth)) { Source = _galleryStripMetrics });
-            frame.Bind(Layoutable.HeightProperty, new Binding(nameof(GalleryStripMetrics.FrameHeight)) { Source = _galleryStripMetrics });
+            frame.Bind(Layoutable.WidthProperty, new CompiledBinding(GalleryStripMetrics.FrameWidthPath) { Source = _galleryStripMetrics });
+            frame.Bind(Layoutable.HeightProperty, new CompiledBinding(GalleryStripMetrics.FrameHeightPath) { Source = _galleryStripMetrics });
 
             var label = new FileNameText
             {
@@ -202,7 +211,7 @@ public partial class FileListView
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Children = { frame, labelPill }
             };
-            cell.Bind(Layoutable.WidthProperty, new Binding(nameof(GalleryStripMetrics.CellWidth)) { Source = _galleryStripMetrics });
+            cell.Bind(Layoutable.WidthProperty, new CompiledBinding(GalleryStripMetrics.CellWidthPath) { Source = _galleryStripMetrics });
             AutomationProperties.SetName(cell, entry.DisplayName);
             ToolTip.SetTip(cell, entry.DisplayName);
             return cell;

@@ -79,6 +79,14 @@ jobs:
           cat "$RUNNER_TEMP/tests-$CHANNEL.log"
           test "$test_status" -eq 0
           python3 Tools/Distribution/verify-test-summary.py "$RUNNER_TEMP/tests-$CHANNEL.log"
+      - name: Publish the NativeAOT bundle
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          dotnet publish MacExplorer.csproj -c Release -r osx-arm64 \
+            --artifacts-path "$RUNNER_TEMP/build-$CHANNEL" -p:DistributionChannel="$CHANNEL" \
+            -p:AppStoreBundleId=com.thankful.top.macexplorer.store.qa -p:MacOSSigningIdentity=- \
+            -p:SkipMacOSReleaseDMG=true
       - name: Audit package structure, channel restrictions and all dependency notices
         env:
           CHANNEL: ${{ matrix.channel }}

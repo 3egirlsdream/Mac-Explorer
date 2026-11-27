@@ -35,10 +35,7 @@ internal sealed class DatabaseOptimizationDialog : DialogWindow
         _storageMaintenance = App.Services?.GetService<ApplicationStorageMaintenance>();
 
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
-        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://MacExplorer/"))
-        {
-            Source = new Uri("avares://MacExplorer/Views/Dialogs/SettingsStyles.axaml")
-        });
+        Styles.Add(new DialogSettingsStyles());
 
         var title = LocalizationText.Get("storage.optimize.title");
         Title = title;

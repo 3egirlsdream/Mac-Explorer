@@ -100,7 +100,7 @@ Measured across 8 everyday benchmarks comparing Mac Explorer 2.0.3 against macOS
 <p align="center"><sub>Nine built-in background themes with frosted glass surfaces, shown with the right-click conversion menu.</sub></p>
 
 - **Themes & folder styles**: Enable **More themes** under **Settings → Appearance** to pick from nine tintable patterns or your own wallpaper with adjustable opacity, paired with light/dark frosted glass and Default, Frosted, Skeuomorphic, or photo-cover folders.
-- **Localization, shortcuts & plugins**: Available in English, Simplified Chinese, Traditional Chinese, and French. Customize shortcuts with conflict checks and hold `⌘` for an on-screen cheat sheet. The website edition also supports the **plugin market**, local `.mexplug` packages (see the [plugin SDK](docs/plugins.md) and [developer center](https://macexplorer.top/developers/)), and custom Workbench scripts.
+- **Localization, shortcuts & file conversion**: Available in English, Simplified Chinese, Traditional Chinese, and French. Customize shortcuts with conflict checks and hold `⌘` for an on-screen cheat sheet. Both editions include built-in file conversion. The external plugin system is being redesigned. The website edition supports custom Workbench scripts.
 
 ## Installation & Editions
 
@@ -116,7 +116,7 @@ Requires **macOS 14 or later** on **Apple Silicon or Intel**. Downloads bundle t
 | --- | --- | --- |
 | File access | Standard macOS file permissions | Authorize folders via the system picker; manage in Settings |
 | Updates | In-app update checks and downloads | Managed through the App Store |
-| Extensions & scripts | Plugin market, external plugins, scripts, and terminal actions | Built-in file conversion; no external plugins, arbitrary scripts, or terminal actions |
+| Conversion & scripts | Built-in conversion, custom scripts, and terminal actions | Built-in file conversion |
 | Git status | Uses your installed system Git | Available when Git and the repository are within authorized scope; some setups unsupported |
 
 ## Default Shortcuts

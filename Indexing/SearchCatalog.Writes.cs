@@ -1,3 +1,4 @@
+using System.Text;
 using MacExplorer.Services.Impl;
 using MacExplorer.Services.Search;
 using Microsoft.Data.Sqlite;
@@ -10,12 +11,24 @@ internal readonly record struct SearchWriteResult(long Inserted = 0, long Update
         new(a.Inserted + b.Inserted, a.Updated + b.Updated, a.Deleted + b.Deleted);
 }
 
+internal readonly record struct ExistingEntryMetadata(long Size, long CreatedTicks, long ModifiedTicks, byte Flags)
+{
+    public static byte PackFlags(bool isDirectory, bool isHidden, bool isSymbolicLink) =>
+        (byte)((isDirectory ? 1 : 0) | (isHidden ? 2 : 0) | (isSymbolicLink ? 4 : 0));
+
+    public bool Matches(long size, long createdTicks, long modifiedTicks, bool isDirectory, bool isHidden, bool isSymbolicLink) =>
+        Size == size
+        && CreatedTicks == createdTicks
+        && ModifiedTicks == modifiedTicks
+        && Flags == PackFlags(isDirectory, isHidden, isSymbolicLink);
+}
+
 public sealed partial class SearchCatalog
 {
     internal long ScanMemoryLimitBytes { get; set; } = 8 * 1024 * 1024;
     internal string? ScanScratchDirectory { get; set; }
-    // Directory scans own _writer, so their bounded membership buffer can be reused without retaining paths.
-    private readonly HashSet<string> _scanPaths = new(StringComparer.Ordinal);
+    // Directory scans own _writer, so their bounded membership/metadata buffer can be reused without retaining paths.
+    private readonly Dictionary<string, ExistingEntryMetadata> _scanEntries = new(StringComparer.Ordinal);
 
     private const string UpsertSql = """
         INSERT INTO search_entries(path,name,parent_id,extension,extension_key,name_key,initials_key,
@@ -54,15 +67,22 @@ public sealed partial class SearchCatalog
         bool newDirectory = false)
     {
         if (entries.Count == 0) return default;
-        var existing = new Dictionary<string, SearchEntry>(StringComparer.Ordinal);
+        Dictionary<string, SearchEntry>? existing = null;
         if (!newDirectory)
         {
+            existing = new Dictionary<string, SearchEntry>(entries.Count, StringComparer.Ordinal);
             using var lookup = connection.CreateCommand();
-            var parameters = entries.Select((entry, i) =>
+            var sql = new StringBuilder(128 + entries.Count * 5);
+            sql.Append("SELECT ").Append(Columns).Append(",e.parent_id FROM search_entry_details e WHERE e.path IN (");
+            for (var i = 0; i < entries.Count; i++)
             {
-                var name = "@p" + i; lookup.Parameters.AddWithValue(name, entry.Path); return name;
-            });
-            lookup.CommandText = $"SELECT {Columns},e.parent_id FROM search_entry_details e WHERE e.path IN ({string.Join(',', parameters)})";
+                if (i > 0) sql.Append(',');
+                var name = "@p" + i;
+                sql.Append(name);
+                lookup.Parameters.AddWithValue(name, entries[i].Path);
+            }
+            sql.Append(')');
+            lookup.CommandText = sql.ToString();
             var parentValues = new Dictionary<long, (string Path, string Key)>();
             using var reader = lookup.ExecuteReader();
             while (reader.Read())
@@ -72,14 +92,35 @@ public sealed partial class SearchCatalog
                     parentValues[id] = values = (reader.GetString(2), reader.GetString(6));
                 var entry = ReadEntry(reader, values.Path, values.Key); existing[entry.Path] = entry;
             }
+            var allSame = true;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (!existing.TryGetValue(entry.Path, out var old) || !SameMetadata(old, entry))
+                {
+                    allSame = false;
+                    break;
+                }
+            }
+            if (allSame) return default;
         }
-        if (entries.All(entry => existing.TryGetValue(entry.Path, out var old) && SameMetadata(old, entry))) return default;
         using var transaction = connection.BeginTransaction();
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = UpsertSql;
-        foreach (var name in new[] { "@path", "@name", "@ext", "@extKey", "@nameKey", "@initials" }) command.Parameters.Add(name, SqliteType.Text);
-        foreach (var name in new[] { "@parentId", "@size", "@dir", "@hidden", "@created", "@modified", "@link" }) command.Parameters.Add(name, SqliteType.Integer);
+        var pPath = command.Parameters.Add("@path", SqliteType.Text);
+        var pName = command.Parameters.Add("@name", SqliteType.Text);
+        var pExt = command.Parameters.Add("@ext", SqliteType.Text);
+        var pExtKey = command.Parameters.Add("@extKey", SqliteType.Text);
+        var pNameKey = command.Parameters.Add("@nameKey", SqliteType.Text);
+        var pInitials = command.Parameters.Add("@initials", SqliteType.Text);
+        var pParentId = command.Parameters.Add("@parentId", SqliteType.Integer);
+        var pSize = command.Parameters.Add("@size", SqliteType.Integer);
+        var pDir = command.Parameters.Add("@dir", SqliteType.Integer);
+        var pHidden = command.Parameters.Add("@hidden", SqliteType.Integer);
+        var pCreated = command.Parameters.Add("@created", SqliteType.Integer);
+        var pModified = command.Parameters.Add("@modified", SqliteType.Integer);
+        var pLink = command.Parameters.Add("@link", SqliteType.Integer);
         command.Prepare();
         using var parent = connection.CreateCommand();
         parent.Transaction = transaction;
@@ -89,28 +130,31 @@ public sealed partial class SearchCatalog
             WHERE search_directories.parent_key IS NOT excluded.parent_key;
             SELECT id FROM search_directories WHERE path=@path COLLATE BINARY;
             """;
-        parent.Parameters.Add("@path", SqliteType.Text); parent.Parameters.Add("@key", SqliteType.Text);
+        var pParentPath = parent.Parameters.Add("@path", SqliteType.Text);
+        var pParentKey = parent.Parameters.Add("@key", SqliteType.Text);
         var parents = new Dictionary<string, long>(StringComparer.Ordinal);
+        existing ??= new Dictionary<string, SearchEntry>(entries.Count, StringComparer.Ordinal);
         var result = new SearchWriteResult();
-        foreach (var entry in entries)
+        for (var i = 0; i < entries.Count; i++)
         {
+            var entry = entries[i];
             ct.ThrowIfCancellationRequested();
             existing.TryGetValue(entry.Path, out var old);
             if (old != null && SameMetadata(old, entry)) continue;
             if (!parents.TryGetValue(entry.ParentPath, out var parentId))
             {
-                parent.Parameters["@path"].Value = entry.ParentPath; parent.Parameters["@key"].Value = entry.ParentKey;
+                pParentPath.Value = entry.ParentPath; pParentKey.Value = entry.ParentKey;
                 parents[entry.ParentPath] = parentId = (long)parent.ExecuteScalar()!;
             }
             if (old is { IsDirectory: true } && (!entry.IsDirectory || (!old.IsSymbolicLink && entry.IsSymbolicLink)))
                 result += new SearchWriteResult(Deleted: DeleteScope(connection, transaction, entry.Path, descendantsOnly: true));
-            command.Parameters["@path"].Value = entry.Path; command.Parameters["@name"].Value = entry.Name;
-            command.Parameters["@parentId"].Value = parentId; command.Parameters["@ext"].Value = entry.Extension;
-            command.Parameters["@extKey"].Value = SearchQuery.Fold(entry.Extension.TrimStart('.'));
-            command.Parameters["@nameKey"].Value = entry.NameKey; command.Parameters["@initials"].Value = entry.InitialsKey;
-            command.Parameters["@size"].Value = entry.Size; command.Parameters["@dir"].Value = entry.IsDirectory;
-            command.Parameters["@hidden"].Value = entry.IsHidden; command.Parameters["@created"].Value = entry.CreatedTicks;
-            command.Parameters["@modified"].Value = entry.ModifiedTicks; command.Parameters["@link"].Value = entry.IsSymbolicLink;
+            pPath.Value = entry.Path; pName.Value = entry.Name;
+            pParentId.Value = parentId; pExt.Value = entry.Extension;
+            pExtKey.Value = SearchQuery.Fold(entry.Extension.TrimStart('.'));
+            pNameKey.Value = entry.NameKey; pInitials.Value = entry.InitialsKey;
+            pSize.Value = entry.Size; pDir.Value = entry.IsDirectory;
+            pHidden.Value = entry.IsHidden; pCreated.Value = entry.CreatedTicks;
+            pModified.Value = entry.ModifiedTicks; pLink.Value = entry.IsSymbolicLink;
             if (command.ExecuteNonQuery() != 0)
                 result += old != null ? new SearchWriteResult(Updated: 1) : new SearchWriteResult(Inserted: 1);
             existing[entry.Path] = entry;
@@ -148,18 +192,27 @@ public sealed partial class SearchCatalog
         {
             _owner = owner; _connection = connection;
             _remaining = new(owner.ScanMemoryLimitBytes, owner.ScanScratchDirectory ?? Path.Combine(
-                Path.GetDirectoryName(connection.DataSource)!, "Logs", "scan-scratch"), owner._scanPaths);
+                Path.GetDirectoryName(connection.DataSource)!, "Logs", "scan-scratch"), owner._scanEntries);
             try
             {
                 using var registration = ct.Register(() => SQLitePCL.raw.sqlite3_interrupt(connection.Handle));
                 using var command = connection.CreateCommand();
-                command.CommandText = "SELECT path FROM search_entries WHERE parent_id=(SELECT id FROM search_directories WHERE path=@parent COLLATE BINARY)";
+                command.CommandText = """
+                    SELECT path, size, is_directory, is_hidden, created_ticks, modified_ticks, is_symbolic_link
+                    FROM search_entries
+                    WHERE parent_id=(SELECT id FROM search_directories WHERE path=@parent COLLATE BINARY)
+                    """;
                 command.Parameters.AddWithValue("@parent", directory);
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
                     ct.ThrowIfCancellationRequested();
-                    _remaining.Add(reader.GetString(0));
+                    var metadata = new ExistingEntryMetadata(
+                        reader.GetInt64(1),
+                        reader.GetInt64(4),
+                        reader.GetInt64(5),
+                        ExistingEntryMetadata.PackFlags(reader.GetInt32(2) != 0, reader.GetInt32(3) != 0, reader.GetInt32(6) != 0));
+                    _remaining.Add(reader.GetString(0), metadata);
                 }
                 _newDirectory = _remaining.InitialCount == 0;
             }
@@ -168,29 +221,48 @@ public sealed partial class SearchCatalog
             catch { _remaining.Dispose(); throw; }
         }
 
+        internal bool TryMarkUnchanged(string path, long size, long createdTicks, long modifiedTicks,
+            bool isDirectory, bool isHidden, bool isSymbolicLink)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_completed) throw new InvalidOperationException("Directory reconciliation already completed.");
+            return _remaining.TryMatchAndRemove(path, size, createdTicks, modifiedTicks, isDirectory, isHidden, isSymbolicLink);
+        }
+
         internal Task<SearchWriteResult> RecordAsync(IReadOnlyList<SearchEntry> entries, CancellationToken ct = default) =>
             ExecuteAsync(() =>
             {
-                _remaining.Seen(entries.Select(entry => entry.Path));
+                _remaining.Seen(entries);
                 return ApplyEntries(_connection, entries, ct, _newDirectory);
             }, ct);
 
-        internal Task<SearchWriteResult> CompleteAsync(CancellationToken ct = default) => ExecuteAsync(() =>
+        internal Task<SearchWriteResult> CompleteAsync(CancellationToken ct = default)
         {
-            if (_remaining.Error != null)
-                throw new IOException(LocalizationText.Get("search.reconciliation-unavailable"), _remaining.Error);
-            if (!_remaining.HasRemaining) { _completed = true; return default; }
-            using var transaction = _connection.BeginTransaction();
-            long deleted = 0;
-            foreach (var path in _remaining.Read())
-            {
-                ct.ThrowIfCancellationRequested();
-                deleted += DeleteScope(_connection, transaction, path);
-            }
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_completed) throw new InvalidOperationException("Directory reconciliation already completed.");
             ct.ThrowIfCancellationRequested();
-            transaction.Commit(); _completed = true;
-            return new SearchWriteResult(Deleted: deleted);
-        }, ct);
+            if (_remaining.Error == null && !_remaining.Spilled && !_remaining.HasRemaining)
+            {
+                _completed = true;
+                return Task.FromResult(default(SearchWriteResult));
+            }
+            return ExecuteAsync(() =>
+            {
+                if (_remaining.Error != null)
+                    throw new IOException(LocalizationText.Get("search.reconciliation-unavailable"), _remaining.Error);
+                if (!_remaining.HasRemaining) { _completed = true; return default; }
+                using var transaction = _connection.BeginTransaction();
+                long deleted = 0;
+                foreach (var path in _remaining.Read())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    deleted += DeleteScope(_connection, transaction, path);
+                }
+                ct.ThrowIfCancellationRequested();
+                transaction.Commit(); _completed = true;
+                return new SearchWriteResult(Deleted: deleted);
+            }, ct);
+        }
 
         private async Task<SearchWriteResult> ExecuteAsync(Func<SearchWriteResult> action, CancellationToken ct)
         {
@@ -213,10 +285,10 @@ public sealed partial class SearchCatalog
         }
     }
 
-    private sealed class RemainingPaths(long limit, string directory, HashSet<string> paths) : IDisposable
+    private sealed class RemainingPaths(long limit, string directory, Dictionary<string, ExistingEntryMetadata> entries) : IDisposable
     {
-        private readonly HashSet<string> _paths = paths;
-        private readonly List<string> _pending = new(256);
+        private readonly Dictionary<string, ExistingEntryMetadata> _entries = entries;
+        private List<string>? _pending;
         private long _stringBytes;
         private SqliteConnection? _disk;
         private string? _path;
@@ -227,20 +299,20 @@ public sealed partial class SearchCatalog
         {
             get
             {
-                if (_disk == null) return _paths.Count != 0;
+                if (_disk == null) return _entries.Count != 0;
                 Flush();
                 using var command = _disk.CreateCommand(); command.CommandText = "SELECT EXISTS(SELECT 1 FROM remaining)";
                 return (long)command.ExecuteScalar()! != 0;
             }
         }
 
-        public void Add(string path) => Try(() =>
+        public void Add(string path, ExistingEntryMetadata metadata) => Try(() =>
         {
             InitialCount++;
             if (_disk == null)
             {
-                if (_paths.Add(path)) _stringBytes += 32L + path.Length * 2L;
-                if (_stringBytes + _paths.EnsureCapacity(0) * 20L + 48 <= limit) return;
+                if (_entries.TryAdd(path, metadata)) _stringBytes += 32L + path.Length * 2L;
+                if (_stringBytes + _entries.EnsureCapacity(0) * 48L + 48 <= limit) return;
                 Directory.CreateDirectory(directory);
                 _path = Path.Combine(directory, $"remaining-{Environment.ProcessId}-{Guid.NewGuid():N}.db");
                 _disk = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _path, Pooling = false }.ToString());
@@ -251,34 +323,49 @@ public sealed partial class SearchCatalog
                 using var transaction = _disk.BeginTransaction();
                 using var insert = _disk.CreateCommand(); insert.Transaction = transaction;
                 insert.CommandText = "INSERT INTO remaining VALUES(@path)"; insert.Parameters.Add("@path", SqliteType.Text);
-                foreach (var value in _paths) { insert.Parameters[0].Value = value; insert.ExecuteNonQuery(); }
-                transaction.Commit(); _paths.Clear(); _paths.TrimExcess();
+                foreach (var key in _entries.Keys) { insert.Parameters[0].Value = key; insert.ExecuteNonQuery(); }
+                transaction.Commit(); _entries.Clear(); _entries.TrimExcess(0);
             }
             else
             {
+                _pending ??= new List<string>(256);
                 _pending.Add(path);
                 if (_pending.Count == 256) Flush();
             }
         });
 
-        public void Seen(IEnumerable<string> paths) => Try(() =>
+        public bool TryMatchAndRemove(string path, long size, long createdTicks, long modifiedTicks,
+            bool isDirectory, bool isHidden, bool isSymbolicLink)
         {
-            if (_disk == null) { foreach (var path in paths) _paths.Remove(path); return; }
+            if (Error != null || _disk != null || _entries.Count == 0) return false;
+            if (!_entries.TryGetValue(path, out var existing)) return false;
+            if (!existing.Matches(size, createdTicks, modifiedTicks, isDirectory, isHidden, isSymbolicLink)) return false;
+            _entries.Remove(path);
+            return true;
+        }
+
+        public void Seen(IReadOnlyList<SearchEntry> entries) => Try(() =>
+        {
+            if (_disk == null)
+            {
+                for (var i = 0; i < entries.Count; i++) _entries.Remove(entries[i].Path);
+                return;
+            }
             Flush();
             using var transaction = _disk.BeginTransaction();
             using var command = _disk.CreateCommand(); command.Transaction = transaction;
             command.CommandText = "DELETE FROM remaining WHERE path=@path COLLATE BINARY"; command.Parameters.Add("@path", SqliteType.Text);
-            foreach (var path in paths) { command.Parameters[0].Value = path; command.ExecuteNonQuery(); }
+            for (var i = 0; i < entries.Count; i++) { command.Parameters[0].Value = entries[i].Path; command.ExecuteNonQuery(); }
             transaction.Commit();
         });
 
         private void Flush()
         {
-            if (_pending.Count == 0) return;
+            if (_pending == null || _pending.Count == 0) return;
             using var transaction = _disk!.BeginTransaction();
             using var command = _disk.CreateCommand(); command.Transaction = transaction;
             command.CommandText = "INSERT OR IGNORE INTO remaining VALUES(@path)"; command.Parameters.Add("@path", SqliteType.Text);
-            foreach (var path in _pending) { command.Parameters[0].Value = path; command.ExecuteNonQuery(); }
+            for (var i = 0; i < _pending.Count; i++) { command.Parameters[0].Value = _pending[i]; command.ExecuteNonQuery(); }
             transaction.Commit(); _pending.Clear();
         }
 
@@ -287,12 +374,12 @@ public sealed partial class SearchCatalog
             if (Error != null) return;
             try { action(); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SqliteException)
-            { Error = ex; _paths.Clear(); }
+            { Error = ex; _entries.Clear(); }
         }
 
         public IEnumerable<string> Read()
         {
-            if (_disk == null) { foreach (var path in _paths) yield return path; yield break; }
+            if (_disk == null) { foreach (var key in _entries.Keys) yield return key; yield break; }
             Flush();
             using var command = _disk.CreateCommand(); command.CommandText = "SELECT path FROM remaining";
             using var reader = command.ExecuteReader(); while (reader.Read()) yield return reader.GetString(0);
@@ -300,7 +387,8 @@ public sealed partial class SearchCatalog
 
         public void Dispose()
         {
-            _paths.Clear();
+            _entries.Clear();
+            if (_entries.EnsureCapacity(0) > 1024) _entries.TrimExcess(256);
             try { _disk?.Dispose(); }
             finally
             {

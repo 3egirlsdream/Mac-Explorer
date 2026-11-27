@@ -7,16 +7,30 @@ using Svg.Skia;
 namespace MacExplorer.Services.Impl;
 
 /// <summary>Immutable source shared by render jobs; replacement releases it after the last job finishes.</summary>
-internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, byte[] png, Bitmap? darkPreview = null) : IDisposable
+internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, byte[] png, Bitmap? darkPreview = null, bool isPreviewOnly = false) : IDisposable
 {
     private int _references = 1;
     public SKBitmap? Texture { get; } = texture;
-    public Bitmap Preview { get; private set; } = preview;
+    public bool IsPreviewOnly { get; } = isPreviewOnly;
+    private Bitmap? _preview = preview;
+    public Bitmap? Preview => _preview;
     private Bitmap? _darkPreview = darkPreview;
-    public Bitmap DarkPreview => _darkPreview ?? Preview;
+    public Bitmap? DarkPreview => _darkPreview ?? _preview;
+    public bool HasDistinctDarkPreview => _darkPreview != null;
     public byte[] Png { get; private set; } = png;
     public void ReleaseEncoded() => Png = [];
     public BackgroundThemeArtwork Retain() { Interlocked.Increment(ref _references); return this; }
+
+    /// <summary>Moves UI-thread preview bitmaps into a preview-only instance so the full texture can be disposed independently.</summary>
+    public BackgroundThemeArtwork? DetachPreviewOnly()
+    {
+        var preview = _preview;
+        if (preview == null) return null;
+        var darkPreview = _darkPreview;
+        _preview = null;
+        _darkPreview = null;
+        return new BackgroundThemeArtwork(null, preview, [], darkPreview, isPreviewOnly: true);
+    }
 
     public static BackgroundThemeArtwork Decode(byte[] bytes, CancellationToken token)
     {
@@ -27,6 +41,12 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
             return new(decoded, CreateThumbnail(decoded), encoded.ToArray());
         }
         catch { decoded.Dispose(); throw; }
+    }
+
+    public static BackgroundThemeArtwork DecodePreviewOnly(byte[] bytes, CancellationToken token)
+    {
+        using var decoded = BoundedImageDecoder.DecodeSkia(bytes, 512, token) ?? throw new InvalidDataException();
+        return new(null, ToBitmap(decoded), [], isPreviewOnly: true);
     }
 
     public static SKBitmap DecodePresetPreview(string asset, CancellationToken token)
@@ -82,14 +102,14 @@ internal sealed class BackgroundThemeArtwork(SKBitmap? texture, Bitmap preview, 
         Bitmap nextDark;
         try { nextDark = ToBitmap(dark); }
         catch { nextLight.Dispose(); throw; }
-        var oldLight = Preview; var oldDark = _darkPreview;
-        Preview = nextLight; _darkPreview = nextDark;
-        oldLight.Dispose(); oldDark?.Dispose();
+        var oldLight = _preview; var oldDark = _darkPreview;
+        _preview = nextLight; _darkPreview = nextDark;
+        oldLight?.Dispose(); oldDark?.Dispose();
     }
 
     public void Dispose()
     {
         if (Interlocked.Decrement(ref _references) != 0) return;
-        Preview.Dispose(); _darkPreview?.Dispose(); Texture?.Dispose();
+        _preview?.Dispose(); _darkPreview?.Dispose(); Texture?.Dispose();
     }
 }

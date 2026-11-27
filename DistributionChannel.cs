@@ -8,7 +8,6 @@ public static class DistributionChannel
 #else
     public static bool IsAppStore => false;
 #endif
-    public static bool SupportsExternalPlugins => !IsAppStore;
     public static bool SupportsSystemIntegration => !IsAppStore;
     public static void RequireWebsite(string feature)
     {

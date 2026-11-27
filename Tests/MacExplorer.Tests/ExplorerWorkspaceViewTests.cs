@@ -5,6 +5,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
+using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using MacExplorer.Controls;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
@@ -294,31 +296,48 @@ public sealed class ExplorerWorkspaceViewTests
 [Trait("Area", "ExplorerWorkspaceView")]
 public sealed class ExplorerWorkspaceViewViewModelTests : FileListViewModelTestBase
 {
-    [AvaloniaFact(Explicit = true)]
-    public void SplitWorkspaceOnlyOverflowsFileActionsWhenTheToolbarRunsOutOfSpace()
+    [AvaloniaTheory(Explicit = true)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WorkspaceOnlyOverflowsFileActionsThatDoNotFit(bool split)
     {
         using var theme = new FastListTestTheme();
         using var vm = CreateViewModel(new FakeFileService("/tmp/fkfinder-split-toolbar"));
         using var tab = new ExplorerTabViewModel(vm) { IsActive = true };
-        using var workspace = new ExplorerWorkspaceView { ForceCompact = true, DataContext = tab };
+        using var workspace = new ExplorerWorkspaceView { ForceCompact = split, DataContext = tab };
         var window = new Window { Width = 720, Height = 500, Content = workspace };
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+        window.Styles.Add((Styles)AvaloniaXamlLoader.Load(new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         window.Show();
         try
         {
             Dispatcher.UIThread.RunJobs();
             Assert.True(workspace.IsCompact);
             var toolbar = workspace.FindControl<FinderToolbar>("ToolbarControl")!;
-            var inlineActions = toolbar.FindControl<Control>("InlineActionsHost")!;
-            Assert.True(inlineActions.IsEffectivelyVisible);
+            var copy = toolbar.FindControl<Button>("CopyButton")!;
+            var home = toolbar.FindControl<Button>("HomeButton")!;
+            var leading = toolbar.FindControl<StackPanel>("LeadingActions")!;
+            var viewModes = toolbar.FindControl<Grid>("ViewModeControls")!;
+            var grid = toolbar.FindControl<Grid>("ToolbarLayout")!;
+            Assert.True(home.IsEffectivelyVisible);
 
-            window.Width = 370;
+            var unusedWidth = viewModes.Bounds.Left - leading.Bounds.Right - 2 * grid.ColumnSpacing;
+            window.Width -= unusedWidth + 2;
+            window.UpdateLayout();
+            Assert.True(copy.IsEffectivelyVisible);
+            Assert.False(home.IsEffectivelyVisible);
+            toolbar.ToggleMenu(ToolbarMenuKind.More);
             Dispatcher.UIThread.RunJobs();
-            Assert.False(inlineActions.IsEffectivelyVisible);
+            Assert.False(toolbar.FindControl<Button>("CopyOverflowButton")!.IsEffectivelyVisible);
+            Assert.True(toolbar.FindControl<Button>("HomeOverflowButton")!.IsEffectivelyVisible);
+            toolbar.CloseDropdowns();
 
+            window.Width = 260;
+            window.UpdateLayout();
+            Assert.False(copy.IsEffectivelyVisible);
             window.Width = 720;
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(workspace.IsCompact);
-            Assert.True(inlineActions.IsEffectivelyVisible);
+            window.UpdateLayout();
+            Assert.True(home.IsEffectivelyVisible);
         }
         finally { window.Close(); }
     }

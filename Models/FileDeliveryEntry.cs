@@ -11,6 +11,6 @@ public sealed record FileDeliveryEntry(string Id, string Name, string Location)
 
 public sealed record FileDeliveryPreferences
 {
-    public List<FileDeliveryEntry> Entries { get; init; } = [];
+    public List<FileDeliveryEntry> Entries { get; set; } = [];
     public string? SelectedId { get; init; }
 }

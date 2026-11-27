@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -94,6 +95,13 @@ public sealed class PopupGlassTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
             Assert.True(Participates());
+
+            var renderer = typeof(TopLevel).GetProperty("Renderer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            var invalidate = renderer.GetType().GetMethod("TriggerSceneInvalidatedForUnitTests")!;
+            var previous = LiquidGlassDiagnostics.Snapshot.DirtyRectAvailable;
+            invalidate.Invoke(renderer, [new Rect(window.ClientSize)]);
+            Assert.Equal(previous + 1, LiquidGlassDiagnostics.Snapshot.DirtyRectAvailable);
+
             page.IsVisible = false;
             Dispatcher.UIThread.RunJobs();
             Assert.True(glass.IsVisible);

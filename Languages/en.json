@@ -5,6 +5,7 @@
   "order": 2,
   "fallback": "zh-CN",
   "strings": {
+    "plugin.nativeOnly": "This version runs in native AOT mode. External plugins are being redesigned. Built-in file conversion is available.",
     "operation.Copy": "Copying files",
     "operation.Paste": "Pasting files",
     "operation.Move": "Moving files",

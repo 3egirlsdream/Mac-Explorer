@@ -1,6 +1,8 @@
+#include <libproc.h>
 #include <mach/mach.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
 
@@ -11,6 +13,26 @@ int64_t me_memory_footprint() {
     if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count) != KERN_SUCCESS
         || count < TASK_VM_INFO_REV1_COUNT) return -1;
     return (int64_t)info.phys_footprint;
+}
+
+extern "C" __attribute__((visibility("default")))
+int me_memory_thread_count() {
+    struct proc_taskinfo info = {};
+    int size = proc_pidinfo(getpid(), PROC_PIDTASKINFO, 0, &info, (int)sizeof(info));
+    if (size < (int)sizeof(info) || info.pti_threadnum < 0) return -1;
+    return info.pti_threadnum;
+}
+
+extern "C" __attribute__((visibility("default")))
+int me_window_is_occluded(void *viewPointer) {
+    if (!viewPointer || !NSThread.isMainThread) return -1;
+    @try {
+        NSView *view = (__bridge NSView *)viewPointer;
+        NSWindow *window = view.window;
+        if (!window) return -1;
+        if (!window.isVisible || window.isMiniaturized) return 1;
+        return (window.occlusionState & NSWindowOcclusionStateVisible) ? 0 : 1;
+    } @catch (NSException *exception) { return -1; }
 }
 
 static NSArray *DiagnosticSize(NSSize size) { return @[@(size.width), @(size.height)]; }

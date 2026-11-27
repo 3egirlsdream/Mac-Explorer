@@ -1,3 +1,4 @@
+using MacExplorer.Services;
 using System.Runtime.InteropServices;
 using SkiaSharp;
 
@@ -32,7 +33,8 @@ internal static class LibRawThumbnailDecoder
             cancellationToken.ThrowIfCancellationRequested();
             var rawWidth = GetRawWidth(context); var rawHeight = GetRawHeight(context);
             if (!ValidDimensions(rawWidth, rawHeight)) return null;
-            MacExplorer.Services.MemoryDiagnostics.Record("image.raw_decode", new { width = rawWidth, height = rawHeight, maxPixelSize });
+            MacExplorer.Services.MemoryDiagnostics.Record("image.raw_decode", new RawDecodeReport(rawWidth, rawHeight,
+                                                                                  maxPixelSize));
             if (Unpack(context) != 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();

@@ -435,25 +435,59 @@ public sealed class FileTagService : IFileTagService, IDisposable
         TagsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public async Task<TagSyncResult> RetryPendingAsync(CancellationToken cancellationToken = default)
+    public Task<TagSyncResult> RetryPendingAsync(CancellationToken cancellationToken = default)
+        => RetryPendingAsync(existingTask: null, cancellationToken);
+
+    private async Task<TagSyncResult> RetryPendingAsync(BackgroundTaskInfo? existingTask, CancellationToken cancellationToken)
     {
-        await _retryLock.WaitAsync(cancellationToken);
+        using var linkedCancellation = existingTask == null
+            ? null
+            : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, existingTask.Cts.Token);
+        var effectiveToken = linkedCancellation?.Token ?? cancellationToken;
+        try
+        {
+            await _retryLock.WaitAsync(effectiveToken);
+        }
+        catch (OperationCanceledException)
+        {
+            if (existingTask != null) _tasks?.CancelTask(existingTask.Id);
+            throw;
+        }
         try
         {
             IReadOnlyList<string> paths;
-            await _connectionLock.WaitAsync(cancellationToken);
+            await _connectionLock.WaitAsync(effectiveToken);
             try { paths = ReadPaths("SELECT DISTINCT file_path FROM pending_tag_changes"); }
             finally { _connectionLock.Release(); }
-            return await SyncPathsAsync(paths, cancellationToken);
+            if (paths.Count == 0 && existingTask != null)
+            {
+                _tasks?.CompleteTask(existingTask.Id);
+                return new TagSyncResult(0, 0);
+            }
+            return await SyncPathsAsync(paths, effectiveToken, existingTask);
+        }
+        catch (OperationCanceledException)
+        {
+            if (existingTask != null) _tasks?.CancelTask(existingTask.Id);
+            throw;
         }
         finally { _retryLock.Release(); }
     }
 
-    private async Task<TagSyncResult> SyncPathsAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    private async Task<TagSyncResult> SyncPathsAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken,
+        BackgroundTaskInfo? existingTask = null)
     {
-        var progress = paths.Count > 0 ? _tasks?.AddTask("同步 Finder 标签", BackgroundTaskKind.Generic,
-            retryAction: async () => { await RetryPendingAsync(); }) : null;
-        using var linkedCancellation = progress == null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, progress.Cts.Token);
+        BackgroundTaskInfo? progress = existingTask;
+        if (progress == null && paths.Count > 0 && _tasks != null)
+        {
+            BackgroundTaskInfo? created = null;
+            created = _tasks.AddTask("同步 Finder 标签", BackgroundTaskKind.Generic,
+                retryAction: () => RetryPendingAsync(created, CancellationToken.None));
+            progress = created;
+        }
+        using var linkedCancellation = progress == null || existingTask != null
+            ? null
+            : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, progress.Cts.Token);
         cancellationToken = linkedCancellation?.Token ?? cancellationToken;
         var synced = 0;
         try

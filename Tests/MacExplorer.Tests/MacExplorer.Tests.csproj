@@ -19,7 +19,6 @@
     <ProjectReference Include="../../MacExplorer.csproj" />
     <ProjectReference Include="../MacExplorer.UnitTests/MacExplorer.UnitTests.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../Plugins/FileConversion/MacExplorer.FileConversion.Plugin.csproj" />
-    <ProjectReference Include="../../Tools/PluginTestFixture/PluginTestFixture.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="TestData/generated-orientation-6.dng" CopyToOutputDirectory="PreserveNewest" />
@@ -30,13 +29,13 @@
     <Content Include="TestData/sftp-loopback.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyHostNativeTestDependencies" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('osx'))">
-    <MSBuild Projects="../../MacExplorer.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)">
-      <Output TaskParameter="TargetOutputs" ItemName="_HostAssembly" />
-    </MSBuild>
+    <ItemGroup>
+      <_HostAssembly Include="@(ReferenceCopyLocalPaths)"
+                     Condition="'%(ReferenceCopyLocalPaths.Filename)%(ReferenceCopyLocalPaths.Extension)' == 'MacExplorer.dll'" />
+    </ItemGroup>
     <PropertyGroup><_HostDirectory>@(_HostAssembly->'%(RootDir)%(Directory)')</_HostDirectory></PropertyGroup>
     <Copy SourceFiles="$(_HostDirectory)libMacExplorerNativeDrag.dylib" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(_HostDirectory)MacExplorer.Thumbnail;$(_HostDirectory)MacExplorer.ImageAnalysis;$(_HostDirectory)MacExplorer.FileConversion" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="'$(SkipMacOSNativeHelpers)' != 'true'" />
     <Copy SourceFiles="$(_HostDirectory)MacExplorer.Git" DestinationFolder="$(TargetDir)" Condition="'$(DistributionChannel)' == 'AppStore' and '$(SkipMacOSNativeHelpers)' != 'true'" />
-    <Copy SourceFiles="../../Plugins/FileConversion/plugin.json" DestinationFolder="$(TargetDir)BuiltInConversion" />
   </Target>
 </Project>

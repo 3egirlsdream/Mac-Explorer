@@ -11,6 +11,7 @@
     "zh-CHT"
   ],
   "strings": {
+    "plugin.nativeOnly": "目前版本以純原生 AOT 模式執行，外部外掛系統正在重新設計。內建檔案轉換已啟用。",
     "operation.Copy": "正在複製檔案",
     "operation.Paste": "正在貼上檔案",
     "operation.Move": "正在移動檔案",

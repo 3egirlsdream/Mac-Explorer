@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Encodings.Web;
 
 namespace MacExplorer.Copilot;
 
@@ -10,11 +9,6 @@ public sealed record CopilotAttachment(string Path, bool IsDirectory)
 
 public static class CopilotAttachments
 {
-    private static readonly JsonSerializerOptions PromptJsonOptions = new()
-    {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
-
     public static CopilotAttachment[] FromPaths(IEnumerable<string> paths)
     {
         var result = new List<CopilotAttachment>();
@@ -33,12 +27,12 @@ public static class CopilotAttachments
     public static string BuildPrompt(string message, IReadOnlyList<CopilotAttachment> attachments)
         => attachments.Count == 0 ? message :
             $"{message}\n\n本轮附件仅提供本地路径，文件未移动，也未读取内容。请按用户要求通过已登记能力处理这些路径：\n" +
-            JsonSerializer.Serialize(attachments.Select(item => new { item.Path, Type = item.IsDirectory ? "folder" : "file" }),
-                PromptJsonOptions);
+            JsonSerializer.Serialize(attachments.Select(item => new AttachmentPromptEntry(item.Path,
+                item.IsDirectory ? "folder" : "file")).ToArray(), CopilotJsonContext.Relaxed.AttachmentPromptEntryArray);
 
     public static CopilotAttachment[] Parse(string json)
     {
-        try { return JsonSerializer.Deserialize<CopilotAttachment[]>(json) ?? []; }
+        try { return JsonSerializer.Deserialize(json, CopilotJsonContext.Default.CopilotAttachmentArray) ?? []; }
         catch (JsonException) { return []; }
     }
 }

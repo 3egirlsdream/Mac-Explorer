@@ -1,3 +1,4 @@
+using MacExplorer.Serialization;
 using System.Text.Json;
 
 namespace MacExplorer.Services;
@@ -36,7 +37,7 @@ internal static class TabGroupPresets
         if (string.IsNullOrEmpty(json)) return [];
         try
         {
-            var saved = JsonSerializer.Deserialize<TabGroupPreset[]>(json) ?? [];
+            var saved = JsonSerializer.Deserialize(json, AppJsonContext.Default.TabGroupPresetArray) ?? [];
             var result = new List<TabGroupPreset>();
             var ids = new HashSet<Guid>();
             foreach (var preset in saved)
@@ -58,9 +59,9 @@ internal static class TabGroupPresets
         var index = presets.FindIndex(item => item.Id == preset.Id);
         if (index < 0) presets.Add(preset);
         else presets[index] = preset;
-        settings.Set(SettingKey, JsonSerializer.Serialize(presets));
+        settings.Set(SettingKey, JsonSerializer.Serialize(presets, AppJsonContext.Default.ListTabGroupPreset));
     }
 
     internal static void Delete(ISettingsService settings, Guid id)
-        => settings.Set(SettingKey, JsonSerializer.Serialize(Read(settings).Where(item => item.Id != id).ToArray()));
+        => settings.Set(SettingKey, JsonSerializer.Serialize(Read(settings).Where(item => item.Id != id).ToArray(), AppJsonContext.Default.TabGroupPresetArray));
 }

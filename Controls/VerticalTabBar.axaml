@@ -8,7 +8,6 @@
              x:Class="MacExplorer.Controls.VerticalTabBar"
              x:Name="VerticalTabBarRoot"
              x:DataType="vm:MainWindowViewModel"
-             x:CompileBindings="False"
              ClipToBounds="False"
              chrome:WindowDecorationProperties.ElementRole="User">
     <Grid ClipToBounds="False">

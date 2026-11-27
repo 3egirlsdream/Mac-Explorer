@@ -7,12 +7,11 @@
              xmlns:models="using:MacExplorer.Models"
              xmlns:local="using:MacExplorer.Views"
              x:Class="MacExplorer.Views.BreadcrumbBar"
-             x:DataType="vm:FileListViewModel"
-             x:CompileBindings="False">
+             x:DataType="vm:FileListViewModel">
 
     <UserControl.Styles>
 
-        <Style Selector="Button.breadcrumb-segment-dropdown">
+        <Style Selector="Button.breadcrumb-segment-dropdown" x:DataType="models:BreadcrumbSegment">
             <Setter Property="IsVisible" Value="{Binding HasDropdown}"/>
         </Style>
 
@@ -78,7 +77,7 @@
                                 <controls:AppButton Classes="breadcrumb-button breadcrumb-dropdown breadcrumb-segment-dropdown"
                                         Click="OnDirectoryDropdownClicked"
                                         KeyDown="OnDropdownKeyDown"
-                                        AutomationProperties.Name="{loc:LocFormat Path=DisplayName, Text='显示 {0} 的子目录'}"
+                                        AutomationProperties.Name="{loc:LocFormat Argument={Binding DisplayName}, Text='显示 {0} 的子目录'}"
                                         ToolTip.Tip="{loc:Loc ui.432}">
                                     <PathIcon Data="{x:Static icons:Icons.ChevronRight}" Width="10" Height="10"/>
                                 </controls:AppButton>

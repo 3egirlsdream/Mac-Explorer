@@ -23,7 +23,7 @@ internal static class MemoryRetentionProbe
     internal static void Record(string stage, ulong releasedBytes = 0)
     {
         var gc = GC.GetGCMemoryInfo(GCKind.FullBlocking);
-        MemoryDiagnostics.Record("retention.state", new
+        Program.RecordDiagnostic("retention.state", new
         {
             stage, releasedBytes, footprintBytes = MemoryDiagnostics.ReadPhysicalFootprint(),
             managedBytes = GC.GetTotalMemory(false), currentGcIndex = GC.GetGCMemoryInfo().Index,
