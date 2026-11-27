@@ -2,6 +2,12 @@
         xmlns:controls="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets"
              x:Class="MacExplorer.Controls.BackgroundThemeSettingsView">
+    <UserControl.Styles>
+        <Style Selector="Border.theme-swatch-image">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+        </Style>
+    </UserControl.Styles>
     <StackPanel Spacing="6">
         <Border Classes="settings-group">
             <StackPanel>

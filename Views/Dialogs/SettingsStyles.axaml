@@ -289,4 +289,32 @@
         <Setter Property="Padding" Value="8"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     </Style>
+
+    <Style Selector="ListBox.settings-tabs">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Width" Value="140"/>
+    </Style>
+    <Style Selector="ListBox.settings-tabs ListBoxItem">
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Margin" Value="0,2"/>
+    </Style>
+    <Style Selector="ListBox.settings-tabs ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+    </Style>
+    <Style Selector="ListBox.settings-tabs ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+    </Style>
+    <Style Selector="CheckBox.settings-check">
+        <Setter Property="Margin" Value="0,6,0,0"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+    </Style>
+    <Style Selector="TextBlock.shortcut-error">
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+    </Style>
 </Styles>

@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StyleInclude Source="avares://MacExplorer/Assets/ScrollBarStyles.axaml"/>
+    <StyleInclude Source="avares://MacExplorer/Assets/SidebarStyles.axaml"/>
 
     <!-- ═══════════════════════════════════════
        MacExplorer Design System v3 — Avalonia
@@ -15,144 +16,6 @@
 
     <Style Selector="Border.glass-effect-without-border">
         <Setter Property="Background" Value="{DynamicResource GlassEffectBg}"/>
-    </Style>
-
-    <!-- ═══ Sidebar Styles ═══ -->
-    <Style Selector="Border.finder-sidebar">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-    </Style>
-
-    <Style Selector="ListBox.sidebar">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-    </Style>
-
-    <Style Selector="ListBox.sidebar ListBoxItem">
-        <Setter Property="Padding" Value="10,3"/>
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="Margin" Value="4,1"/>
-        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
-    </Style>
-
-    <Style Selector="ListBox.sidebar ListBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
-
-    <Style Selector="ListBox.sidebar ListBoxItem.active /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
-
-    <Style Selector="TextBlock.sidebar-section-title">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
-        <Setter Property="LineHeight" Value="{DynamicResource LineHeightCaption}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="Padding" Value="18,4,18,4"/>
-        <Setter Property="Margin" Value="0,0,0,2"/>
-    </Style>
-
-    <!-- Collapsible section title -->
-    <Style Selector="TextBlock.sidebar-section-title-collapsible">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
-        <Setter Property="LineHeight" Value="{DynamicResource LineHeightCaption}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="Padding" Value="18,4,18,4"/>
-        <Setter Property="Margin" Value="0,8,0,2"/>
-        <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-
-    <!-- Collapse chevron -->
-    <Style Selector="PathIcon.sidebar-collapse-icon">
-        <Setter Property="Width" Value="10"/>
-        <Setter Property="Height" Value="10"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
-    </Style>
-
-    <Style Selector="PathIcon.sidebar-collapse-icon.expanded">
-        <Setter Property="RenderTransform" Value="rotate(0.25turn)"/>
-    </Style>
-
-    <Style Selector="Grid.sidebar-section-header">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="HorizontalAlignment" Value="Stretch"/>
-        <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-
-    <Style Selector="Grid.sidebar-section-header PathIcon.sidebar-header-reveal">
-        <Setter Property="Opacity" Value="0.65"/>
-        <Setter Property="IsHitTestVisible" Value="False"/>
-    </Style>
-
-    <!-- Sidebar item action button (visible on hover) -->
-
-    <Style Selector="ItemsControl.sidebar-items">
-        <Setter Property="HorizontalAlignment" Value="Stretch"/>
-    </Style>
-
-    <Style Selector="ItemsControl.sidebar-items ContentPresenter">
-        <Setter Property="HorizontalAlignment" Value="Stretch"/>
-    </Style>
-
-    <!-- Sidebar item — non-ListBox, for single items with inline buttons -->
-    <Style Selector="Border.sidebar-item">
-        <Setter Property="HorizontalAlignment" Value="Stretch"/>
-        <Setter Property="Padding" Value="10,3"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="Margin" Value="4,1"/>
-        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item > Grid">
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item > StackPanel">
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item PathIcon">
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item TextBlock">
-        <Setter Property="VerticalAlignment" Value="Center"/>
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
-        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBodyLarge}"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item TextBlock.sidebar-secondary-text">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
-    </Style>
-
-    <Style Selector="TextBox.tag-name-editor">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item:pointerover">
-        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
-    </Style>
-
-    <Style Selector="Grid.sidebar-section-header:pointerover PathIcon.sidebar-header-reveal">
-        <Setter Property="Opacity" Value="1"/>
-    </Style>
-
-    <Style Selector="Border.sidebar-item.active">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
     </Style>
 
     <!-- ═══ Toolbar Styles ═══ -->
@@ -323,12 +186,6 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
-    <!-- ═══ File List Styles ═══ -->
-    <Style Selector="Border.file-list-header">
-        <Setter Property="Height" Value="30"/>
-        <Setter Property="Padding" Value="12,0,12,0"/>
-    </Style>
-
     <!-- ═══ Status Bar ═══ -->
     <Style Selector="Border.status-bar">
         <Setter Property="Height" Value="32"/>
@@ -396,86 +253,7 @@
         <Setter Property="Background" Value="{DynamicResource GlassEffectBg}"/>
     </Style>
 
-    <!-- ═══ AI View ═══ -->
-    <Style Selector="Border.ai-view-host">
-        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
-    </Style>
-
-    <Style Selector="Border.ai-search-box">
-        <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="Padding" Value="10,0"/>
-        <Setter Property="MinHeight" Value="32"/>
-        <Setter Property="BoxShadow" Value="none"/>
-    </Style>
-
-    <!-- ═══ Task Overlay Panel ═══ -->
-
-    <Style Selector="Border.task-overlay-row">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="MinHeight" Value="32"/>
-    </Style>
-    <Style Selector="Border.task-overlay-row:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-    </Style>
-
-    <Style Selector="Border.task-state-dot">
-        <Setter Property="Width" Value="8"/>
-        <Setter Property="Height" Value="8"/>
-        <Setter Property="CornerRadius" Value="999"/>
-        <Setter Property="VerticalAlignment" Value="Top"/>
-        <Setter Property="Margin" Value="0,5,0,0"/>
-    </Style>
-    <Style Selector="Border.task-state-dot.running">
-        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-    </Style>
-    <Style Selector="Border.task-state-dot.completed">
-        <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
-    </Style>
-    <Style Selector="Border.task-state-dot.failed">
-        <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-    </Style>
-
-    <Style Selector="TextBlock.task-label">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="TextBlock.task-percent">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="TextBlock.task-status">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
-    </Style>
-
-    <Style Selector="ProgressBar.task-mini">
-        <Setter Property="Height" Value="3"/>
-        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-    </Style>
-
-    <!-- ═══ Home View ═══ -->
-    <Style Selector="Border.home-quick-links">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="Padding" Value="20,16"/>
-        <Setter Property="Width" Value="360"/>
-    </Style>
-
-    <Style Selector="Border.home-search-box">
-        <Setter Property="Height" Value="48"/>
-        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
+    <!-- ═══ Home Search Input (shared with GlobalSearchInputFocusTests) ═══ -->
     <Style Selector="TextBox.home-search-input">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
@@ -491,14 +269,6 @@
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
-    <Style Selector="Border.home-shortcut-icon">
-        <Setter Property="Width" Value="82"/>
-        <Setter Property="Height" Value="82"/>
-        <Setter Property="CornerRadius" Value="41"/>
-        <Setter Property="Background" Value="{DynamicResource GlassPanelBg}"/>
-        <Setter Property="HorizontalAlignment" Value="Center"/>
-    </Style>
-
     <!-- ═══ Tooltip ═══ -->
     <Style Selector="ToolTip">
         <Setter Property="Background" Value="{DynamicResource GlassEffectBgSubmenu}"/>
@@ -506,42 +276,6 @@
         <Setter Property="Padding" Value="6,3"/>
         <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
         <Setter Property="CornerRadius" Value="4"/>
-    </Style>
-
-    <!-- ═══ Settings Tab Styles ═══ -->
-    <Style Selector="ListBox.settings-tabs">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Width" Value="140"/>
-    </Style>
-
-    <Style Selector="ListBox.settings-tabs ListBoxItem">
-        <Setter Property="Padding" Value="10,8"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="Margin" Value="0,2"/>
-    </Style>
-
-    <Style Selector="ListBox.settings-tabs ListBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
-
-    <Style Selector="ListBox.settings-tabs ListBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
-
-    <!-- ═══ Settings Content ═══ -->
-    <Style Selector="CheckBox.settings-check">
-        <Setter Property="Margin" Value="0,6,0,0"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-    </Style>
-
-    <Style Selector="TextBlock.settings-section-title">
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeHeading}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-        <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
     <!-- Compact text choices in settings-style rows. -->

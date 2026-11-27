@@ -153,12 +153,13 @@ public sealed class TypographyTests
         var service = new TypographyService(new InMemorySettingsService());
         service.Initialize();
         var command = new TextBox { Text = "echo 中文 && pwd", Classes = { "settings-command-editor" } };
+        var sectionTitle = new TextBlock { Text = "外观", Classes = { "settings-section-title" } };
         var toolTitle = new TextBlock { Text = "工具执行 Tool", Classes = { "copilot-tool-title" } };
         var subscription = new SubscriptionView();
         var window = new Window
         {
             Width = 440, Height = 700,
-            Content = new StackPanel { Children = { command, toolTitle, subscription } }
+            Content = new StackPanel { Children = { sectionTitle, command, toolTitle, subscription } }
         };
         window.Styles.Add((Styles)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
@@ -169,6 +170,9 @@ public sealed class TypographyTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var price = subscription.FindControl<TextBlock>("PriceText")!;
+            Assert.Equal(12, sectionTitle.FontSize);
+            Assert.Equal(FontWeight.Normal, sectionTitle.FontWeight);
+            Assert.Equal(new Thickness(10, 0, 0, 0), sectionTitle.Margin);
             Assert.Equal("Menlo", command.FontFamily.Name);
             Assert.Equal(FontWeight.Normal, command.FontWeight);
             Assert.Equal("System Font", toolTitle.FontFamily.Name);
@@ -180,6 +184,7 @@ public sealed class TypographyTests
 
             service.SetPreset(FontSizePreset.Large);
             Dispatcher.UIThread.RunJobs();
+            Assert.Equal(14, sectionTitle.FontSize);
             Assert.Equal(14, command.FontSize);
             Assert.Equal(14, toolTitle.FontSize);
             Assert.Equal(28, price.FontSize);

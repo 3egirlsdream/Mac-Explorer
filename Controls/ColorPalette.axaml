@@ -1,6 +1,33 @@
 <UserControl xmlns="https://github.com/avaloniaui"
         xmlns:controls="using:MacExplorer.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="using:MacExplorer.Controls" xmlns:icons="using:MacExplorer.Assets" x:Class="MacExplorer.Controls.ColorPalette">
+    <UserControl.Styles>
+        <Style Selector="Border.color-palette-surface">
+            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style Selector="PathIcon.color-palette-reset-icon">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="controls|ColorPalette.popover Border.color-palette-surface">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+        <Style Selector="controls|ColorPalette.popover TextBlock.color-palette-reset-label">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="controls|ColorPalette.popover PathIcon.color-palette-reset-icon">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="Border.color-palette-dot">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
+        </Style>
+    </UserControl.Styles>
     <Border Classes="color-palette-surface">
         <StackPanel Spacing="8">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">

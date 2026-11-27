@@ -177,6 +177,8 @@ public sealed class FileConversionMenuViewModelTests : FileListViewModelTestBase
                 {
                     var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
                         .Single(p => p.Name == "PART_ContentPresenter");
+                    if (button.Name == "PART_DecreaseButton")
+                        Assert.Equal(new CornerRadius(0, 6, 6, 0), presenter.CornerRadius);
                     Assert.Equal(Avalonia.Media.Colors.Transparent, Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(presenter.BorderBrush).Color);
                     Assert.Equal(new Thickness(0), input.BorderThickness);
                     var bounds = button.Bounds;

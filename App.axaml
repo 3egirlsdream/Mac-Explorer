@@ -27,7 +27,6 @@
         <StyleInclude Source="avares://MacExplorer/Controls/AppWindow.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/ComponentStyles.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/HomeStyles.axaml"/>
-        <StyleInclude Source="avares://MacExplorer/Assets/FileDeliveryStyles.axaml"/>
         <StyleInclude Source="avares://MacExplorer/Assets/VerticalTabBarStyles.axaml"/>
     </Application.Styles>
 </Application>

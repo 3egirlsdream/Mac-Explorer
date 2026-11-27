@@ -316,7 +316,6 @@ public partial class FileListView : UserControl
         if (e.PropertyName == nameof(FileListViewModel.ViewMode))
         {
             UpdateViewMode();
-            SyncFastListRows();
             Dispatcher.UIThread.Post(() =>
             {
                 ApplyListColumnWidths();
@@ -616,9 +615,10 @@ public partial class FileListView : UserControl
             resized |= FileListColumnLayoutService.Mask(resizedColumn);
         }
 
-        var headerWidth = ListHeaderViewport.Bounds.Width;
-        if (headerWidth <= 0)
-            headerWidth = Bounds.Width - ListColumnsButton.Bounds.Width - FastFileList.Inset * 2;
+        const double columnsButtonWidth = 24;
+        var headerWidth = ListHeaderPanel.IsVisible && ListHeaderViewport.Bounds.Width > 0
+            ? ListHeaderViewport.Bounds.Width
+            : Bounds.Width - (ListColumnsButton.Bounds.Width > 0 ? ListColumnsButton.Bounds.Width : columnsButtonWidth) - FastFileList.Inset * 2;
         var available = headerWidth - FastFileList.IconSlot;
         var effective = FileListColumnLayoutService.CalculateEffective(preferred, available,
             service?.HiddenColumns ?? FileListColumns.None, resized);

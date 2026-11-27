@@ -292,6 +292,52 @@ public sealed class ViewTransitionMotionTests : FileListViewModelTestBase
         Assert.Equal(ViewMode.List, settings.Get("ViewMode", ViewMode.Grid));
     }
 
+    [AvaloniaFact]
+    public void MidMorphNameColumnWidthChangeRetainsNewlyWarmedListTexts()
+    {
+        var previous = ViewMotion.ForceReducedMotionForTesting;
+        using var theme = new FastListTestTheme();
+        var list = new FastFileList { Width = 760, Height = 360, IsGrid = true };
+        var window = new Window { Width = 760, Height = 360, Content = list };
+        window.Show();
+        try
+        {
+            var entries = Enumerable.Range(0, 16)
+                .Select(i => new FileSystemEntry
+                {
+                    Name = $"report-file-{i:D2}.txt",
+                    FullPath = $"/tmp/morph-col/report-file-{i:D2}.txt",
+                    Extension = ".txt",
+                    Size = 1024 + i
+                })
+                .ToArray();
+            list.SetRows(entries);
+            window.UpdateLayout();
+
+            using var target = new RenderTargetBitmap(new PixelSize(760, 360));
+            target.Render(list);
+
+            ViewMotion.ForceReducedMotionForTesting = false;
+            list.IsGrid = false;
+            Assert.True(list.IsLayoutMorphActive);
+
+            // Name-only width adjustment during morph must not wipe texts freshly warmed at the new width when landing.
+            var adjusted = list.ColumnWidths.With(FileListColumn.Name, list.ColumnWidths.Name - 24);
+            list.ColumnWidths = adjusted;
+            target.Render(list);
+            var cachedDuringMorph = list.CachedTextCount;
+            Assert.True(cachedDuringMorph > 0);
+
+            list.CancelLayoutMorph();
+            Assert.True(list.CachedTextCount >= cachedDuringMorph);
+        }
+        finally
+        {
+            ViewMotion.ForceReducedMotionForTesting = previous;
+            window.Close();
+        }
+    }
+
     private sealed class DeferredTrackingSettingsService : ISettingsService
     {
         private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);

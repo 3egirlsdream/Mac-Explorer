@@ -6,6 +6,18 @@
              xmlns:local="using:MacExplorer.Views"
              x:Class="MacExplorer.Views.AiView"
              x:DataType="vm:FileListViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.ai-view-host">
+            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        </Style>
+        <Style Selector="Border.ai-search-box">
+            <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="BoxShadow" Value="none"/>
+        </Style>
+    </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*" Background="{DynamicResource WorkspaceContentBrush}">
         <Border Grid.Row="0" Padding="16,12,16,0" Background="Transparent">

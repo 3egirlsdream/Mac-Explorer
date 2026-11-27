@@ -8,6 +8,6 @@
     </Style>
     <Style Selector="Border.delivery-drop-surface.drag-over">
         <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource SidebarHoverOutline}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource SidebarHoverOutline}"/>
     </Style>
 </Styles>

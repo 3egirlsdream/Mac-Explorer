@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
@@ -37,7 +38,18 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             window.Show();
             await window.ResumeAsync();
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-            Assert.Equal(2, window.FindControl<StackPanel>("EntryTabs")!.Children.Count);
+            var tabs = window.FindControl<StackPanel>("EntryTabs")!.Children.OfType<AppButton>().ToArray();
+            Assert.Equal(2, tabs.Length);
+            var selected = Assert.Single(tabs, tab => tab.Classes.Contains("selected"));
+            var unselected = Assert.Single(tabs, tab => !tab.Classes.Contains("selected"));
+            Assert.All(tabs, tab =>
+            {
+                Assert.Equal(new Thickness(1), tab.BorderThickness);
+                Assert.Equal(18, Assert.IsType<StackPanel>(tab.Content).Children.OfType<TextBlock>().Single().LineHeight);
+            });
+            Assert.True(window.TryFindResource("InteractionSelectedBrush", window.ActualThemeVariant, out var selectedBrush));
+            Assert.Equal(selectedBrush, selected.Background);
+            Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(unselected.BorderBrush).Color);
             Assert.False(window.GetVisualDescendants().OfType<WindowTitleBar>().Single().IsVisible);
             var content = window.GetVisualDescendants().OfType<ContentPresenter>()
                 .Single(control => control.Name == "WindowContent");
@@ -160,10 +172,15 @@ public sealed class FileDeliveryBrowseViewModelTests : FileListViewModelTestBase
             drop.Show();
             service.StagePaths([Path.Combine(fixture.Root, "test.txt")]);
             Assert.Equal(localization.Get("delivery.count", 1), drop.FindControl<TextBlock>("CountText")!.Text);
+            var surface = drop.FindControl<Border>("DropSurface")!;
+            var restingShadow = surface.BoxShadow;
+            Assert.True(drop.TryFindResource("SidebarHoverOutline", drop.ActualThemeVariant, out var outline));
             drop.SetDropHover(true);
-            Assert.Contains("drag-over", drop.FindControl<Border>("DropSurface")!.Classes);
+            Assert.Contains("drag-over", surface.Classes);
+            Assert.Equal(Assert.IsType<BoxShadows>(outline), surface.BoxShadow);
             drop.SetDropHover(false);
-            Assert.DoesNotContain("drag-over", drop.FindControl<Border>("DropSurface")!.Classes);
+            Assert.DoesNotContain("drag-over", surface.Classes);
+            Assert.Equal(restingShadow, surface.BoxShadow);
             Assert.False(drop.ShowActivated);
         }
         finally { drop.Close(); window.Close(); }

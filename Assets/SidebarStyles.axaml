@@ -1,0 +1,138 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- ═══ Sidebar Styles ═══ -->
+    <Style Selector="Border.finder-sidebar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <Style Selector="ListBox.sidebar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <Style Selector="ListBox.sidebar ListBoxItem">
+        <Setter Property="Padding" Value="10,3"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Margin" Value="4,1"/>
+        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
+    </Style>
+
+    <Style Selector="ListBox.sidebar ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+    </Style>
+
+    <Style Selector="ListBox.sidebar ListBoxItem.active /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+    </Style>
+
+    <Style Selector="TextBlock.sidebar-section-title">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Padding" Value="18,4,18,4"/>
+        <Setter Property="Margin" Value="0,0,0,2"/>
+    </Style>
+
+    <!-- Collapsible section title -->
+    <Style Selector="TextBlock.sidebar-section-title-collapsible">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Padding" Value="18,4,18,4"/>
+        <Setter Property="Margin" Value="0,8,0,2"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <!-- Collapse chevron -->
+    <Style Selector="PathIcon.sidebar-collapse-icon">
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
+    </Style>
+
+    <Style Selector="PathIcon.sidebar-collapse-icon.expanded">
+        <Setter Property="RenderTransform" Value="rotate(0.25turn)"/>
+    </Style>
+
+    <Style Selector="Grid.sidebar-section-header">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Grid.sidebar-section-header PathIcon.sidebar-header-reveal">
+        <Setter Property="Opacity" Value="0.65"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+
+    <Style Selector="ItemsControl.sidebar-items">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+
+    <Style Selector="ItemsControl.sidebar-items ContentPresenter">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+
+    <!-- Sidebar item — non-ListBox, for single items with inline buttons -->
+    <Style Selector="Border.sidebar-item">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="10,3"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Margin" Value="4,1"/>
+        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item > Grid">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item > StackPanel">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item PathIcon">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBodyLarge}"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item TextBlock.sidebar-secondary-text">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+    </Style>
+
+    <Style Selector="TextBox.tag-name-editor">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
+    </Style>
+
+    <Style Selector="Grid.sidebar-section-header:pointerover PathIcon.sidebar-header-reveal">
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item.active">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
+</Styles>

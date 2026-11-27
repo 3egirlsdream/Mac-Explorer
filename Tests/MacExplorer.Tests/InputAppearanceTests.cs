@@ -106,7 +106,20 @@ public sealed class InputAppearanceTests
             var input = home.FindControl<TextBox>("HomeSearchBox")!;
             var surface = home.FindControl<Border>("HomeSearchContainer")!;
             var border = input.GetVisualDescendants().OfType<Border>().Single(x => x.Name == "PART_BorderElement");
+            Assert.Equal(38, surface.Height);
+            Assert.Equal(new Thickness(1), surface.BorderThickness);
             var resting = surface.Background;
+            Assert.NotNull(resting);
+
+            // The background theme overrides the shared home brush at the window.
+            var themedCard = new SolidColorBrush(Color.Parse(dark ? "#CC20232A" : "#CCFFFFFF"));
+            window.Resources["HomeCardBrush"] = themedCard;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(themedCard, surface.Background);
+            window.Resources.Remove("HomeCardBrush");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(resting, surface.Background);
+
             var iconPoint = surface.TranslatePoint(new Point(20, 20), window)!.Value;
             var inputPoint = input.TranslatePoint(new Point(20, 20), window)!.Value;
             window.MouseMove(iconPoint);

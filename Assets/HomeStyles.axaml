@@ -272,4 +272,17 @@
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="Margin" Value="16,22"/>
     </Style>
+    <Style Selector="Border.home-quick-links">
+        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Padding" Value="20,16"/>
+        <Setter Property="Width" Value="360"/>
+    </Style>
+    <Style Selector="Border.home-shortcut-icon">
+        <Setter Property="Width" Value="82"/>
+        <Setter Property="Height" Value="82"/>
+        <Setter Property="CornerRadius" Value="41"/>
+        <Setter Property="Background" Value="{DynamicResource GlassPanelBg}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
 </Styles>

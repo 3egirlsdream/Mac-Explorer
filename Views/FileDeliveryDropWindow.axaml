@@ -7,6 +7,9 @@
                    Width="240" Height="169.705627" CanResize="False" CanMaximize="False"
                    ShowTitleBar="False" ExtendContentToTop="True" ShowActivated="False"
                    ShowInTaskbar="False" WindowDecorations="None">
+    <controls:AppWindow.Styles>
+        <StyleInclude Source="avares://MacExplorer/Assets/FileDeliveryStyles.axaml"/>
+    </controls:AppWindow.Styles>
     <Border x:Name="DropSurface" Classes="delivery-drop-surface">
         <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
             <PathIcon Data="{x:Static icons:Icons.Download}" Width="28" Height="28" Foreground="{DynamicResource TextSecondaryBrush}"/>

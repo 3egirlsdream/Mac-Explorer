@@ -92,6 +92,7 @@ internal sealed class CollectionManagerDialog : DialogWindow
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Resources["TitleBarBackgroundBrush"] = Brushes.Transparent;
         Styles.Add(new DialogSettingsStyles());
+        Styles.Add(new CollectionManagerStyles());
 
         // Top search bar.
         _searchBox = new TextBox

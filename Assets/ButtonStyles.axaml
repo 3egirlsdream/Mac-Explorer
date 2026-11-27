@@ -322,53 +322,6 @@
         <Setter Property="Background" Value="{DynamicResource WorkspaceControlSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
-    <Style Selector="Button.rating-star-btn">
-        <Setter Property="Width" Value="28"/>
-        <Setter Property="Height" Value="28"/>
-        <Setter Property="Padding" Value="0"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
-        <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.rating-star-btn:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-    </Style>
-    <Style Selector="Button.modal-btn">
-        <Setter Property="Padding" Value="16,8"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
-    </Style>
-    <Style Selector="Button.modal-btn-cancel">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-    </Style>
-    <Style Selector="Button.modal-btn-danger">
-        <Setter Property="Background" Value="{DynamicResource ColorDanger}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
-    </Style>
-    <Style Selector="Button.modal-btn-danger:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-    </Style>
-    <Style Selector="Button.task-row-close">
-        <Setter Property="MinWidth" Value="24"/>
-        <Setter Property="Width" Value="24"/>
-        <Setter Property="MinHeight" Value="24"/>
-        <Setter Property="Height" Value="24"/>
-        <Setter Property="Padding" Value="5"/>
-        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
-    </Style>
-    <Style Selector="Button.task-row-close PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-    </Style>
-    <Style Selector="Button.task-row-close:pointerover">
-        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
-    </Style>
-    <Style Selector="Button.task-row-close:pointerover PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-    </Style>
     <Style Selector="Button.home-shortcut">
         <Setter Property="Width" Value="136"/>
         <Setter Property="Height" Value="44"/>
@@ -408,14 +361,6 @@
     </Style>
     <Style Selector="Button.segment-btn.active:pointerover">
         <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
-    </Style>
-    <Style Selector="Button.about-update-btn">
-        <Setter Property="Height" Value="36"/>
-        <Setter Property="MinHeight" Value="36"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
-        <Setter Property="Padding" Value="24,0"/>
-        <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.close-btn">
         <Setter Property="Background" Value="Transparent"/>
@@ -1325,13 +1270,6 @@
         <Setter Property="Width" Value="16"/>
         <Setter Property="Height" Value="16"/>
     </Style>
-    <Style Selector="Button.plugin-action">
-        <Setter Property="Height" Value="32"/>
-        <Setter Property="MinHeight" Value="32"/>
-        <Setter Property="Padding" Value="10,0"/>
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
-        <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
     <Style Selector="Button.sidebar-item-action, Button.sidebar-header-action, Button.sidebar-inline-confirm">
         <Setter Property="Theme" Value="{StaticResource SidebarGlassButton}"/>
         <Setter Property="FocusAdorner" Value="{StaticResource SidebarGlassFocusAdorner}"/>
@@ -1665,12 +1603,6 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-    </Style>
-    <Style Selector="Button.preview-toolbar-button">
-        <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>
-        <Setter Property="Height" Value="32"/>
-        <Setter Property="MinWidth" Value="32"/>
-        <Setter Property="Padding" Value="8,0"/>
     </Style>
     <Style Selector="Button.gallery-bar-btn, ToggleButton.gallery-bar-btn">
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusFull}"/>

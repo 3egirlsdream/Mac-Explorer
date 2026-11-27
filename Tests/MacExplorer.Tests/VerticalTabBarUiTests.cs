@@ -14,6 +14,7 @@ using MacExplorer.ViewModels;
 using MacExplorer.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using WindowControlSymbol = Avalonia.Controls.Shapes.Path;
 
 namespace MacExplorer.Tests;
 
@@ -68,6 +69,14 @@ public sealed class VerticalTabBarUiTests : FileListViewModelTestBase
         Assert.True(VerticalTabBarPreferences.IsEnabled(settings));
         Assert.False(titleBar.IsVisible);
         Assert.True(verticalBar.IsVisible);
+        var symbols = verticalBar.GetVisualDescendants().OfType<WindowControlSymbol>()
+            .Where(symbol => symbol.Classes.Contains("window-control-symbol")).ToArray();
+        Assert.Equal(3, symbols.Length);
+        Assert.All(symbols, symbol =>
+        {
+            Assert.Equal(0, symbol.Opacity);
+            Assert.Equal(12, symbol.Width);
+        });
         Assert.True(slot.IsVisible);
         Assert.Equal(0, rootLayout.TranslatePoint(default, fixture.Window)!.Value.Y, precision: 1);
         Assert.Equal(VerticalTabBarPreferences.DefaultExpandedWidth, slot.Width);

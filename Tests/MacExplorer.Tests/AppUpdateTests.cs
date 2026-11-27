@@ -376,7 +376,12 @@ public sealed class AppUpdateTests
             var palette = dialog.FindControl<ColorPalette>("InteractionPalette")!;
             var editor = palette.InputBox;
             dialog.FindControl<ComboBox>("InteractionThemeVariantCombo")!.SelectedIndex = dark ? 0 : 1;
-            dialog.FindControl<Button>("InteractionSelectedColorButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var selectedColor = dialog.FindControl<Button>("InteractionSelectedColorButton")!;
+            selectedColor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(48, selectedColor.MinHeight);
+            Assert.Contains("selected", selectedColor.Classes);
+            Assert.True(dialog.TryFindResource("AccentBrush", dialog.ActualThemeVariant, out var accent));
+            Assert.Equal(accent, selectedColor.BorderBrush);
             SelectPage(dialog, "general");
             SelectPage(dialog, "appearance");
             Dispatcher.UIThread.RunJobs();

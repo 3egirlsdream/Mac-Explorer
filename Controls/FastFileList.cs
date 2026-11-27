@@ -147,6 +147,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
     private bool _morphDeferredClearListTexts;
     private bool _morphDeferredVisibleUpdate;
     private IDisposable? _morphGlassSuppression;
+    private IDisposable? _pendingGlassSuppressionRelease;
     private readonly List<MorphDrawItem> _morphItems = new(64);
     private readonly List<MorphAppearItem> _morphAppearItems = new(64);
     internal double PendingMorphStartOffsetY { get; set; }
@@ -262,15 +263,27 @@ public sealed class FastFileList : Control, ILogicalScrollable
         if (_columns != widths)
         {
             var details = FastFileListDetailColumn.Build(widths, Inset + IconSlot);
-            if (IsLayoutMorphActive
-                && (_columns.Modified == 0) == (widths.Modified == 0)
-                && (_columns.Size == 0) == (widths.Size == 0)
-                && (_columns.Type == 0) == (widths.Type == 0))
-                _morphDeferredClearListTexts = true;
-            else
-                ClearListTexts();
+            var detailColumnsChanged = _columns.Modified != widths.Modified
+                || _columns.Size != widths.Size
+                || _columns.Type != widths.Type;
+            var detailVisibilityChanged = (_columns.Modified == 0) != (widths.Modified == 0)
+                || (_columns.Size == 0) != (widths.Size == 0)
+                || (_columns.Type == 0) != (widths.Type == 0);
             _columns = widths;
             _detailColumns = details;
+            if (detailColumnsChanged || detailVisibilityChanged)
+            {
+                ClearCellTexts();
+                PruneStaleListTexts(clearAllListNames: false, evictAllListRows: true);
+            }
+            else if (IsLayoutMorphActive)
+            {
+                _morphDeferredClearListTexts = true;
+            }
+            else
+            {
+                PruneStaleListTexts(clearAllListNames: false, evictAllListRows: false);
+            }
         }
         _columnOverflow = overflow;
         UpdateScrollGeometry();
@@ -300,14 +313,49 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
     internal void SetRows(IReadOnlyList<FileSystemEntry> rows, IReadOnlyList<FastFileListGroup> groups)
     {
+        var hadTree = _treeRows.Count > 0;
         _treeRows = [];
+        if (HasSameEntries(rows) && HasSameGroups(groups))
+        {
+            if (hadTree) InvalidateVisual();
+            return;
+        }
         ApplyRows(rows, groups);
     }
 
     internal void SetTreeRows(IReadOnlyList<FileTreeRow> rows, IReadOnlyList<FastFileListGroup> groups)
     {
         _treeRows = rows;
+        if (HasSameTreeEntries(rows) && HasSameGroups(groups))
+        {
+            InvalidateVisual();
+            return;
+        }
         ApplyRows(rows.Select(row => row.Entry).ToArray(), groups);
+    }
+
+    private bool HasSameEntries(IReadOnlyList<FileSystemEntry> rows)
+    {
+        if (_layout.Count != _rows.Count || rows.Count != _rows.Count) return false;
+        for (var i = 0; i < rows.Count; i++)
+            if (!ReferenceEquals(rows[i], _rows[i])) return false;
+        return true;
+    }
+
+    private bool HasSameTreeEntries(IReadOnlyList<FileTreeRow> rows)
+    {
+        if (_layout.Count != _rows.Count || rows.Count != _rows.Count) return false;
+        for (var i = 0; i < rows.Count; i++)
+            if (!ReferenceEquals(rows[i].Entry, _rows[i])) return false;
+        return true;
+    }
+
+    private bool HasSameGroups(IReadOnlyList<FastFileListGroup> groups)
+    {
+        if (groups.Count != _groups.Count) return false;
+        for (var i = 0; i < groups.Count; i++)
+            if (groups[i] != _groups[i]) return false;
+        return true;
     }
 
     private void ApplyRows(IReadOnlyList<FileSystemEntry> rows, IReadOnlyList<FastFileListGroup> groups)
@@ -1041,6 +1089,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         _morphProgress = 0;
         _morphTicked = false;
         _morphStartTimestamp = Stopwatch.GetTimestamp();
+        ReleasePendingGlassSuppression();
         _morphGlassSuppression?.Dispose();
         _morphGlassSuppression = LiquidGlassBackdrop.BeginExcludedSceneSuppression(this);
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.LowQuality);
@@ -1065,7 +1114,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         _morphProgress = Math.Clamp(elapsed / ViewMotion.MorphDurationMs, 0, 1);
         if (_morphProgress >= 1)
         {
-            FinishLayoutMorph();
+            FinishLayoutMorph(deferGlassRelease: true);
             return;
         }
         InvalidateVisual();
@@ -1075,11 +1124,35 @@ public sealed class FastFileList : Control, ILogicalScrollable
             CancelLayoutMorph();
     }
 
-    private void FinishLayoutMorph()
+    private void ReleasePendingGlassSuppression()
+    {
+        _pendingGlassSuppressionRelease?.Dispose();
+        _pendingGlassSuppressionRelease = null;
+    }
+
+    private void FinishLayoutMorph(bool deferGlassRelease = false)
     {
         ReleaseMorphStarts();
-        _morphGlassSuppression?.Dispose();
+        var glassSuppression = _morphGlassSuppression;
         _morphGlassSuppression = null;
+        if (deferGlassRelease && _attached && glassSuppression != null)
+        {
+            ReleasePendingGlassSuppression();
+            _pendingGlassSuppressionRelease = glassSuppression;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(_pendingGlassSuppressionRelease, glassSuppression))
+                {
+                    _pendingGlassSuppressionRelease = null;
+                    glassSuppression.Dispose();
+                }
+            }, DispatcherPriority.Background);
+        }
+        else
+        {
+            ReleasePendingGlassSuppression();
+            glassSuppression?.Dispose();
+        }
         _morphTicked = false;
         _morphProgress = 1;
         var generation = _morphGeneration;
@@ -1098,7 +1171,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
         if (_morphDeferredClearListTexts)
         {
             _morphDeferredClearListTexts = false;
-            ClearListTexts();
+            PruneStaleListTexts(clearAllListNames: false, evictAllListRows: false);
         }
         if (_morphDeferredVisibleUpdate)
         {
@@ -1127,21 +1200,22 @@ public sealed class FastFileList : Control, ILogicalScrollable
         _morphGeneration++;
         if (_morphStarts == null && _morphProgress >= 1)
         {
+            ReleasePendingGlassSuppression();
             _morphGlassSuppression?.Dispose();
             _morphGlassSuppression = null;
             return;
         }
-        FinishLayoutMorph();
+        FinishLayoutMorph(deferGlassRelease: false);
     }
 
     private void RenderMorphEntries(DrawingContext context, int first, int end, int hover)
     {
-        const int warmTextBudgetPerFrame = 12;
+        const int warmTextBudgetPerFrame = 6;
         var t = ViewMotion.EaseOutCubic(_morphProgress);
         var modeSwitched = IsGrid != _morphFromGrid;
-        var startNameAlpha = modeSwitched ? Math.Clamp(1 - t / 0.45, 0, 1) : 1;
-        var targetNameAlpha = modeSwitched ? Math.Clamp((t - 0.12) / 0.68, 0, 1) : 0;
-        var detailAlpha = Math.Clamp((t - 0.25) / 0.60, 0, 1);
+        var startNameAlpha = modeSwitched ? Math.Clamp(1 - t / 0.38, 0, 1) : 1;
+        var targetNameAlpha = modeSwitched ? Math.Clamp((t - 0.38) / 0.42, 0, 1) : 0;
+        var detailAlpha = Math.Clamp((t - 0.38) / 0.42, 0, 1);
         var warmBudget = warmTextBudgetPerFrame;
         var drawListColumns = !IsGrid && DrawFileDetails;
 
@@ -1285,21 +1359,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
         }
 
-        // Pass 2: Tree disclosures & List detail columns (1 shared opacity layer; 0 SaveLayer once settled).
-        if ((hasDisclosures || hasListDetailColumns) && detailAlpha > 0.001)
-        {
-            using (detailAlpha < 0.999 ? context.PushOpacity(detailAlpha) : default)
-            {
-                DrawListDetailsAndDisclosures(cutOnly: false);
-            }
-            if (hasCutItems)
-            {
-                using var cutDetailOpacity = context.PushOpacity(detailAlpha * 0.45);
-                DrawListDetailsAndDisclosures(cutOnly: true);
-            }
-        }
-
-        // Pass 3: Icons for morphed items (0 SaveLayer for normal items).
+        // Pass 2: Icons for morphed items (0 SaveLayer for normal items).
         for (var i = 0; i < _morphItems.Count; i++)
         {
             var item = _morphItems[i];
@@ -1315,7 +1375,7 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
         }
 
-        // Pass 4A: Outgoing source labels (cross-fades out over first 45% when switching Grid <-> List).
+        // Pass 3A: Outgoing source labels (fades out cleanly before target text fades in, avoiding dual-layer overlap).
         if (hasStartNames && startNameAlpha > 0.001)
         {
             using (startNameAlpha < 0.999 ? context.PushOpacity(startNameAlpha) : default)
@@ -1337,27 +1397,22 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
         }
 
-        // Pass 4B: Incoming target labels (exact final List/Grid TextLayout; 0 SaveLayer once settled).
-        if (modeSwitched && hasTargetNames && targetNameAlpha > 0.001)
+        // Pass 3B: Incoming target labels, tree disclosures, and list detail columns combined in 1 shared opacity layer (0 SaveLayer once settled).
+        var drawTargetNames = modeSwitched && hasTargetNames && targetNameAlpha > 0.001;
+        var drawTargetDetails = (hasDisclosures || hasListDetailColumns) && detailAlpha > 0.001;
+        if (drawTargetNames || drawTargetDetails)
         {
-            using (targetNameAlpha < 0.999 ? context.PushOpacity(targetNameAlpha) : default)
+            var incomingAlpha = drawTargetNames ? targetNameAlpha : detailAlpha;
+            using (incomingAlpha < 0.999 ? context.PushOpacity(incomingAlpha) : default)
             {
-                for (var i = 0; i < _morphItems.Count; i++)
-                {
-                    var item = _morphItems[i];
-                    if (!item.IsCut && item.TargetText != null && item.Entry.FullPath != EditingPath)
-                        item.TargetText.Name.Draw(context, item.NamePos);
-                }
+                if (drawTargetDetails) DrawListDetailsAndDisclosures(cutOnly: false);
+                if (drawTargetNames) DrawTargetLabels(cutOnly: false);
             }
             if (hasCutItems)
             {
-                using var cutTargetLabelOpacity = context.PushOpacity(targetNameAlpha * 0.45);
-                for (var i = 0; i < _morphItems.Count; i++)
-                {
-                    var item = _morphItems[i];
-                    if (item.IsCut && item.TargetText != null && item.Entry.FullPath != EditingPath)
-                        item.TargetText.Name.Draw(context, item.NamePos);
-                }
+                using var cutIncomingOpacity = context.PushOpacity(incomingAlpha * 0.45);
+                if (drawTargetDetails) DrawListDetailsAndDisclosures(cutOnly: true);
+                if (drawTargetNames) DrawTargetLabels(cutOnly: true);
             }
         }
 
@@ -1405,6 +1460,16 @@ public sealed class FastFileList : Control, ILogicalScrollable
             }
         }
 
+        void DrawTargetLabels(bool cutOnly)
+        {
+            for (var i = 0; i < _morphItems.Count; i++)
+            {
+                var item = _morphItems[i];
+                if (item.IsCut == cutOnly && item.TargetText != null && item.Entry.FullPath != EditingPath)
+                    item.TargetText.Name.Draw(context, item.NamePos);
+            }
+        }
+
         void DrawListDetailsAndDisclosures(bool cutOnly)
         {
             for (var i = 0; i < _morphItems.Count; i++)
@@ -1444,10 +1509,10 @@ public sealed class FastFileList : Control, ILogicalScrollable
         if (_texts.TryGetValue(entry.FullPath, out var node) && node.Value.Matches(entry, nameWidth, IsGrid))
             return node.Value;
 
-        var nameAlreadyCached = IsGrid
+        var allCached = IsGrid
             ? _gridNames.ContainsKey(entry.DisplayName)
-            : _listNames.ContainsKey((entry.DisplayName, nameWidth));
-        if (nameAlreadyCached)
+            : _listNames.ContainsKey((entry.DisplayName, nameWidth)) && AreDetailCellsCached(entry);
+        if (allCached)
             return Texts(entry, index);
 
         if (warmBudget <= 0)
@@ -1455,6 +1520,24 @@ public sealed class FastFileList : Control, ILogicalScrollable
 
         warmBudget--;
         return Texts(entry, index);
+    }
+
+    private bool AreDetailCellsCached(FileSystemEntry entry)
+    {
+        if (!DrawFileDetails) return true;
+        foreach (var column in _detailColumns)
+        {
+            var value = column.Column switch
+            {
+                FileListColumn.Modified => entry.ModifiedText,
+                FileListColumn.Size => entry.FormattedSize,
+                FileListColumn.Type => entry.KindText,
+                _ => null
+            };
+            if (value != null && !_cellTexts.ContainsKey((column.Column, value)))
+                return false;
+        }
+        return true;
     }
 
     private void DrawIcon(DrawingContext context, FileSystemEntry entry, Rect bounds, bool drawShadow = true)
@@ -1636,25 +1719,60 @@ public sealed class FastFileList : Control, ILogicalScrollable
         }
     }
 
-    private void ClearListTexts()
+    private void ClearCellTexts()
     {
         foreach (var text in _cellTexts.Values) text.Release();
-        foreach (var text in _listNames.Values) text.Release();
         _cellTexts.Clear();
         _cellTextOrder.Clear();
-        _listNames.Clear();
+    }
+
+    private void PruneStaleListTexts(bool clearAllListNames, bool evictAllListRows)
+    {
+        var currentBaseWidth = Math.Max(1, NameColumnWidth - 16);
+        if (clearAllListNames)
+        {
+            foreach (var text in _listNames.Values) text.Release();
+            _listNames.Clear();
+        }
+        else if (_listNames.Count > 0)
+        {
+            foreach (var key in _listNames.Keys.ToArray())
+            {
+                if (Math.Abs(key.Width - currentBaseWidth) < 0.5) continue;
+                if (IsTree && key.Width < currentBaseWidth && Math.Abs((currentBaseWidth - key.Width) % TreeStep) < 0.5)
+                    continue;
+                _listNames[key].Release();
+                _listNames.Remove(key);
+            }
+        }
         var node = _textLru.First;
         while (node != null)
         {
             var next = node.Next;
             if (!node.Value.IsGrid)
             {
-                _texts.Remove(node.Value.Entry.FullPath);
-                _textLru.Remove(node);
-                node.Value.Release();
+                var matchesWidth = !evictAllListRows && (Math.Abs(node.Value.NameWidth - currentBaseWidth) < 0.5
+                    || (IsTree && node.Value.NameWidth < currentBaseWidth
+                        && Math.Abs((currentBaseWidth - node.Value.NameWidth) % TreeStep) < 0.5));
+                var matchesVisibility = !evictAllListRows && (!DrawFileDetails
+                    || ((_columns.Modified > 0) == (node.Value.Modified != null)
+                        && (_columns.Size > 0) == (node.Value.Size != null)
+                        && (_columns.Type > 0) == (node.Value.Kind != null)));
+                if (!matchesWidth || !matchesVisibility)
+                {
+                    _texts.Remove(node.Value.Entry.FullPath);
+                    _textLru.Remove(node);
+                    node.Value.Release();
+                }
             }
             node = next;
         }
+    }
+
+    private void ClearListTexts()
+    {
+        ClearCellTexts();
+        PruneStaleListTexts(clearAllListNames: true, evictAllListRows: true);
     }
 
     private void ClearTexts()
